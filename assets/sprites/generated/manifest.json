@@ -1,0 +1,225 @@
+{
+  "source": "res://assets/sprites/source/generated_sprite_atlas.png",
+  "cell_size": [
+    256,
+    256
+  ],
+  "sprite_count": 43,
+  "sprites": {
+    "tile_grass_dense": {
+      "path": "res://assets/sprites/generated/tile_grass_dense.png",
+      "row": 0,
+      "column": 0
+    },
+    "tile_grass_sparse": {
+      "path": "res://assets/sprites/generated/tile_grass_sparse.png",
+      "row": 0,
+      "column": 1
+    },
+    "tile_grass_flowers": {
+      "path": "res://assets/sprites/generated/tile_grass_flowers.png",
+      "row": 0,
+      "column": 2
+    },
+    "tile_grass_stones": {
+      "path": "res://assets/sprites/generated/tile_grass_stones.png",
+      "row": 0,
+      "column": 3
+    },
+    "tile_dirt_empty": {
+      "path": "res://assets/sprites/generated/tile_dirt_empty.png",
+      "row": 0,
+      "column": 4
+    },
+    "tile_dirt_pebbles": {
+      "path": "res://assets/sprites/generated/tile_dirt_pebbles.png",
+      "row": 0,
+      "column": 5
+    },
+    "tile_dirt_cracked": {
+      "path": "res://assets/sprites/generated/tile_dirt_cracked.png",
+      "row": 0,
+      "column": 6
+    },
+    "number_1": {
+      "path": "res://assets/sprites/generated/number_1.png",
+      "row": 1,
+      "column": 0
+    },
+    "number_2": {
+      "path": "res://assets/sprites/generated/number_2.png",
+      "row": 1,
+      "column": 1
+    },
+    "number_3": {
+      "path": "res://assets/sprites/generated/number_3.png",
+      "row": 1,
+      "column": 2
+    },
+    "number_4": {
+      "path": "res://assets/sprites/generated/number_4.png",
+      "row": 1,
+      "column": 3
+    },
+    "number_5": {
+      "path": "res://assets/sprites/generated/number_5.png",
+      "row": 1,
+      "column": 4
+    },
+    "number_6": {
+      "path": "res://assets/sprites/generated/number_6.png",
+      "row": 1,
+      "column": 5
+    },
+    "number_7": {
+      "path": "res://assets/sprites/generated/number_7.png",
+      "row": 1,
+      "column": 6
+    },
+    "number_8": {
+      "path": "res://assets/sprites/generated/number_8.png",
+      "row": 2,
+      "column": 0
+    },
+    "marker_flag": {
+      "path": "res://assets/sprites/generated/marker_flag.png",
+      "row": 2,
+      "column": 1
+    },
+    "mine_basic": {
+      "path": "res://assets/sprites/generated/mine_basic.png",
+      "row": 2,
+      "column": 2
+    },
+    "mine_flagged": {
+      "path": "res://assets/sprites/generated/mine_flagged.png",
+      "row": 2,
+      "column": 3
+    },
+    "marker_unknown": {
+      "path": "res://assets/sprites/generated/marker_unknown.png",
+      "row": 2,
+      "column": 4
+    },
+    "tool_shovel": {
+      "path": "res://assets/sprites/generated/tool_shovel.png",
+      "row": 2,
+      "column": 5
+    },
+    "tool_pickaxe": {
+      "path": "res://assets/sprites/generated/tool_pickaxe.png",
+      "row": 2,
+      "column": 6
+    },
+    "item_boots": {
+      "path": "res://assets/sprites/generated/item_boots.png",
+      "row": 3,
+      "column": 0
+    },
+    "item_lantern": {
+      "path": "res://assets/sprites/generated/item_lantern.png",
+      "row": 3,
+      "column": 1
+    },
+    "item_compass": {
+      "path": "res://assets/sprites/generated/item_compass.png",
+      "row": 3,
+      "column": 2
+    },
+    "item_treasure_map": {
+      "path": "res://assets/sprites/generated/item_treasure_map.png",
+      "row": 3,
+      "column": 3
+    },
+    "item_rope": {
+      "path": "res://assets/sprites/generated/item_rope.png",
+      "row": 3,
+      "column": 4
+    },
+    "item_dynamite": {
+      "path": "res://assets/sprites/generated/item_dynamite.png",
+      "row": 3,
+      "column": 5
+    },
+    "tool_metal_detector": {
+      "path": "res://assets/sprites/generated/tool_metal_detector.png",
+      "row": 3,
+      "column": 6
+    },
+    "potion_heart_red": {
+      "path": "res://assets/sprites/generated/potion_heart_red.png",
+      "row": 4,
+      "column": 0
+    },
+    "potion_shield_blue": {
+      "path": "res://assets/sprites/generated/potion_shield_blue.png",
+      "row": 4,
+      "column": 1
+    },
+    "potion_heal_green": {
+      "path": "res://assets/sprites/generated/potion_heal_green.png",
+      "row": 4,
+      "column": 2
+    },
+    "potion_star_purple": {
+      "path": "res://assets/sprites/generated/potion_star_purple.png",
+      "row": 4,
+      "column": 3
+    },
+    "potion_luck_yellow": {
+      "path": "res://assets/sprites/generated/potion_luck_yellow.png",
+      "row": 4,
+      "column": 4
+    },
+    "item_board_map": {
+      "path": "res://assets/sprites/generated/item_board_map.png",
+      "row": 4,
+      "column": 5
+    },
+    "item_backpack": {
+      "path": "res://assets/sprites/generated/item_backpack.png",
+      "row": 4,
+      "column": 6
+    },
+    "reward_star": {
+      "path": "res://assets/sprites/generated/reward_star.png",
+      "row": 5,
+      "column": 0
+    },
+    "status_burning": {
+      "path": "res://assets/sprites/generated/status_burning.png",
+      "row": 5,
+      "column": 1
+    },
+    "hazard_poison_cauldron": {
+      "path": "res://assets/sprites/generated/hazard_poison_cauldron.png",
+      "row": 5,
+      "column": 2
+    },
+    "status_frozen": {
+      "path": "res://assets/sprites/generated/status_frozen.png",
+      "row": 5,
+      "column": 3
+    },
+    "item_shield": {
+      "path": "res://assets/sprites/generated/item_shield.png",
+      "row": 5,
+      "column": 4
+    },
+    "item_clover": {
+      "path": "res://assets/sprites/generated/item_clover.png",
+      "row": 5,
+      "column": 5
+    },
+    "hazard_skull": {
+      "path": "res://assets/sprites/generated/hazard_skull.png",
+      "row": 5,
+      "column": 6
+    },
+    "hazard_cursed_skull": {
+      "path": "res://assets/sprites/generated/hazard_cursed_skull.png",
+      "row": 5,
+      "column": 7
+    }
+  }
+}
