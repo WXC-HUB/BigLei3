@@ -1,0 +1,98 @@
+[gd_scene format=3 uid="uid://cbydqecjp0mq3"]
+
+[ext_resource type="Script" uid="uid://bsewq6xx1hrod" path="res://scripts/ui/player_status.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://cgkcwhltlxfu5" path="res://my_asset/新的图片.png" id="2_5cs0w"]
+[ext_resource type="Texture2D" uid="uid://56ohfvej72q6" path="res://my_asset/hero_head_bg.png" id="3_ys54m"]
+[ext_resource type="Texture2D" uid="uid://cqemhr6q7kfny" path="res://my_asset/hero_head.png" id="4_2367v"]
+[ext_resource type="Texture2D" uid="uid://ci5fu2vxw8uk1" path="res://my_asset/heart.png" id="5_2367v"]
+[ext_resource type="Texture2D" uid="uid://bqkk584hfysxl" path="res://my_asset/coin.png" id="6_xitoo"]
+
+[sub_resource type="StyleBoxFlat" id="HealthBackgroundStyle"]
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+bg_color = Color(0.917647, 0.847059, 0.780392, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.435294, 0.266667, 0.219608, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="HealthFillStyle"]
+bg_color = Color(0.81960785, 0.25882354, 0.18431373, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.588235, 0.564706, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="PlayerStatus" type="Control" unique_id=367518434]
+custom_minimum_size = Vector2(440, 220)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 440.0
+offset_bottom = 220.0
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="新的图片" type="Sprite2D" parent="." unique_id=1305886216]
+position = Vector2(322, 138)
+scale = Vector2(1.72, 1.72)
+texture = ExtResource("2_5cs0w")
+
+[node name="HealthBar" type="ProgressBar" parent="." unique_id=107990849]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(220, 38)
+layout_mode = 0
+offset_left = 239.0
+offset_top = 74.0
+offset_right = 459.0
+offset_bottom = 112.0
+theme_override_styles/background = SubResource("HealthBackgroundStyle")
+theme_override_styles/fill = SubResource("HealthFillStyle")
+max_value = 10.0
+value = 10.0
+show_percentage = false
+
+[node name="HeroHeadBg" type="Sprite2D" parent="." unique_id=152368509]
+position = Vector2(109, 111)
+texture = ExtResource("3_ys54m")
+
+[node name="HeroHead" type="Sprite2D" parent="HeroHeadBg" unique_id=381691650]
+position = Vector2(10.000002, 78)
+scale = Vector2(0.463125, 0.463125)
+texture = ExtResource("4_2367v")
+
+[node name="Heart" type="Sprite2D" parent="." unique_id=1418138194]
+position = Vector2(237, 91)
+scale = Vector2(0.22333333, 0.22333333)
+texture = ExtResource("5_2367v")
+
+[node name="Coin" type="Sprite2D" parent="." unique_id=984210198]
+position = Vector2(238, 155)
+scale = Vector2(0.295, 0.295)
+texture = ExtResource("6_xitoo")
+
+[node name="GoldLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 264.0
+offset_top = 132.0
+offset_right = 420.0
+offset_bottom = 178.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.956863, 0.713726, 0.203922, 1)
+theme_override_colors/font_outline_color = Color(0.301961, 0.180392, 0.0901961, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 28
+text = "0G"
+vertical_alignment = 1

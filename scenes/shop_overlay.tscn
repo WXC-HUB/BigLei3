@@ -1,0 +1,184 @@
+[gd_scene format=3 uid="uid://cvt1fo783kiw5"]
+
+[ext_resource type="Script" uid="uid://cyklimjpf2bup" path="res://scripts/ui/shop_overlay.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://biqnld44muuq2" path="res://my_asset/panel_01.png" id="2_panel"]
+[ext_resource type="Texture2D" uid="uid://cgumrfx25ccsw" path="res://my_asset/shop_guy_01.png" id="3_shopkeeper"]
+[ext_resource type="Texture2D" uid="uid://s660gglytnsq" path="res://my_asset/kuang_think_01.png" id="4_thought"]
+[ext_resource type="Texture2D" uid="uid://cahvx67xcxcbj" path="res://my_asset/item_bg.png" id="5_ncx54"]
+[ext_resource type="Texture2D" uid="uid://ci5fu2vxw8uk1" path="res://my_asset/heart.png" id="6_0uejd"]
+[ext_resource type="Texture2D" uid="uid://bqkk584hfysxl" path="res://my_asset/coin.png" id="7_hy4c5"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_item_tip"]
+bg_color = Color(0.145, 0.094, 0.055, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.92, 0.78, 0.5, 0.82)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0, 0, 0, 0.28)
+shadow_size = 5
+
+[node name="ShopOverlay" type="Control" unique_id=1106849960]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Dimmer" type="ColorRect" parent="." unique_id=1117584534]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.04, 0.08, 0.04, 0.58)
+
+[node name="Center" type="CenterContainer" parent="." unique_id=1109504439]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ShopCard" type="Control" parent="Center" unique_id=1251297796]
+custom_minimum_size = Vector2(1200, 900)
+layout_mode = 2
+
+[node name="Parchment" type="TextureRect" parent="Center/ShopCard" unique_id=2095033962]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -118.0
+offset_top = -193.0
+offset_right = 332.66663
+offset_bottom = 145.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_panel")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Shopkeeper" type="TextureRect" parent="Center/ShopCard" unique_id=2049607172]
+layout_mode = 0
+offset_left = -791.0
+offset_top = 123.0
+offset_right = 392.0
+offset_bottom = 1306.0
+mouse_filter = 2
+texture = ExtResource("3_shopkeeper")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ThoughtBubble" type="TextureRect" parent="Center/ShopCard" unique_id=252281515]
+layout_mode = 0
+offset_left = -245.0
+offset_top = -17.0
+offset_right = 514.0
+offset_bottom = 433.0
+mouse_filter = 2
+texture = ExtResource("4_thought")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Greeting" type="Label" parent="Center/ShopCard" unique_id=189657817]
+layout_mode = 0
+offset_left = -82.0
+offset_top = 137.0
+offset_right = 368.0
+offset_bottom = 304.0
+theme_override_colors/font_color = Color(0.286275, 0.188235, 0.121569, 1)
+theme_override_colors/font_outline_color = Color(1, 0.976471, 0.92549, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 49
+text = "大酬宾哟！"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ItemGrid" type="GridContainer" parent="Center/ShopCard" unique_id=1186202842]
+layout_mode = 0
+offset_left = 476.0
+offset_top = 142.0
+offset_right = 1431.0
+offset_bottom = 688.0
+theme_override_constants/h_separation = 54
+columns = 3
+
+[node name="ItemSlot" type="Control" parent="Center/ShopCard/ItemGrid" unique_id=2100621105]
+custom_minimum_size = Vector2(276, 276)
+layout_mode = 2
+
+[node name="ItemBg" type="Sprite2D" parent="Center/ShopCard/ItemGrid/ItemSlot" unique_id=203383985]
+position = Vector2(138, 138)
+texture = ExtResource("5_ncx54")
+
+[node name="Item_Icon" type="Sprite2D" parent="Center/ShopCard/ItemGrid/ItemSlot/ItemBg" unique_id=692612505]
+position = Vector2(-2, -106)
+scale = Vector2(0.7966667, 0.7966667)
+texture = ExtResource("6_0uejd")
+
+[node name="Coin" type="Sprite2D" parent="Center/ShopCard/ItemGrid/ItemSlot/ItemBg" unique_id=763086106]
+position = Vector2(-62.25, 77.25)
+scale = Vector2(0.25500023, 0.25500023)
+texture = ExtResource("7_hy4c5")
+
+[node name="Label_Cost" type="Label" parent="Center/ShopCard/ItemGrid/ItemSlot/ItemBg" unique_id=1804752188]
+offset_left = -14.0
+offset_top = 52.0
+offset_right = 69.478264
+offset_bottom = 100.0
+theme_override_colors/font_color = Color(0.3137255, 0.2, 0.11372549, 1)
+theme_override_font_sizes/font_size = 34
+text = "999G"
+
+[node name="Label_Name" type="Label" parent="Center/ShopCard/ItemGrid/ItemSlot/ItemBg" unique_id=94110541]
+offset_left = -120.0
+offset_top = -5.0
+offset_right = 120.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(0.286275, 0.172549, 0.0941176, 1)
+theme_override_font_sizes/font_size = 40
+text = "商品名称"
+horizontal_alignment = 1
+
+[node name="BuyButton" type="Button" parent="Center/ShopCard/ItemGrid/ItemSlot/ItemBg" unique_id=1861003156]
+offset_left = -138.0
+offset_top = -138.0
+offset_right = 138.0
+offset_bottom = 138.0
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="ItemTip" type="PanelContainer" parent="." unique_id=1325712307]
+z_index = 20
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 0
+offset_right = 250.0
+offset_bottom = 70.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_item_tip")
+
+[node name="Margin" type="MarginContainer" parent="ItemTip" unique_id=1798519125]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 12
+
+[node name="Description" type="Label" parent="ItemTip/Margin" unique_id=737828127]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.94, 0.82, 1)
+theme_override_font_sizes/font_size = 25
+text = "商品说明"
+horizontal_alignment = 1
+autowrap_mode = 2

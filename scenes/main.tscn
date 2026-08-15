@@ -1,8 +1,37 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://chllqdflfac3l"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://b82sro0fary3d" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Texture2D" uid="uid://cuboafpixpycn" path="res://assets/backgrounds/forest-clearing-watercolor.jpeg" id="2_background"]
+[ext_resource type="Texture2D" uid="uid://dn2gnx7hhf0hh" path="res://my_asset/tree_01.png" id="3_tree01"]
+[ext_resource type="Texture2D" uid="uid://yuu6rocwqgwr" path="res://my_asset/tree_02.png" id="4_tree02"]
+[ext_resource type="Texture2D" uid="uid://dolfvuoiae6xq" path="res://my_asset/tree_03.png" id="5_tree03"]
+[ext_resource type="Texture2D" uid="uid://b0d3fxg2gvxyr" path="res://my_asset/tree_04.png" id="6_tree04"]
+[ext_resource type="Texture2D" uid="uid://cekucjya7fe8g" path="res://my_asset/rock_01.png" id="7_rock01"]
+[ext_resource type="Texture2D" uid="uid://vwpmnbk056c2" path="res://my_asset/rock_02.png" id="8_rock02"]
+[ext_resource type="Texture2D" uid="uid://bmq80m007n8wt" path="res://my_asset/rock_03.png" id="9_rock03"]
+[ext_resource type="Texture2D" uid="uid://dejvd3adjjdfx" path="res://my_asset/grass_flower_01.png" id="10_grass01"]
+[ext_resource type="Texture2D" uid="uid://cftk3nmjrsth6" path="res://my_asset/grass_flower_02.png" id="11_grass02"]
+[ext_resource type="Texture2D" uid="uid://cu3h2hg3kmhgy" path="res://my_asset/grass_flower_03.png" id="12_grass03"]
+[ext_resource type="Texture2D" uid="uid://4vie4kb0lgg3" path="res://my_asset/grass_flower_04.png" id="13_grass04"]
+[ext_resource type="Texture2D" uid="uid://ds0qx52cdymdm" path="res://my_asset/grass_flower_05.png" id="14_grass05"]
+[ext_resource type="Texture2D" uid="uid://c4gvbmrssko3x" path="res://my_asset/grass_flower_06.png" id="15_grass06"]
+[ext_resource type="Texture2D" uid="uid://dp6276418lpjr" path="res://my_asset/grass_flower_07.png" id="16_grass07"]
+[ext_resource type="Texture2D" uid="uid://bw66bft6hgq4b" path="res://my_asset/mushroom01.png" id="17_mushroom01"]
+[ext_resource type="Texture2D" uid="uid://c66t6wl6gpjxb" path="res://my_asset/mushroom02.png" id="18_mushroom02"]
+[ext_resource type="Script" uid="uid://cewkm3c13jjy3" path="res://scripts/ui/scenery_sway.gd" id="19_sway"]
+[ext_resource type="Texture2D" uid="uid://c4jt87v007ra0" path="res://my_asset/base_01.png" id="20_base"]
+[ext_resource type="Shader" path="res://shaders/parchment_backdrop.gdshader" id="21_backdrop_shader"]
 
-[node name="Main" type="Control"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_backdrop"]
+shader = ExtResource("21_backdrop_shader")
+shader_parameter/base_color = Color(0.925, 0.886, 0.792, 1)
+shader_parameter/moss_tint = Color(0.53, 0.62, 0.3, 1)
+shader_parameter/ochre_tint = Color(0.88, 0.66, 0.38, 1)
+shader_parameter/cloud_strength = 0.38
+shader_parameter/motion_speed = 0.012
+shader_parameter/paper_strength = 0.18
+
+[node name="Main" type="Control" unique_id=859129210]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,3 +39,916 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
+
+[node name="Backdrop" type="ColorRect" parent="." unique_id=1394052733]
+z_index = -20
+material = SubResource("ShaderMaterial_backdrop")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.925, 0.886, 0.792, 1)
+
+[node name="Background" type="TextureRect" parent="." unique_id=1247203013]
+visible = false
+z_index = -10
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_background")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="BoardPlatform" type="TextureRect" parent="." unique_id=689903562]
+z_index = -9
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -1486.0563
+offset_top = -578.0
+offset_right = 85.99988
+offset_bottom = 832.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("20_base")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Scenery" type="Control" parent="." unique_id=2142702601]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Undergrowth" type="Control" parent="Scenery" unique_id=1495920257]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="GrassTopLeftA" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1507144111]
+layout_mode = 0
+offset_left = 175.0
+offset_top = 44.0
+offset_right = 290.2381
+offset_bottom = 154.0
+mouse_filter = 2
+texture = ExtResource("14_grass05")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassTopLeftB" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1975208581]
+layout_mode = 0
+offset_left = 317.0
+offset_top = -24.0
+offset_right = 448.0
+offset_bottom = 107.0
+mouse_filter = 2
+texture = ExtResource("12_grass03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassTopLeftC" type="TextureRect" parent="Scenery/Undergrowth" unique_id=40497987]
+layout_mode = 0
+offset_left = 250.0
+offset_top = 56.0
+offset_right = 322.0
+offset_bottom = 128.0
+mouse_filter = 2
+texture = ExtResource("15_grass06")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassTopRightA" type="TextureRect" parent="Scenery/Undergrowth" unique_id=509873739]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -316.0
+offset_top = 74.0
+offset_right = -230.0
+offset_bottom = 160.0
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("10_grass01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassTopRightB" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1313941929]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -94.0
+offset_top = 270.0
+offset_right = -14.0
+offset_bottom = 350.0
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("13_grass04")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassTopRightC" type="TextureRect" parent="Scenery/Undergrowth" unique_id=2006746341]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -210.0
+offset_top = 104.0
+offset_right = -138.0
+offset_bottom = 176.0
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("16_grass07")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassLeftA" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1963120870]
+layout_mode = 0
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 72.0
+offset_top = 36.0
+offset_right = 154.0
+offset_bottom = 118.0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("11_grass02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassLeftB" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1752813330]
+layout_mode = 0
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 36.0
+offset_top = -166.0
+offset_right = 112.0
+offset_bottom = -90.0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("15_grass06")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassRightA" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1701785291]
+layout_mode = 0
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -126.0
+offset_top = -18.0
+offset_right = -32.0
+offset_bottom = 76.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("14_grass05")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassRightB" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1491166666]
+layout_mode = 0
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -86.0
+offset_top = 178.0
+offset_right = -12.0
+offset_bottom = 252.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("16_grass07")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassBottomLeftA" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1280360773]
+layout_mode = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 82.0
+offset_top = -94.0
+offset_right = 172.0
+offset_bottom = -4.0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("10_grass01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassBottomLeftB" type="TextureRect" parent="Scenery/Undergrowth" unique_id=395380554]
+layout_mode = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 430.0
+offset_top = -70.0
+offset_right = 508.0
+offset_bottom = 8.0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("13_grass04")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassBottomLeftC" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1268416971]
+layout_mode = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 300.0
+offset_top = -72.0
+offset_right = 372.0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("15_grass06")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassBottomRightA" type="TextureRect" parent="Scenery/Undergrowth" unique_id=288846998]
+layout_mode = 0
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -424.0
+offset_top = -84.0
+offset_right = -340.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("12_grass03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassBottomRightB" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1351594573]
+layout_mode = 0
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -98.0
+offset_top = -96.0
+offset_right = -4.0
+offset_bottom = -2.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("14_grass05")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrassBottomRightC" type="TextureRect" parent="Scenery/Undergrowth" unique_id=638616162]
+layout_mode = 0
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -210.0
+offset_top = -76.0
+offset_right = -134.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("16_grass07")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MushroomTopLeft" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1068486954]
+layout_mode = 0
+offset_left = 108.0
+offset_top = 132.0
+offset_right = 156.0
+offset_bottom = 180.0
+mouse_filter = 2
+texture = ExtResource("18_mushroom02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MushroomTopRight" type="TextureRect" parent="Scenery/Undergrowth" unique_id=866573478]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -154.0
+offset_top = 274.0
+offset_right = -96.0
+offset_bottom = 332.0
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("17_mushroom01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MushroomLeft" type="TextureRect" parent="Scenery/Undergrowth" unique_id=2126495270]
+layout_mode = 0
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 92.0
+offset_top = 164.0
+offset_right = 138.0
+offset_bottom = 210.0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("18_mushroom02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MushroomRight" type="TextureRect" parent="Scenery/Undergrowth" unique_id=2139632281]
+layout_mode = 0
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -112.0
+offset_top = -112.0
+offset_right = -64.0
+offset_bottom = -64.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("18_mushroom02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MushroomBottomLeft" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1055986983]
+layout_mode = 0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 108.0
+offset_top = -100.0
+offset_right = 166.0
+offset_bottom = -42.0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("17_mushroom01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MushroomBottomRight" type="TextureRect" parent="Scenery/Undergrowth" unique_id=1208271137]
+layout_mode = 0
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -340.0
+offset_top = -76.0
+offset_right = -292.0
+offset_bottom = -28.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("18_mushroom02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Rocks" type="Control" parent="Scenery" unique_id=759369497]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopLeftPair" type="TextureRect" parent="Scenery/Rocks" unique_id=1616445251]
+layout_mode = 0
+offset_left = 815.0
+offset_top = -23.0
+offset_right = 1131.7354
+offset_bottom = 219.0
+mouse_filter = 2
+texture = ExtResource("8_rock02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopLeftStump" type="TextureRect" parent="Scenery/Rocks" unique_id=1423933940]
+layout_mode = 0
+offset_left = 1083.0
+offset_top = -1.0
+offset_right = 1323.0
+offset_bottom = 183.0
+mouse_filter = 2
+texture = ExtResource("9_rock03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="LeftBoulder" type="TextureRect" parent="Scenery/Rocks" unique_id=1605222943]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 624.0
+offset_top = 69.0
+offset_right = 755.0
+offset_bottom = 174.0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("7_rock01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="LeftPair" type="TextureRect" parent="Scenery/Rocks" unique_id=643869712]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 497.0
+offset_top = -153.0
+offset_right = 801.2623
+offset_bottom = 79.0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("8_rock02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopRightBoulder" type="TextureRect" parent="Scenery/Rocks" unique_id=1495275685]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -262.0
+offset_top = 56.0
+offset_right = -132.0
+offset_bottom = 196.49335
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("7_rock01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RightStump" type="TextureRect" parent="Scenery/Rocks" unique_id=478932609]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -206.0
+offset_top = 198.0
+offset_right = -18.0
+offset_bottom = 342.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("9_rock03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomLeftPair" type="TextureRect" parent="Scenery/Rocks" unique_id=419980546]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 681.0
+offset_top = -273.0
+offset_right = 851.0
+offset_bottom = -143.0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("8_rock02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomLeftStump" type="TextureRect" parent="Scenery/Rocks" unique_id=61750758]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 543.0
+offset_top = -119.0
+offset_right = 691.0
+offset_bottom = -5.0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("9_rock03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomRightPair" type="TextureRect" parent="Scenery/Rocks" unique_id=1908876234]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -571.0
+offset_top = -97.0
+offset_right = -296.38464
+offset_bottom = 113.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("8_rock02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomRightBoulder" type="TextureRect" parent="Scenery/Rocks" unique_id=1746766715]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -658.0
+offset_top = -66.0
+offset_right = -518.0
+offset_bottom = 87.80286
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("7_rock01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Trees" type="Control" parent="Scenery" unique_id=46194085]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("19_sway")
+
+[node name="TopRightOuter2" type="TextureRect" parent="Scenery/Trees" unique_id=315902325]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -374.0
+offset_top = -426.0
+offset_right = 144.0
+offset_bottom = 555.69354
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("5_tree03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopRightOuter" type="TextureRect" parent="Scenery/Trees" unique_id=739057027]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -253.0
+offset_top = -334.0
+offset_right = 265.0
+offset_bottom = 647.69354
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("5_tree03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomLeftOuter2" type="TextureRect" parent="Scenery/Trees" unique_id=1710955407]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 971.0
+offset_top = -1428.0
+offset_right = 1379.0
+offset_bottom = -794.4596
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("6_tree04")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopLeftInner2" type="TextureRect" parent="Scenery/Trees" unique_id=1333488693]
+layout_mode = 0
+offset_left = 894.0
+offset_top = -183.0
+offset_right = 1204.0
+offset_bottom = 187.0
+mouse_filter = 2
+texture = ExtResource("3_tree01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="LeftLower2" type="TextureRect" parent="Scenery/Trees" unique_id=1904804185]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 710.0
+offset_top = -855.0
+offset_right = 1099.0
+offset_bottom = -199.46289
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("5_tree03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopLeftOuter" type="TextureRect" parent="Scenery/Trees" unique_id=333744400]
+layout_mode = 0
+offset_left = 590.0
+offset_top = -155.0
+offset_right = 920.0
+offset_bottom = 235.0
+mouse_filter = 2
+texture = ExtResource("4_tree02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopLeftInner" type="TextureRect" parent="Scenery/Trees" unique_id=1549132845]
+layout_mode = 0
+offset_left = 1195.0
+offset_top = -147.0
+offset_right = 1505.0
+offset_bottom = 223.0
+mouse_filter = 2
+texture = ExtResource("3_tree01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomCenterLeft" type="TextureRect" parent="Scenery/Trees" unique_id=970414518]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 448.0
+offset_top = -362.0
+offset_right = 748.0
+offset_bottom = -6.0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("4_tree02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomRightInner" type="TextureRect" parent="Scenery/Trees" unique_id=214723770]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -484.0
+offset_top = -63.0
+offset_right = -184.0
+offset_bottom = 293.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("4_tree02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopCenterLeft" type="TextureRect" parent="Scenery/Trees" unique_id=1111786368]
+layout_mode = 0
+offset_left = 517.0
+offset_top = -55.0
+offset_right = 817.0
+offset_bottom = 305.0
+mouse_filter = 2
+texture = ExtResource("4_tree02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopCenterRight2" type="TextureRect" parent="Scenery/Trees" unique_id=1736535616]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -1043.0
+offset_top = 922.0
+offset_right = -728.0
+offset_bottom = 1297.0
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("3_tree01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopCenterRight3" type="TextureRect" parent="Scenery/Trees" unique_id=1355048983]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -243.0
+offset_top = 220.0
+offset_right = 72.0
+offset_bottom = 595.0
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("3_tree01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopCenterRight" type="TextureRect" parent="Scenery/Trees" unique_id=2058772769]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -586.0
+offset_top = -208.0
+offset_right = -271.0
+offset_bottom = 167.0
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("3_tree01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TopRightInner" type="TextureRect" parent="Scenery/Trees" unique_id=163766279]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -534.0
+offset_top = -242.0
+offset_right = -151.0
+offset_bottom = 217.6
+grow_horizontal = 0
+mouse_filter = 2
+texture = ExtResource("4_tree02")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="LeftUpper" type="TextureRect" parent="Scenery/Trees" unique_id=1471281002]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 418.0
+offset_top = -516.0
+offset_right = 800.0
+offset_bottom = 76.099976
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("6_tree04")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="LeftLower" type="TextureRect" parent="Scenery/Trees" unique_id=1471113739]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 453.0
+offset_top = -528.0
+offset_right = 842.0
+offset_bottom = 127.53711
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("5_tree03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RightUpper2" type="TextureRect" parent="Scenery/Trees" unique_id=1368931497]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -1501.0
+offset_top = 46.0
+offset_right = -1073.0
+offset_bottom = 767.2593
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("5_tree03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RightUpper" type="TextureRect" parent="Scenery/Trees" unique_id=1138565850]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -243.0
+offset_top = -155.0
+offset_right = 152.0
+offset_bottom = 510.6482
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("5_tree03")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RightLower" type="TextureRect" parent="Scenery/Trees" unique_id=1776631113]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -251.0
+offset_top = 24.0
+offset_right = 156.0
+offset_bottom = 654.85
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("6_tree04")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="RightLower" type="TextureRect" parent="Scenery/Trees/RightLower" unique_id=317987988]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -1020.0
+offset_top = -11.424988
+offset_right = -613.0
+offset_bottom = 619.425
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("6_tree04")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomLeftOuter" type="TextureRect" parent="Scenery/Trees" unique_id=2043515709]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 373.0
+offset_top = -987.0
+offset_right = 781.0
+offset_bottom = -353.4596
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("6_tree04")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomLeftInner" type="TextureRect" parent="Scenery/Trees" unique_id=425793423]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 1203.0
+offset_top = -85.0
+offset_right = 1559.0
+offset_bottom = 337.45337
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("3_tree01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomCenterRight" type="TextureRect" parent="Scenery/Trees" unique_id=12079425]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -940.0
+offset_top = -110.0
+offset_right = -640.0
+offset_bottom = 246.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("3_tree01")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BottomRightOuter" type="TextureRect" parent="Scenery/Trees" unique_id=471569571]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -348.0
+offset_top = -225.0
+offset_right = 130.0
+offset_bottom = 344.38232
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("3_tree01")
+expand_mode = 1
+stretch_mode = 5
