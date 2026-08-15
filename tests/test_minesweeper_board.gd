@@ -115,11 +115,13 @@ func _test_revealed_flags_toggle() -> void:
 
 
 func _test_items_are_placed_and_resolved() -> void:
-	var board = BoardModel.new(10, 8, 12, 2468, 2, 2)
+	var board = BoardModel.new(10, 8, 12, 2468, 2, 2, 2, 2)
 	board.reveal(0)
 	assert(board.item_count(BoardModel.ItemType.LANTERN) == 2)
 	assert(board.item_count(BoardModel.ItemType.COMPASS) == 2)
-	assert(board.item_count(BoardModel.ItemType.NONE) == board.width * board.height - 4)
+	assert(board.item_count(BoardModel.ItemType.ORBITAL_STRIKE) == 2)
+	assert(board.item_count(BoardModel.ItemType.SUPER_LUCK) == 2)
+	assert(board.item_count(BoardModel.ItemType.NONE) == board.width * board.height - 8)
 
 	var lantern_index := -1
 	for index in range(board.width * board.height):
@@ -146,6 +148,24 @@ func _test_items_are_placed_and_resolved() -> void:
 		var compass_reveal: PackedInt32Array = board.reveal_forced_safe(compass_target)
 		assert(compass_reveal.has(compass_target))
 		assert(board.state_at(compass_target) == BoardModel.CellState.REVEALED)
+
+	var orbital_index := -1
+	for index in range(board.width * board.height):
+		if board.item_at(index) == BoardModel.ItemType.ORBITAL_STRIKE:
+			orbital_index = index
+			break
+	assert(orbital_index >= 0)
+	if board.state_at(orbital_index) != BoardModel.CellState.REVEALED:
+		board.reveal_forced_safe(orbital_index)
+	assert(board.consume_item(orbital_index) == BoardModel.ItemType.ORBITAL_STRIKE)
+	board.apply_orbital_strike(orbital_index)
+	var orbital_row: int = orbital_index / board.width
+	for column in range(board.width):
+		var target: int = orbital_row * board.width + column
+		if board.is_monster_core(target):
+			assert(board.state_at(target) == BoardModel.CellState.FLAGGED)
+		else:
+			assert(board.state_at(target) == BoardModel.CellState.REVEALED)
 
 
 func _test_win_condition() -> void:

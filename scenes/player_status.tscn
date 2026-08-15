@@ -63,6 +63,23 @@ max_value = 10.0
 value = 10.0
 show_percentage = false
 
+[node name="InvincibleLabel" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = 239.0
+offset_top = 38.0
+offset_right = 459.0
+offset_bottom = 70.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.890196, 0.290196, 1)
+theme_override_colors/font_outline_color = Color(0.301961, 0.207843, 0.0470588, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 21
+text = "无敌 6.0s"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="HeroHeadBg" type="Sprite2D" parent="." unique_id=152368509]
 position = Vector2(109, 111)
 texture = ExtResource("3_ys54m")

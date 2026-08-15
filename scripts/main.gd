@@ -4,6 +4,7 @@ const BoardModel := preload("res://scripts/game/minesweeper_board.gd")
 const CellView := preload("res://scripts/ui/mine_cell.gd")
 const MapTileView := preload("res://scripts/ui/map_tile_layer.gd")
 const ShopOverlayView := preload("res://scenes/shop_overlay.tscn")
+const ButtonMotion := preload("res://scripts/ui/button_motion.gd")
 const PlayerStatusView := preload("res://scenes/player_status.tscn")
 
 const BOARD_WIDTH := 10
@@ -11,15 +12,18 @@ const BOARD_HEIGHT := 8
 const MINE_COUNT := 12
 const LANTERN_COUNT := 3
 const COMPASS_COUNT := 3
+const ORBITAL_STRIKE_COUNT := 2
+const SUPER_LUCK_COUNT := 2
+const SUPER_LUCK_DURATION := 6.0
 const CELL_SIZE := 100.0
 const BOARD_TOP_SCALE := 0.96
 const PLAYER_MAX_HP := 10
 const LEVEL_GOLD_REWARD := 5
 const SHOP_ITEM_COST := 5
-const MINE_MAX_HP := 3
+const BIG_MONSTER_MAX_HP := 30
 const MINE_ATTACK_DELAY := 3
 const MINE_DAMAGE := 2
-const SMALL_MINE_ATTACK_DAMAGE := MINE_MAX_HP
+const SMALL_MINE_ATTACK_DAMAGE := 10
 
 const COLOR_BG := Color("172119")
 const COLOR_PANEL_DARK := Color("1c281b")
@@ -37,6 +41,8 @@ const MONSTER_BIG_TEXTURE := preload("res://my_asset/monster_big.png")
 const WRONG_FLAG_TEXTURE := preload("res://assets/sprites/generated/marker_unknown.png")
 const LANTERN_TEXTURE := preload("res://assets/sprites/generated/item_lantern.png")
 const COMPASS_TEXTURE := preload("res://assets/sprites/generated/item_compass.png")
+const ORBITAL_STRIKE_TEXTURE := preload("res://assets/sprites/generated/item_dynamite.png")
+const SUPER_LUCK_TEXTURE := preload("res://assets/sprites/generated/potion_luck_yellow.png")
 
 # Per the art-state convention: bright `revealed_*` artwork is the unflipped
 # face, while dark `fogged_*` artwork is shown after a tile has been flipped.
@@ -85,6 +91,9 @@ var _lantern_bonus := 0
 var _compass_bonus := 0
 var _mine_reduction := 0
 var _player_hp := PLAYER_MAX_HP
+var _invincible_until_msec := 0
+var _pending_invincible_duration_msec := 0
+var _invincible_was_active := false
 var _gold := 0
 var _gold_rewarded_this_run := false
 var _active_mines: Dictionary = {}
@@ -114,6 +123,12 @@ func _process(delta: float) -> void:
 	if _started and not _board.game_over:
 		_elapsed += delta
 		_time_label.text = "%03d" % mini(int(_elapsed), 999)
+	var invincible := _is_invincible()
+	if _player_status != null:
+		_player_status.set_invincible(invincible, _invincible_seconds_left())
+	if _invincible_was_active and not invincible:
+		_status_label.text = "超级幸运结束，小心怪物攻击。"
+	_invincible_was_active = invincible
 	if _item_tooltip.visible:
 		var viewport_size := get_viewport_rect().size
 		var desired := get_viewport().get_mouse_position() + Vector2(22, 20)
@@ -342,12 +357,17 @@ func _start_game() -> void:
 		maxi(6, MINE_COUNT - _mine_reduction),
 		0,
 		LANTERN_COUNT + _lantern_bonus,
-		COMPASS_COUNT + _compass_bonus
+		COMPASS_COUNT + _compass_bonus,
+		ORBITAL_STRIKE_COUNT,
+		SUPER_LUCK_COUNT
 	)
 	_roll_ground_variants()
 	_shop_layer.visible = false
 	_active_mines.clear()
 	_defeated_mines.clear()
+	_invincible_until_msec = 0
+	_pending_invincible_duration_msec = 0
+	_invincible_was_active = false
 	_hovered_cell_index = -1
 	_item_tooltip.visible = false
 	_started = false
@@ -520,6 +540,16 @@ func _roll_ground_variants() -> void:
 func _refresh_health_bar() -> void:
 	if _player_status != null:
 		_player_status.set_health(_player_hp, PLAYER_MAX_HP)
+		_player_status.set_invincible(_is_invincible(), _invincible_seconds_left())
+
+
+func _is_invincible() -> bool:
+	return _pending_invincible_duration_msec > 0 or Time.get_ticks_msec() < _invincible_until_msec
+
+
+func _invincible_seconds_left() -> float:
+	var active_msec := maxi(_invincible_until_msec - Time.get_ticks_msec(), 0)
+	return float(active_msec + _pending_invincible_duration_msec) / 1000.0
 
 
 func _refresh_gold_display() -> void:
@@ -531,7 +561,31 @@ func _on_cell_revealed(index: int) -> void:
 	if _board.game_over or _resolving:
 		return
 	if _board.state_at(index) == MinesweeperBoard.CellState.COVERED:
-		_resolve_turn(index)
+		if _is_invincible() and _is_small_monster(index):
+			await _mark_small_mine_with_super_luck(index)
+		else:
+			_resolve_turn(index)
+
+
+func _mark_small_mine_with_super_luck(index: int) -> void:
+	if not _board.mark_mine(index):
+		return
+	_resolving = true
+	_set_board_interactable(false)
+	_refresh_cell(index)
+	_cells[index].play_flag()
+	_spawn_effect_ring(_cell_center(index), Color("ffe75c"), 14.0, 76.0, 0.26)
+	_mine_label.text = "%03d" % maxi(MINE_COUNT - _board.flag_count(), 0)
+	_status_label.text = "超级幸运发现了小雷，并将它安全标记！"
+	var target := _nearest_active_big_monster(index)
+	if target >= 0:
+		await _attack_big_with_small_mines(target, [index])
+	_update_round_completion()
+	if _board.game_over:
+		await _finish_game()
+	else:
+		_resolving = false
+		_set_board_interactable(true)
 
 
 func _on_cell_flagged(index: int) -> void:
@@ -584,6 +638,15 @@ func _on_cell_hover_started(index: int) -> void:
 				if _board.state_at(target) == MinesweeperBoard.CellState.COVERED:
 					_previewed_cells.append(target)
 					_cells[target].set_effect_preview(true, Color(0.76, 1.12, 1.12, 1.0))
+		MinesweeperBoard.ItemType.ORBITAL_STRIKE:
+			var row: int = index / BOARD_WIDTH
+			for column in range(BOARD_WIDTH):
+				var target := row * BOARD_WIDTH + column
+				_previewed_cells.append(target)
+				_cells[target].set_effect_preview(true, Color(1.18, 0.82, 0.62, 1.0))
+		MinesweeperBoard.ItemType.SUPER_LUCK:
+			_previewed_cells.append(index)
+			_cells[index].set_effect_preview(true, Color(1.2, 1.12, 0.58, 1.0))
 
 
 func _on_cell_hover_ended(index: int) -> void:
@@ -608,6 +671,12 @@ func _show_item_tooltip(item: MinesweeperBoard.ItemType) -> void:
 		MinesweeperBoard.ItemType.COMPASS:
 			_item_tooltip_title.text = "罗盘 · 翻出后自动使用"
 			_item_tooltip_body.text = "结算时寻找并翻开一处尚未探索的安全格，不会触发怪物。"
+		MinesweeperBoard.ItemType.ORBITAL_STRIKE:
+			_item_tooltip_title.text = "轨道轰炸 · 翻出后自动使用"
+			_item_tooltip_body.text = "清理道具所在的整行：翻开安全格，并标记尚未揭示的怪物。"
+		MinesweeperBoard.ItemType.SUPER_LUCK:
+			_item_tooltip_title.text = "超级幸运 · 翻出后自动使用"
+			_item_tooltip_body.text = "获得 %.0f 秒无敌，期间触发怪物不会损失生命。" % SUPER_LUCK_DURATION
 		_:
 			_item_tooltip.visible = false
 			return
@@ -647,7 +716,7 @@ func _refresh_cell(index: int, animate_reveal: bool = false) -> void:
 				_cells[index].set_flag_marker(FLAG_TEXTURE)
 			if _active_mines.has(index):
 				var mine_data: Dictionary = _active_mines[index]
-				_cells[index].set_combat_mine_status(mine_data["hp"], mine_data["turns"])
+				_cells[index].set_combat_mine_status(mine_data["hp"], BIG_MONSTER_MAX_HP, mine_data["turns"])
 
 
 func _resolve_turn(index: int) -> void:
@@ -713,15 +782,18 @@ func _register_revealed_combat_objects(changed: PackedInt32Array) -> Array[int]:
 			continue
 		if _is_small_monster(index):
 			await _play_small_mine_player_hit(index)
-			_player_hp = maxi(0, _player_hp - MINE_DAMAGE)
+			if _is_invincible():
+				_play_invincible_block_feedback()
+			else:
+				_player_hp = maxi(0, _player_hp - MINE_DAMAGE)
+				_spawn_damage_number(_health_bar.global_position + _health_bar.size * 0.5, MINE_DAMAGE, Color("ff7864"))
 			_defeated_mines[index] = true
 			_board.resolve_monster_core(index)
 			_refresh_cell(index)
 			_refresh_health_bar()
-			_spawn_damage_number(_health_bar.global_position + _health_bar.size * 0.5, MINE_DAMAGE, Color("ff7864"))
 		else:
 			if not _active_mines.has(index):
-				_active_mines[index] = {"hp": MINE_MAX_HP, "turns": MINE_ATTACK_DELAY + 1}
+				_active_mines[index] = {"hp": BIG_MONSTER_MAX_HP, "turns": MINE_ATTACK_DELAY + 1}
 				revealed_big_monsters.append(index)
 				await _play_big_monster_reveal(index)
 			_refresh_cell(index)
@@ -735,8 +807,8 @@ func _resolve_item_queue(item_queue: Array[int], queued_items: Dictionary) -> vo
 		if _board.is_item_used(item_index):
 			continue
 		var item: MinesweeperBoard.ItemType = _board.item_at(item_index)
-		var focus_color := Color("ffe58a") if item == MinesweeperBoard.ItemType.LANTERN else Color("8ceff2")
-		_status_label.text = "发现%s，正在结算……" % ("提灯" if item == MinesweeperBoard.ItemType.LANTERN else "罗盘")
+		var focus_color := _item_effect_color(item)
+		_status_label.text = "发现%s，正在结算……" % _item_display_name(item)
 		_cells[item_index].play_item_focus(focus_color)
 		_spawn_effect_ring(_cell_center(item_index), focus_color, 18.0, 68.0, 0.3)
 		await get_tree().create_timer(0.3).timeout
@@ -747,6 +819,40 @@ func _resolve_item_queue(item_queue: Array[int], queued_items: Dictionary) -> vo
 				await _resolve_lantern(item_index, item_queue, queued_items)
 			MinesweeperBoard.ItemType.COMPASS:
 				await _resolve_compass(item_index, item_queue, queued_items)
+			MinesweeperBoard.ItemType.ORBITAL_STRIKE:
+				await _resolve_orbital_strike(item_index, item_queue, queued_items)
+			MinesweeperBoard.ItemType.SUPER_LUCK:
+				await _resolve_super_luck(item_index)
+	if _pending_invincible_duration_msec > 0:
+		_invincible_until_msec = maxi(_invincible_until_msec, Time.get_ticks_msec()) + _pending_invincible_duration_msec
+		_pending_invincible_duration_msec = 0
+		_refresh_health_bar()
+
+
+func _item_display_name(item: MinesweeperBoard.ItemType) -> String:
+	match item:
+		MinesweeperBoard.ItemType.LANTERN:
+			return "提灯"
+		MinesweeperBoard.ItemType.COMPASS:
+			return "罗盘"
+		MinesweeperBoard.ItemType.ORBITAL_STRIKE:
+			return "轨道轰炸"
+		MinesweeperBoard.ItemType.SUPER_LUCK:
+			return "超级幸运"
+	return "道具"
+
+
+func _item_effect_color(item: MinesweeperBoard.ItemType) -> Color:
+	match item:
+		MinesweeperBoard.ItemType.LANTERN:
+			return Color("ffe58a")
+		MinesweeperBoard.ItemType.COMPASS:
+			return Color("8ceff2")
+		MinesweeperBoard.ItemType.ORBITAL_STRIKE:
+			return Color("ff8b58")
+		MinesweeperBoard.ItemType.SUPER_LUCK:
+			return Color("f7dc4f")
+	return Color.WHITE
 
 
 func _is_small_monster(index: int) -> bool:
@@ -865,6 +971,19 @@ func _spawn_effect_ring(
 func _spawn_damage_number(center: Vector2, amount: int, color: Color) -> void:
 	var label := Label.new()
 	label.text = "-%d" % amount
+	_animate_floating_label(label, center, color)
+
+
+func _play_invincible_block_feedback() -> void:
+	var center := _health_bar.global_position + _health_bar.size * 0.5
+	_status_label.text = "超级幸运挡住了伤害！"
+	_spawn_effect_ring(center, Color("ffe75c"), 18.0, 112.0, 0.3)
+	var label := Label.new()
+	label.text = "无敌！"
+	_animate_floating_label(label, center, Color("ffe75c"))
+
+
+func _animate_floating_label(label: Label, center: Vector2, color: Color) -> void:
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_color_override("font_outline_color", Color("351a18"))
@@ -902,29 +1021,37 @@ func _attack_big_with_small_mines(big_index: int, candidates: Array[int]) -> voi
 		_defeated_mines[small_index] = true
 		_board.resolve_monster_core(small_index)
 		_refresh_cell(small_index)
-		_fly_small_monster(small_index, big_index, float(attack_index) * 0.055)
-	await get_tree().create_timer(0.46 + float(attackers.size() - 1) * 0.055).timeout
+		await _fly_small_monster(small_index, big_index)
+		if not _active_mines.has(big_index):
+			break
 
-	if not _active_mines.has(big_index):
-		return
-	var mine_data: Dictionary = _active_mines[big_index]
-	var damage := attackers.size() * SMALL_MINE_ATTACK_DAMAGE
-	mine_data["hp"] -= damage
-	_cells[big_index].play_hit()
-	_spawn_effect_ring(_cell_center(big_index), Color("ff7058"), 24.0, 126.0, 0.26)
-	_spawn_damage_number(_cell_center(big_index) + Vector2(0, -34), damage, Color("ffcf72"))
-	await get_tree().create_timer(0.2).timeout
-	if mine_data["hp"] <= 0:
-		_active_mines.erase(big_index)
-		_defeated_mines[big_index] = true
-	else:
+		# Resolve every projectile as its own hit. The health bar and floating
+		# number update before the next small mine starts moving.
+		var mine_data: Dictionary = _active_mines[big_index]
+		mine_data["hp"] -= SMALL_MINE_ATTACK_DAMAGE
+		_cells[big_index].play_hit()
+		_spawn_effect_ring(_cell_center(big_index), Color("ff7058"), 24.0, 126.0, 0.26)
+		_spawn_damage_number(
+			_cell_center(big_index) + Vector2(0, -34),
+			SMALL_MINE_ATTACK_DAMAGE,
+			Color("ffcf72")
+		)
+		if mine_data["hp"] <= 0:
+			_active_mines.erase(big_index)
+			_defeated_mines[big_index] = true
+			await get_tree().create_timer(0.2).timeout
+			_refresh_cell(big_index)
+			break
 		_active_mines[big_index] = mine_data
-	_cells[big_index].play_light(Color("ff7658"))
-	_refresh_cell(big_index)
+		_cells[big_index].set_combat_mine_status(
+			mine_data["hp"], BIG_MONSTER_MAX_HP, mine_data["turns"]
+		)
+		await get_tree().create_timer(0.22).timeout
+		_cells[big_index].play_light(Color("ff7658"))
 	_mine_label.text = "%03d" % maxi(MINE_COUNT - _defeated_mines.size(), 0)
 
 
-func _fly_small_monster(source_index: int, target_index: int, delay: float = 0.0) -> void:
+func _fly_small_monster(source_index: int, target_index: int) -> void:
 	var projectile := TextureRect.new()
 	projectile.texture = MONSTER_SMALL_TEXTURE
 	projectile.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -944,10 +1071,11 @@ func _fly_small_monster(source_index: int, target_index: int, delay: float = 0.0
 	tween.tween_method(func(progress: float) -> void:
 		var point := source_center * pow(1.0 - progress, 2.0) + control * 2.0 * (1.0 - progress) * progress + target_center * pow(progress, 2.0)
 		projectile.global_position = point - projectile.size * 0.5
-	, 0.0, 1.0, 0.42).set_delay(delay)
-	tween.tween_property(projectile, "scale", Vector2(0.7, 0.7), 0.42).set_delay(delay)
-	tween.tween_property(projectile, "rotation", TAU * 0.9, 0.42).set_delay(delay)
-	tween.finished.connect(projectile.queue_free)
+	, 0.0, 1.0, 0.42)
+	tween.tween_property(projectile, "scale", Vector2(0.7, 0.7), 0.42)
+	tween.tween_property(projectile, "rotation", TAU * 0.9, 0.42)
+	await tween.finished
+	projectile.queue_free()
 
 
 func _advance_combat_turn() -> bool:
@@ -956,10 +1084,13 @@ func _advance_combat_turn() -> bool:
 		mine_data["turns"] -= 1
 		if mine_data["turns"] <= 0:
 			await _play_big_monster_attack(index)
-			_player_hp = maxi(0, _player_hp - MINE_DAMAGE)
+			if _is_invincible():
+				_play_invincible_block_feedback()
+			else:
+				_player_hp = maxi(0, _player_hp - MINE_DAMAGE)
+				_spawn_damage_number(_health_bar.global_position + _health_bar.size * 0.5, MINE_DAMAGE, Color("ff7864"))
 			mine_data["turns"] = MINE_ATTACK_DELAY
 			_refresh_health_bar()
-			_spawn_damage_number(_health_bar.global_position + _health_bar.size * 0.5, MINE_DAMAGE, Color("ff7864"))
 		_active_mines[index] = mine_data
 		_refresh_cell(index)
 	_refresh_health_bar()
@@ -1104,6 +1235,81 @@ func _resolve_compass(item_index: int, item_queue: Array[int], queued_items: Dic
 	await get_tree().create_timer(0.24).timeout
 
 
+func _resolve_orbital_strike(item_index: int, item_queue: Array[int], queued_items: Dictionary) -> void:
+	_status_label.text = "轨道轰炸锁定第 %d 行……" % (item_index / BOARD_WIDTH + 1)
+	var row: int = item_index / BOARD_WIDTH
+	var first_index := row * BOARD_WIDTH
+	var last_index := first_index + BOARD_WIDTH - 1
+	var start := _cell_center(first_index)
+	var finish := _cell_center(last_index)
+	var beam := Line2D.new()
+	beam.width = 18.0
+	beam.default_color = Color("ff8a58e6")
+	beam.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	beam.end_cap_mode = Line2D.LINE_CAP_ROUND
+	beam.points = PackedVector2Array([Vector2.ZERO, finish - start])
+	beam.global_position = start
+	beam.scale = Vector2(0.0, 1.0)
+	_effects_layer.add_child(beam)
+	var sweep := create_tween().set_parallel(true)
+	sweep.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	sweep.tween_property(beam, "scale:x", 1.0, 0.32)
+	sweep.tween_property(beam, "width", 4.0, 0.22).set_delay(0.28)
+	sweep.tween_property(beam, "modulate:a", 0.0, 0.2).set_delay(0.34)
+	for column in range(BOARD_WIDTH):
+		var target := first_index + column
+		_cells[target].play_light(Color("ff9b68"))
+		_spawn_effect_ring(_cell_center(target), Color("ff784f"), 14.0, 74.0, 0.24, float(column) * 0.025)
+	await get_tree().create_timer(0.42).timeout
+	beam.queue_free()
+
+	var result: Dictionary = _board.apply_orbital_strike(item_index)
+	var revealed: PackedInt32Array = result["revealed"]
+	_present_revealed(revealed, item_queue, queued_items)
+	var flagged: PackedInt32Array = result["flagged"]
+	for flagged_index in flagged:
+		_refresh_cell(flagged_index)
+		_cells[flagged_index].play_flag()
+		_spawn_effect_ring(_cell_center(flagged_index), Color("ffcf63"), 12.0, 62.0, 0.2)
+		await get_tree().create_timer(0.045).timeout
+	_mine_label.text = "%03d" % maxi(MINE_COUNT - _board.flag_count(), 0)
+	await _attack_newly_flagged_smalls(flagged)
+	await get_tree().create_timer(0.16).timeout
+
+
+func _resolve_super_luck(item_index: int) -> void:
+	_pending_invincible_duration_msec += int(SUPER_LUCK_DURATION * 1000.0)
+	_invincible_was_active = true
+	_refresh_health_bar()
+	_status_label.text = "超级幸运！%.0f 秒内不会受到伤害。" % SUPER_LUCK_DURATION
+	var health_center := _health_bar.global_position + _health_bar.size * 0.5
+	_spawn_effect_ring(_cell_center(item_index), Color("ffe75c"), 18.0, 118.0, 0.34)
+	_spawn_effect_ring(health_center, Color("ffe75c"), 22.0, 136.0, 0.4, 0.12)
+	_cells[item_index].play_light(Color("fff19a"))
+	await get_tree().create_timer(0.34).timeout
+
+
+func _attack_newly_flagged_smalls(flagged: PackedInt32Array) -> void:
+	var attack_groups: Dictionary = {}
+	for flagged_index in flagged:
+		if not _is_small_monster(flagged_index):
+			continue
+		var target := _nearest_active_big_monster(flagged_index)
+		if target < 0:
+			continue
+		if not attack_groups.has(target):
+			attack_groups[target] = []
+		var group: Array = attack_groups[target]
+		group.append(flagged_index)
+		attack_groups[target] = group
+	for target_variant in attack_groups.keys():
+		var target := int(target_variant)
+		var untyped_attackers: Array = attack_groups[target]
+		var attackers: Array[int] = []
+		attackers.assign(untyped_attackers)
+		await _attack_big_with_small_mines(target, attackers)
+
+
 func _fly_compass(source_index: int, target_index: int) -> void:
 	var compass := TextureRect.new()
 	compass.texture = COMPASS_TEXTURE
@@ -1164,6 +1370,10 @@ func _item_texture(item: MinesweeperBoard.ItemType) -> Texture2D:
 			return LANTERN_TEXTURE
 		MinesweeperBoard.ItemType.COMPASS:
 			return COMPASS_TEXTURE
+		MinesweeperBoard.ItemType.ORBITAL_STRIKE:
+			return ORBITAL_STRIKE_TEXTURE
+		MinesweeperBoard.ItemType.SUPER_LUCK:
+			return SUPER_LUCK_TEXTURE
 	return null
 
 

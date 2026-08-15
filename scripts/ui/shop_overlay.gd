@@ -3,6 +3,8 @@ extends Control
 
 signal offer_selected(offer: int)
 
+const ButtonMotion := preload("res://scripts/ui/button_motion.gd")
+
 const OFFER_ICONS: Array[Texture2D] = [
 	preload("res://assets/sprites/generated/item_lantern.png"),
 	preload("res://assets/sprites/generated/item_compass.png"),
@@ -11,6 +13,8 @@ const OFFER_ICONS: Array[Texture2D] = [
 const OFFER_NAMES := ["营地提灯", "探险罗盘", "安全踏勘"]
 const OFFER_DESCRIPTIONS := ["后续每局 +1 盏灯", "后续每局 +1 个罗盘", "后续每局 -2 枚地雷"]
 @onready var shopkeeper: TextureRect = $Center/ShopCard/Shopkeeper
+@onready var dimmer: ColorRect = $Dimmer
+@onready var shop_card: Control = $Center/ShopCard
 @onready var item_grid: GridContainer = $Center/ShopCard/ItemGrid
 @onready var item_slot_prototype: Control = $Center/ShopCard/ItemGrid/ItemSlot
 @onready var item_prototype: Sprite2D = $Center/ShopCard/ItemGrid/ItemSlot/ItemBg
@@ -20,6 +24,8 @@ const OFFER_DESCRIPTIONS := ["后续每局 +1 盏灯", "后续每局 +1 个罗�
 var _item_nodes: Array[Sprite2D] = []
 var _buy_buttons: Array[Button] = []
 var _current_price := 5
+var _transition: Tween
+var _card_rest_position := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -34,6 +40,7 @@ func present(_result: String, _progress: String, gold: int, price: int) -> void:
 	_set_items_visible(true)
 	_set_offers_enabled(gold >= price)
 	visible = true
+	_play_enter()
 
 
 func show_insufficient_gold(_gold: int, _price: int) -> void:
@@ -43,6 +50,7 @@ func show_insufficient_gold(_gold: int, _price: int) -> void:
 func present_game_over() -> void:
 	_set_items_visible(false)
 	visible = true
+	_play_enter()
 
 
 func _build_offer_items() -> void:
@@ -66,17 +74,12 @@ func _build_offer_items() -> void:
 func _on_offer_pressed(offer_index: int) -> void:
 	if offer_index < 0 or offer_index >= _buy_buttons.size() or _buy_buttons[offer_index].disabled:
 		return
+	_set_offers_enabled(false)
+	await _play_exit()
 	offer_selected.emit(offer_index)
 
 
-func _set_item_hovered(item: Sprite2D, hovered: bool) -> void:
-	var target_scale := Vector2(1.035, 1.035) if hovered else Vector2.ONE
-	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_property(item, "scale", target_scale, 0.12)
-
-
 func _on_item_mouse_entered(item: Sprite2D, offer_index: int) -> void:
-	_set_item_hovered(item, true)
 	item_tip_label.text = OFFER_DESCRIPTIONS[offer_index]
 	item_tip.reset_size()
 	item_tip.show()
@@ -89,8 +92,50 @@ func _on_item_mouse_entered(item: Sprite2D, offer_index: int) -> void:
 
 
 func _on_item_mouse_exited(item: Sprite2D) -> void:
-	_set_item_hovered(item, false)
 	item_tip.hide()
+
+
+func _play_enter() -> void:
+	_kill_transition()
+	await get_tree().process_frame
+	_card_rest_position = shop_card.position
+	shop_card.pivot_offset = shop_card.size * 0.5
+	dimmer.modulate.a = 0.0
+	shop_card.position = _card_rest_position + Vector2(0, 54)
+	shop_card.scale = Vector2(0.92, 0.92)
+	shop_card.rotation = deg_to_rad(-0.8)
+	shop_card.modulate.a = 0.0
+	_transition = create_tween().set_parallel(true)
+	_transition.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_transition.tween_property(dimmer, "modulate:a", 1.0, 0.24)
+	_transition.tween_property(shop_card, "position", _card_rest_position, 0.34).set_trans(Tween.TRANS_BACK)
+	_transition.tween_property(shop_card, "scale", Vector2.ONE, 0.34).set_trans(Tween.TRANS_BACK)
+	_transition.tween_property(shop_card, "rotation", 0.0, 0.28)
+	_transition.tween_property(shop_card, "modulate:a", 1.0, 0.2)
+
+
+func _play_exit() -> void:
+	_kill_transition()
+	item_tip.hide()
+	_transition = create_tween().set_parallel(true)
+	_transition.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_transition.tween_property(dimmer, "modulate:a", 0.0, 0.22)
+	_transition.tween_property(shop_card, "position", _card_rest_position + Vector2(0, 46), 0.22)
+	_transition.tween_property(shop_card, "scale", Vector2(0.94, 0.94), 0.22)
+	_transition.tween_property(shop_card, "rotation", deg_to_rad(0.65), 0.22)
+	_transition.tween_property(shop_card, "modulate:a", 0.0, 0.17)
+	await _transition.finished
+	visible = false
+	shop_card.position = _card_rest_position
+	shop_card.scale = Vector2.ONE
+	shop_card.rotation = 0.0
+	shop_card.modulate = Color.WHITE
+	dimmer.modulate = Color.WHITE
+
+
+func _kill_transition() -> void:
+	if _transition != null and _transition.is_valid():
+		_transition.kill()
 
 
 func _update_cost_labels() -> void:

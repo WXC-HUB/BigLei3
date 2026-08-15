@@ -2,13 +2,15 @@ class_name MinesweeperBoard
 extends RefCounted
 
 enum CellState { COVERED, REVEALED, FLAGGED }
-enum ItemType { NONE, LANTERN, COMPASS }
+enum ItemType { NONE, LANTERN, COMPASS, ORBITAL_STRIKE, SUPER_LUCK }
 
 var width: int
 var height: int
 var mine_count: int
 var lantern_count: int
 var compass_count: int
+var orbital_strike_count: int
+var super_luck_count: int
 var mines_placed := false
 var game_over := false
 var won := false
@@ -34,13 +36,17 @@ func _init(
 	mines: int,
 	run_seed: int = 0,
 	lanterns: int = 3,
-	compasses: int = 3
+	compasses: int = 3,
+	orbital_strikes: int = 2,
+	super_lucks: int = 2
 ) -> void:
 	width = board_width
 	height = board_height
 	mine_count = clampi(mines, 1, width * height - 1)
 	lantern_count = maxi(lanterns, 0)
 	compass_count = maxi(compasses, 0)
+	orbital_strike_count = maxi(orbital_strikes, 0)
+	super_luck_count = maxi(super_lucks, 0)
 	seed = run_seed if run_seed != 0 else int(Time.get_unix_time_from_system() * 1000.0) ^ Time.get_ticks_msec()
 	_rng.seed = seed
 	_mines.resize(width * height)
@@ -196,6 +202,24 @@ func apply_lantern(center_index: int) -> Dictionary:
 	return {"revealed": revealed, "flagged": flagged}
 
 
+func apply_orbital_strike(center_index: int) -> Dictionary:
+	var revealed := PackedInt32Array()
+	var flagged := PackedInt32Array()
+	if not _is_valid(center_index) or not mines_placed:
+		return {"revealed": revealed, "flagged": flagged}
+	var row: int = center_index / width
+	for column in range(width):
+		var target := row * width + column
+		if is_monster_core(target):
+			if mark_mine(target):
+				flagged.append(target)
+		elif state_at(target) != CellState.REVEALED:
+			var changed := reveal_exact_forced_safe(target)
+			if not changed.is_empty():
+				revealed.append(target)
+	return {"revealed": revealed, "flagged": flagged}
+
+
 func mark_mine(index: int) -> bool:
 	if not _is_valid(index) or not is_monster_core(index) or state_at(index) != CellState.COVERED:
 		return false
@@ -228,6 +252,20 @@ func reveal_forced_safe(index: int) -> PackedInt32Array:
 	if state_at(index) == CellState.FLAGGED:
 		_states[index] = CellState.COVERED
 	return reveal(index)
+
+
+func reveal_exact_forced_safe(index: int) -> PackedInt32Array:
+	var changed := PackedInt32Array()
+	if not _is_valid(index) or not mines_placed or is_monster_core(index):
+		return changed
+	if state_at(index) == CellState.REVEALED:
+		return changed
+	_states[index] = CellState.REVEALED
+	_revealed_flags[index] = 0
+	_revealed_safe_cells += 1
+	changed.append(index)
+	_refresh_mine_completion()
+	return changed
 
 
 func flag_count() -> int:
@@ -415,6 +453,12 @@ func _place_items(first_index: int) -> void:
 		cursor += 1
 	for count in range(mini(compass_count, candidates.size() - cursor)):
 		_items[candidates[cursor]] = ItemType.COMPASS
+		cursor += 1
+	for count in range(mini(orbital_strike_count, candidates.size() - cursor)):
+		_items[candidates[cursor]] = ItemType.ORBITAL_STRIKE
+		cursor += 1
+	for count in range(mini(super_luck_count, candidates.size() - cursor)):
+		_items[candidates[cursor]] = ItemType.SUPER_LUCK
 		cursor += 1
 
 

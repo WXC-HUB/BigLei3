@@ -21,6 +21,9 @@ var _mud_front: Control
 var _cover: TextureRect
 var _marker: TextureRect
 var _combat_label: Label
+var _monster_health_back: Panel
+var _monster_health_fill: ColorRect
+var _monster_health_value: Label
 var _interactive := true
 var _targeting_selected := false
 var _effect_preview := false
@@ -107,6 +110,34 @@ func _ready() -> void:
 	_effect_preview = false
 	add_child(_combat_label)
 
+	_monster_health_back = Panel.new()
+	_monster_health_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_monster_health_back.position = Vector2(-42, -20)
+	_monster_health_back.size = Vector2(_cell_size + 84, 20)
+	_monster_health_back.z_index = 31
+	_monster_health_back.add_theme_stylebox_override("panel", _monster_health_back_style())
+	_monster_health_back.visible = false
+	add_child(_monster_health_back)
+
+	_monster_health_fill = ColorRect.new()
+	_monster_health_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_monster_health_fill.position = Vector2(4, 4)
+	_monster_health_fill.size = Vector2(_monster_health_back.size.x - 8, 12)
+	_monster_health_fill.color = Color("76c94f")
+	_monster_health_back.add_child(_monster_health_fill)
+
+	_monster_health_value = Label.new()
+	_monster_health_value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_monster_health_value.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_monster_health_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_monster_health_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_monster_health_value.add_theme_color_override("font_color", Color.WHITE)
+	_monster_health_value.add_theme_color_override("font_outline_color", Color("27150f"))
+	_monster_health_value.add_theme_constant_override("outline_size", 3)
+	_monster_health_value.add_theme_font_size_override("font_size", 12)
+	_monster_health_value.z_index = 1
+	_monster_health_back.add_child(_monster_health_value)
+
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
 
@@ -141,6 +172,7 @@ func display_covered(marker: Texture2D = null) -> void:
 	_marker.visible = marker != null
 	_number_label.visible = false
 	_combat_label.visible = false
+	_monster_health_back.visible = false
 	_showing_corpse = false
 	_targeting_selected = false
 	_effect_preview = false
@@ -164,6 +196,7 @@ func display_revealed(
 	_surface.add_theme_stylebox_override("panel", _revealed_surface_style())
 	_marker.visible = false
 	_combat_label.visible = false
+	_monster_health_back.visible = false
 	_showing_corpse = kind == ContentKind.CORPSE
 	_set_content(content, kind, content_span)
 	if kind == ContentKind.NUMBER and number_value > 0:
@@ -223,6 +256,7 @@ func prepare_monster_emerge() -> void:
 	_content.modulate.a = 0.0
 	_shadow.modulate.a = 0.0
 	_combat_label.visible = false
+	_monster_health_back.visible = false
 
 
 func play_monster_emerge() -> void:
@@ -276,9 +310,15 @@ func play_hit() -> void:
 	tween.parallel().tween_property(_content, "modulate", Color.WHITE, 0.09)
 
 
-func set_combat_mine_status(hp: int, turns_until_attack: int) -> void:
-	_combat_label.text = "%d HP · %d回" % [hp, turns_until_attack]
+func set_combat_mine_status(hp: int, max_hp: int, turns_until_attack: int) -> void:
+	_combat_label.text = "攻击倒计时 %d" % turns_until_attack
 	_combat_label.visible = true
+	var safe_max_hp := maxi(max_hp, 1)
+	var ratio := clampf(float(hp) / float(safe_max_hp), 0.0, 1.0)
+	_monster_health_fill.size.x = (_monster_health_back.size.x - 8.0) * ratio
+	_monster_health_fill.color = Color("76c94f") if ratio > 0.5 else (Color("e2b94c") if ratio > 0.25 else Color("e65a45"))
+	_monster_health_value.text = "%d / %d" % [maxi(hp, 0), safe_max_hp]
+	_monster_health_back.visible = true
 
 
 func is_showing_corpse() -> bool:
@@ -452,6 +492,18 @@ func _shadow_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.02, 0.01, 0.0, 0.38)
 	style.set_corner_radius_all(30)
+	return style
+
+
+func _monster_health_back_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("2b1714e8")
+	style.border_color = Color("f1d69a")
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(7)
+	style.shadow_color = Color("160b08aa")
+	style.shadow_size = 4
+	style.shadow_offset = Vector2(0, 2)
 	return style
 
 
