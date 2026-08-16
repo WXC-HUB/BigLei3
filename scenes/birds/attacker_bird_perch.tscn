@@ -1,0 +1,74 @@
+[gd_scene format=3 uid="uid://dvr3h2ugw60ic"]
+
+[ext_resource type="Script" uid="uid://sqau0sdy4e0" path="res://scripts/ui/bird_perch.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://csco5ubg3i3y3" path="res://my_asset/birds/tree_left_1.png" id="2_tree"]
+[ext_resource type="Texture2D" uid="uid://shom0tvgvn7p" path="res://my_asset/birds/attacker_idle_1.png" id="3_idle1"]
+[ext_resource type="Texture2D" uid="uid://dbbtdg8cpva6h" path="res://my_asset/birds/attacker_idle_2.png" id="4_idle2"]
+[ext_resource type="Texture2D" uid="uid://dt7oo16y8wlxc" path="res://my_asset/birds/attacker_idle_3.png" id="5_idle3"]
+[ext_resource type="Texture2D" uid="uid://cymf7mwf85fh" path="res://my_asset/birds/attacker_idle_4.png" id="6_idle4"]
+[ext_resource type="Texture2D" uid="uid://fa0vunemjcj2" path="res://my_asset/birds/attacker_fly_1.png" id="7_fly"]
+[ext_resource type="Texture2D" uid="uid://rwkc8btu1d1h" path="res://my_asset/birds/attacker_zhuo.png" id="8_zhuo"]
+[ext_resource type="AudioStream" uid="uid://un4nmprxwb4d" path="res://assets/audio/attacker_peck.wav" id="9_sfx"]
+[ext_resource type="AudioStream" uid="uid://dv3myirgmxtnj" path="res://assets/audio/attacker_trigger.mp3" id="10_trigger_sfx"]
+
+[node name="AttackerBirdPerch" type="Control" unique_id=2049912553]
+custom_minimum_size = Vector2(448, 336)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 448.0
+offset_bottom = 336.0
+mouse_filter = 1
+script = ExtResource("1_script")
+idle_frames = Array[Texture2D]([ExtResource("3_idle1"), ExtResource("4_idle2"), ExtResource("5_idle3"), ExtResource("6_idle4")])
+action_frames = Array[Texture2D]([ExtResource("7_fly"), ExtResource("8_zhuo")])
+click_enabled = false
+
+[node name="Tree" type="TextureRect" parent="." unique_id=1343849162]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -234.99998
+offset_top = 14.999992
+offset_right = 274.0
+offset_bottom = 255.0
+grow_horizontal = 2
+grow_vertical = 2
+rotation = -0.21211927
+mouse_filter = 2
+texture = ExtResource("2_tree")
+expand_mode = 1
+stretch_mode = 5
+flip_h = true
+
+[node name="Sprite" type="TextureRect" parent="." unique_id=1251863206]
+layout_mode = 0
+offset_left = 109.0
+offset_top = -15.000008
+offset_right = 557.0
+offset_bottom = 433.0
+scale = Vector2(0.72921187, 0.72921187)
+mouse_filter = 2
+texture = ExtResource("3_idle1")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HitArea" type="Button" parent="." unique_id=648843148]
+layout_mode = 0
+offset_left = 7.0
+offset_top = -60.0
+offset_right = 502.0
+offset_bottom = 352.0
+scale = Vector2(0.8815789, 0.8815789)
+tooltip_text = "啄木鸟"
+focus_mode = 0
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="ActionSFX" type="AudioStreamPlayer" parent="." unique_id=17925262]
+stream = ExtResource("9_sfx")
+volume_db = -5.0
+
+[node name="TriggerSFX" type="AudioStreamPlayer" parent="." unique_id=1666312183]
+stream = ExtResource("10_trigger_sfx")
+volume_db = -5.0

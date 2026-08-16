@@ -1,0 +1,312 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/regular_skip_control.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="SkipNormal"]
+bg_color = Color(0.075, 0.145, 0.098, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.86, 0.73, 0.38, 0.95)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
+shadow_color = Color(0.035, 0.055, 0.035, 0.55)
+shadow_size = 8
+shadow_offset = Vector2(0, 4)
+
+[sub_resource type="StyleBoxFlat" id="SkipHover"]
+bg_color = Color(0.12, 0.245, 0.145, 0.98)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.86, 0.48, 1)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
+shadow_color = Color(0.035, 0.055, 0.035, 0.62)
+shadow_size = 10
+shadow_offset = Vector2(0, 5)
+
+[sub_resource type="StyleBoxFlat" id="SkipPressed"]
+bg_color = Color(0.045, 0.095, 0.06, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.74, 0.62, 0.3, 1)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
+
+[sub_resource type="StyleBoxFlat" id="ReturnNormal"]
+bg_color = Color(0.17, 0.12, 0.075, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.72, 0.61, 0.38, 0.92)
+corner_radius_top_left = 13
+corner_radius_top_right = 13
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 13
+shadow_color = Color(0.035, 0.035, 0.025, 0.48)
+shadow_size = 7
+shadow_offset = Vector2(0, 4)
+
+[sub_resource type="StyleBoxFlat" id="ReturnHover"]
+bg_color = Color(0.27, 0.18, 0.095, 0.98)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.95, 0.79, 0.46, 1)
+corner_radius_top_left = 13
+corner_radius_top_right = 13
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 13
+shadow_color = Color(0.035, 0.035, 0.025, 0.58)
+shadow_size = 9
+shadow_offset = Vector2(0, 5)
+
+[sub_resource type="StyleBoxFlat" id="ReturnPressed"]
+bg_color = Color(0.11, 0.075, 0.045, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.62, 0.5, 0.29, 1)
+corner_radius_top_left = 13
+corner_radius_top_right = 13
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 13
+
+[sub_resource type="StyleBoxFlat" id="CardStyle"]
+bg_color = Color(0.075, 0.13, 0.082, 0.985)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.91, 0.74, 0.34, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0, 0, 0, 0.58)
+shadow_size = 24
+shadow_offset = Vector2(0, 9)
+
+[sub_resource type="StyleBoxFlat" id="ConfirmNormal"]
+bg_color = Color(0.54, 0.19, 0.12, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.69, 0.34, 1)
+corner_radius_top_left = 13
+corner_radius_top_right = 13
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 13
+
+[sub_resource type="StyleBoxFlat" id="ConfirmHover"]
+bg_color = Color(0.72, 0.26, 0.14, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.86, 0.51, 1)
+corner_radius_top_left = 13
+corner_radius_top_right = 13
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 13
+
+[sub_resource type="StyleBoxFlat" id="CancelNormal"]
+bg_color = Color(0.13, 0.25, 0.15, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.55, 0.72, 0.4, 1)
+corner_radius_top_left = 13
+corner_radius_top_right = 13
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 13
+
+[sub_resource type="StyleBoxFlat" id="CancelHover"]
+bg_color = Color(0.19, 0.36, 0.2, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.78, 0.9, 0.55, 1)
+corner_radius_top_left = 13
+corner_radius_top_right = 13
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 13
+
+[sub_resource type="StyleBoxEmpty" id="FocusEmpty"]
+
+[node name="RegularSkipControl" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="SkipButton" type="Button" parent="."]
+custom_minimum_size = Vector2(286, 64)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -324.0
+offset_top = 24.0
+offset_right = -38.0
+offset_bottom = 88.0
+grow_horizontal = 0
+mouse_default_cursor_shape = 2
+tooltip_text = "跳过当前关卡，不获得本关金币"
+theme_override_colors/font_color = Color(1, 0.94, 0.75, 1)
+theme_override_colors/font_hover_color = Color(1, 0.98, 0.84, 1)
+theme_override_colors/font_outline_color = Color(0.09, 0.13, 0.075, 0.95)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 23
+theme_override_styles/normal = SubResource("SkipNormal")
+theme_override_styles/hover = SubResource("SkipHover")
+theme_override_styles/pressed = SubResource("SkipPressed")
+theme_override_styles/focus = SubResource("FocusEmpty")
+text = "蒜鸟，下一关  ›"
+
+[node name="ReturnButton" type="Button" parent="."]
+custom_minimum_size = Vector2(286, 58)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -324.0
+offset_top = 102.0
+offset_right = -38.0
+offset_bottom = 160.0
+grow_horizontal = 0
+mouse_default_cursor_shape = 2
+tooltip_text = "放弃本局进度并返回主界面"
+theme_override_colors/font_color = Color(0.94, 0.88, 0.72, 1)
+theme_override_colors/font_hover_color = Color(1, 0.95, 0.78, 1)
+theme_override_colors/font_outline_color = Color(0.09, 0.07, 0.045, 0.95)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 21
+theme_override_styles/normal = SubResource("ReturnNormal")
+theme_override_styles/hover = SubResource("ReturnHover")
+theme_override_styles/pressed = SubResource("ReturnPressed")
+theme_override_styles/focus = SubResource("FocusEmpty")
+text = "返回主界面"
+
+[node name="Confirmation" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Dimmer" type="ColorRect" parent="Confirmation"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.018, 0.035, 0.022, 0.76)
+
+[node name="Center" type="CenterContainer" parent="Confirmation"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Card" type="PanelContainer" parent="Confirmation/Center"]
+custom_minimum_size = Vector2(700, 360)
+layout_mode = 2
+mouse_filter = 0
+theme_override_styles/panel = SubResource("CardStyle")
+
+[node name="Margin" type="MarginContainer" parent="Confirmation/Center/Card"]
+layout_mode = 2
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_top = 36
+theme_override_constants/margin_right = 48
+theme_override_constants/margin_bottom = 36
+
+[node name="Stack" type="VBoxContainer" parent="Confirmation/Center/Card/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="Eyebrow" type="Label" parent="Confirmation/Center/Card/Margin/Stack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.82, 0.51, 1)
+theme_override_font_sizes/font_size = 18
+text = "跳过当前清扫"
+horizontal_alignment = 1
+
+[node name="Title" type="Label" parent="Confirmation/Center/Card/Margin/Stack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.84, 0.42, 1)
+theme_override_colors/font_outline_color = Color(0.08, 0.12, 0.06, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 45
+text = "蒜鸟，下一关"
+horizontal_alignment = 1
+
+[node name="Message" type="Label" parent="Confirmation/Center/Card/Margin/Stack"]
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.94, 0.91, 0.76, 1)
+theme_override_font_sizes/font_size = 24
+text = "这样做不会获得金钱哦，确认要跳过这一关么？"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Actions" type="HBoxContainer" parent="Confirmation/Center/Card/Margin/Stack"]
+layout_mode = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="Cancel" type="Button" parent="Confirmation/Center/Card/Margin/Stack/Actions"]
+custom_minimum_size = Vector2(230, 62)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(0.91, 0.96, 0.78, 1)
+theme_override_font_sizes/font_size = 23
+theme_override_styles/normal = SubResource("CancelNormal")
+theme_override_styles/hover = SubResource("CancelHover")
+theme_override_styles/pressed = SubResource("CancelNormal")
+theme_override_styles/focus = SubResource("FocusEmpty")
+text = "继续清扫"
+
+[node name="Confirm" type="Button" parent="Confirmation/Center/Card/Margin/Stack/Actions"]
+custom_minimum_size = Vector2(230, 62)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_override_colors/font_color = Color(1, 0.93, 0.76, 1)
+theme_override_font_sizes/font_size = 23
+theme_override_styles/normal = SubResource("ConfirmNormal")
+theme_override_styles/hover = SubResource("ConfirmHover")
+theme_override_styles/pressed = SubResource("ConfirmNormal")
+theme_override_styles/focus = SubResource("FocusEmpty")
+text = "确认跳过"

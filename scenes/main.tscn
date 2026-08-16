@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://chllqdflfac3l"]
 
 [ext_resource type="Script" uid="uid://b82sro0fary3d" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Texture2D" uid="uid://cuboafpixpycn" path="res://assets/backgrounds/forest-clearing-watercolor.jpeg" id="2_background"]
+[ext_resource type="Texture2D" uid="uid://b4au120152bkp" path="res://my_asset/sky.png" id="2_background"]
 [ext_resource type="Texture2D" uid="uid://dn2gnx7hhf0hh" path="res://my_asset/tree_01.png" id="3_tree01"]
 [ext_resource type="Texture2D" uid="uid://yuu6rocwqgwr" path="res://my_asset/tree_02.png" id="4_tree02"]
 [ext_resource type="Texture2D" uid="uid://dolfvuoiae6xq" path="res://my_asset/tree_03.png" id="5_tree03"]
@@ -21,6 +21,20 @@
 [ext_resource type="Script" uid="uid://cewkm3c13jjy3" path="res://scripts/ui/scenery_sway.gd" id="19_sway"]
 [ext_resource type="Texture2D" uid="uid://c4jt87v007ra0" path="res://my_asset/base_01.png" id="20_base"]
 [ext_resource type="Shader" path="res://shaders/parchment_backdrop.gdshader" id="21_backdrop_shader"]
+[ext_resource type="PackedScene" uid="uid://cuyx0oqi644s2" path="res://scenes/birds/blue_bird_perch.tscn" id="22_blue_bird"]
+[ext_resource type="AudioStream" uid="uid://0c0q1y1x5rya" path="res://assets/audio/rhythm_factory.mp3" id="23_bgm"]
+[ext_resource type="AudioStream" path="res://assets/audio/card_reveal_crack.wav" id="28_reveal_sfx"]
+[ext_resource type="AudioStream" path="res://assets/audio/correct_flag.wav" id="29_correct_flag_sfx"]
+[ext_resource type="AudioStream" path="res://assets/audio/wrong_flag.mp3" id="30_wrong_flag_sfx"]
+[ext_resource type="AudioStream" path="res://assets/audio/mine_trigger.wav" id="31_mine_trigger_sfx"]
+[ext_resource type="PackedScene" uid="uid://cs87ck6hjn8sr" path="res://scenes/birds/red_bird_perch.tscn" id="24_red_bird"]
+[ext_resource type="PackedScene" uid="uid://b415v5m3dtpen" path="res://scenes/birds/black_bird_perch.tscn" id="25_black_bird"]
+[ext_resource type="PackedScene" uid="uid://dvr3h2ugw60ic" path="res://scenes/birds/attacker_bird_perch.tscn" id="26_attacker_bird"]
+[ext_resource type="PackedScene" path="res://scenes/birds/eg_bird_perch.tscn" id="27_eg_bird"]
+[ext_resource type="Texture2D" uid="uid://bcpdub8c5uow3" path="res://my_asset/tree_bg.png" id="27_tree_bg"]
+[ext_resource type="Texture2D" path="res://my_asset/bg/bg_left.png" id="32_bg_left"]
+[ext_resource type="Texture2D" path="res://my_asset/bg/bg_right.png" id="33_bg_right"]
+[ext_resource type="Shader" path="res://shaders/tree_sway.gdshader" id="34_sway_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_backdrop"]
 shader = ExtResource("21_backdrop_shader")
@@ -31,6 +45,28 @@ shader_parameter/cloud_strength = 0.38
 shader_parameter/motion_speed = 0.012
 shader_parameter/paper_strength = 0.18
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_side_foliage_left"]
+shader = ExtResource("34_sway_shader")
+shader_parameter/amplitude_px = 30.0
+shader_parameter/angular_speed = 0.95
+shader_parameter/phase = 0.0
+shader_parameter/fixed_bottom_ratio = 0.0
+shader_parameter/transition_height = 0.45
+shader_parameter/click_strength = 0.0
+shader_parameter/gust_amplitude_px = 8.0
+shader_parameter/gust_speed = 2.5
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_side_foliage_right"]
+shader = ExtResource("34_sway_shader")
+shader_parameter/amplitude_px = 26.0
+shader_parameter/angular_speed = 0.78
+shader_parameter/phase = 2.4
+shader_parameter/fixed_bottom_ratio = 0.0
+shader_parameter/transition_height = 0.45
+shader_parameter/click_strength = 0.0
+shader_parameter/gust_amplitude_px = 6.5
+shader_parameter/gust_speed = 2.1
+
 [node name="Main" type="Control" unique_id=859129210]
 layout_mode = 3
 anchors_preset = 15
@@ -40,7 +76,33 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
+[node name="BGM" type="AudioStreamPlayer" parent="." unique_id=34848218]
+process_mode = 3
+stream = ExtResource("23_bgm")
+volume_db = -12.0
+
+[node name="CardRevealSFX" type="AudioStreamPlayer" parent="."]
+process_mode = 3
+stream = ExtResource("28_reveal_sfx")
+volume_db = -9.0
+
+[node name="CorrectFlagSFX" type="AudioStreamPlayer" parent="."]
+process_mode = 3
+stream = ExtResource("29_correct_flag_sfx")
+volume_db = -7.0
+
+[node name="WrongFlagSFX" type="AudioStreamPlayer" parent="."]
+process_mode = 3
+stream = ExtResource("30_wrong_flag_sfx")
+volume_db = -6.0
+
+[node name="MineTriggerSFX" type="AudioStreamPlayer" parent="."]
+process_mode = 3
+stream = ExtResource("31_mine_trigger_sfx")
+volume_db = -8.0
+
 [node name="Backdrop" type="ColorRect" parent="." unique_id=1394052733]
+visible = false
 z_index = -20
 material = SubResource("ShaderMaterial_backdrop")
 layout_mode = 1
@@ -53,7 +115,6 @@ mouse_filter = 2
 color = Color(0.925, 0.886, 0.792, 1)
 
 [node name="Background" type="TextureRect" parent="." unique_id=1247203013]
-visible = false
 z_index = -10
 layout_mode = 1
 anchors_preset = 15
@@ -66,7 +127,105 @@ texture = ExtResource("2_background")
 expand_mode = 1
 stretch_mode = 6
 
+[node name="SideFoliageLeft" type="TextureRect" parent="."]
+modulate = Color(1, 1, 1, 0.6)
+z_index = -9
+material = SubResource("ShaderMaterial_side_foliage_left")
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -800.0
+offset_right = 800.0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("32_bg_left")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="SideFoliageRight" type="TextureRect" parent="."]
+modulate = Color(1, 1, 1, 0.6)
+z_index = -9
+material = SubResource("ShaderMaterial_side_foliage_right")
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -800.0
+offset_top = -800.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+texture = ExtResource("33_bg_right")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CentralTreeBackground" type="TextureRect" parent="." unique_id=526257308]
+z_index = -9
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -929.0
+offset_top = -531.0
+offset_right = 767.0
+offset_bottom = 423.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("27_tree_bg")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BlueBirdPerch" parent="." unique_id=2046049682 instance=ExtResource("22_blue_bird")]
+z_index = 50
+layout_mode = 0
+offset_left = -85.0
+offset_top = 35.0
+offset_right = 363.0
+offset_bottom = 371.0
+scale = Vector2(0.9, 0.9)
+
+[node name="RedBirdPerch" parent="." unique_id=1542616541 instance=ExtResource("24_red_bird")]
+z_index = 50
+layout_mode = 0
+offset_left = 1500.0
+offset_top = 620.0
+offset_right = 1948.0
+offset_bottom = 956.0
+scale = Vector2(0.9, 0.9)
+
+[node name="BlackBirdPerch" parent="." unique_id=1277760466 instance=ExtResource("25_black_bird")]
+z_index = 50
+layout_mode = 0
+offset_left = -82.0
+offset_top = 350.0
+offset_right = 366.0
+offset_bottom = 686.0
+scale = Vector2(0.9, 0.9)
+
+[node name="AttackerBirdPerch" parent="." unique_id=1368654424 instance=ExtResource("26_attacker_bird")]
+z_index = 50
+layout_mode = 0
+offset_left = 1500.0
+offset_top = 35.0
+offset_right = 1948.0
+offset_bottom = 371.0
+scale = Vector2(0.9, 0.9)
+
+[node name="EgBirdPerch" parent="." instance=ExtResource("27_eg_bird")]
+z_index = 50
+layout_mode = 0
+offset_left = 810.0
+offset_top = 825.0
+offset_right = 1110.0
+offset_bottom = 1085.0
+scale = Vector2(0.8, 0.8)
+
 [node name="BoardPlatform" type="TextureRect" parent="." unique_id=689903562]
+visible = false
 z_index = -9
 layout_mode = 1
 anchors_preset = -1
@@ -86,6 +245,7 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="Scenery" type="Control" parent="." unique_id=2142702601]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

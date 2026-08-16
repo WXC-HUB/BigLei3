@@ -14,15 +14,17 @@ func _capture() -> void:
 	root.add_child(game)
 	await process_frame
 	await process_frame
+	game.call("_start_game")
 	await process_frame
 
-	game.call("_on_cell_revealed", 44)
+	var board: MinesweeperBoard = game.get("_board")
+	var center := int(board.height / 2) * board.width + int(board.width / 2)
+	game.call("_on_cell_revealed", center)
 	await create_timer(0.13).timeout
 	var effect_image := root.get_texture().get_image()
 	effect_image.save_png("res://artifacts/gameplay_effect.png")
 	await create_timer(1.2).timeout
 
-	var board = game.get("_board")
 	for index in range(board.width * board.height):
 		if (
 			board.item_at(index) != board.ItemType.NONE

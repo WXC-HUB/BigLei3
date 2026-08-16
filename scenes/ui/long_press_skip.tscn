@@ -1,0 +1,114 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/long_press_skip.gd" id="1_script"]
+[ext_resource type="FontFile" path="res://assets/fonts/eva_ming_sc.otf" id="2_font"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/black_idle_1.png" id="3_black"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/eg_idle_1.png" id="4_kestrel"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/red_idle_1.png" id="5_redstart"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/attacker_idle_1.png" id="6_woodpecker"]
+
+[node name="LongPressSkip" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="Birds" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Black" type="TextureRect" parent="Birds"]
+offset_left = -780.0
+offset_top = -100.0
+offset_right = 0.0
+offset_bottom = 680.0
+mouse_filter = 2
+texture = ExtResource("3_black")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Kestrel" type="TextureRect" parent="Birds"]
+offset_left = 1920.0
+offset_top = -140.0
+offset_right = 2700.0
+offset_bottom = 640.0
+mouse_filter = 2
+texture = ExtResource("4_kestrel")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Redstart" type="TextureRect" parent="Birds"]
+offset_left = -780.0
+offset_top = 420.0
+offset_right = 0.0
+offset_bottom = 1200.0
+mouse_filter = 2
+texture = ExtResource("5_redstart")
+expand_mode = 1
+stretch_mode = 5
+flip_h = true
+
+[node name="Woodpecker" type="TextureRect" parent="Birds"]
+offset_left = 1920.0
+offset_top = 390.0
+offset_right = 2700.0
+offset_bottom = 1170.0
+mouse_filter = 2
+texture = ExtResource("6_woodpecker")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Hint" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 190.0
+offset_bottom = 590.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="Base" type="Label" parent="Hint"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.22)
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 320
+text = "长~按~跳~过"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Wipe" type="Control" parent="Hint"]
+unique_name_in_owner = true
+clip_contents = true
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 400.0
+mouse_filter = 2
+
+[node name="Fill" type="Label" parent="Hint/Wipe"]
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 400.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.72)
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 320
+text = "长~按~跳~过"
+horizontal_alignment = 1
+vertical_alignment = 1

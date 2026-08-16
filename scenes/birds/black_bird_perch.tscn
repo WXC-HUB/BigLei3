@@ -1,0 +1,68 @@
+[gd_scene format=3 uid="uid://b415v5m3dtpen"]
+
+[ext_resource type="Script" uid="uid://sqau0sdy4e0" path="res://scripts/ui/bird_perch.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://csco5ubg3i3y3" path="res://my_asset/birds/tree_left_1.png" id="2_tree"]
+[ext_resource type="Texture2D" uid="uid://lu4o0iyvaw7e" path="res://my_asset/birds/black_idle_1.png" id="3_idle1"]
+[ext_resource type="Texture2D" uid="uid://ddyjh5ktsennh" path="res://my_asset/birds/black_idle_2.png" id="4_idle2"]
+[ext_resource type="Texture2D" uid="uid://12v0vpixcfk7" path="res://my_asset/birds/black_idle_3.png" id="5_idle3"]
+[ext_resource type="Texture2D" uid="uid://ccr8a6m43ke6m" path="res://my_asset/birds/black_idle_4.png" id="6_idle4"]
+[ext_resource type="Texture2D" uid="uid://c5je84021ts6m" path="res://my_asset/birds/black_fly_1.png" id="7_fly1"]
+[ext_resource type="Texture2D" uid="uid://tvyjmbfbpgjw" path="res://my_asset/birds/black_fly_2.png" id="8_fly2"]
+[ext_resource type="AudioStream" uid="uid://bksmrh7rvpahd" path="res://assets/audio/black_bird_lantern.mp3" id="9_sfx"]
+
+[node name="BlackBirdPerch" type="Control" unique_id=979221048]
+custom_minimum_size = Vector2(448, 336)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 448.0
+offset_bottom = 336.0
+mouse_filter = 1
+script = ExtResource("1_script")
+idle_frames = Array[Texture2D]([ExtResource("3_idle1"), ExtResource("4_idle2"), ExtResource("5_idle3"), ExtResource("6_idle4")])
+action_frames = Array[Texture2D]([ExtResource("7_fly1"), ExtResource("8_fly2")])
+action_last_hold = 0.05
+launch_frame_index = 1
+stay_hidden_after_action = true
+click_enabled = false
+
+[node name="Tree" type="TextureRect" parent="." unique_id=787566869]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -185.0
+offset_top = 315.0
+offset_right = -34.43219
+offset_bottom = 410.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_tree")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Sprite" type="TextureRect" parent="." unique_id=720984698]
+layout_mode = 0
+offset_left = 49.0
+offset_top = 310.10345
+offset_right = 394.0
+offset_bottom = 667.0
+mouse_filter = 2
+texture = ExtResource("3_idle1")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HitArea" type="Button" parent="." unique_id=160062985]
+layout_mode = 0
+offset_left = 30.0
+offset_top = 286.0
+offset_right = 469.7482
+offset_bottom = 661.0
+tooltip_text = "夜鹭"
+focus_mode = 0
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="ActionSFX" type="AudioStreamPlayer" parent="." unique_id=1968320899]
+stream = ExtResource("9_sfx")
+volume_db = -5.0

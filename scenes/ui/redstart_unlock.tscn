@@ -1,0 +1,255 @@
+[gd_scene format=3 uid="uid://bxsj5pqbu7iuy"]
+
+[ext_resource type="Script" uid="uid://cupp0owfssbok" path="res://scripts/ui/redstart_unlock.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://w3vsqpy6oyye" path="res://my_asset/birds/red_idle_1.png" id="2_bird"]
+[ext_resource type="Shader" path="res://shaders/unlock_icon_pattern.gdshader" id="3_pattern_shader"]
+[ext_resource type="Theme" path="res://themes/bird_unlock_theme.tres" id="4_unlock_theme"]
+[ext_resource type="Texture2D" uid="uid://crrugeb3d8rwb" path="res://assets/unlock/redstart/photo_01.jpg" id="5_photo1"]
+[ext_resource type="Texture2D" uid="uid://blk3vh4c8sc1j" path="res://assets/unlock/redstart/photo_02.jpg" id="6_photo2"]
+[ext_resource type="Texture2D" uid="uid://b0kq5jwa5n24u" path="res://assets/unlock/redstart/photo_03.jpg" id="7_photo3"]
+[ext_resource type="Texture2D" uid="uid://cdgtw2v7g141c" path="res://assets/unlock/redstart/photo_04.jpg" id="8_photo4"]
+[ext_resource type="AudioStream" uid="uid://bvcb6fs57m7vb" path="res://assets/audio/red_bird_compass.wav" id="9_redstart_call"]
+[ext_resource type="AudioStream" uid="uid://casfoaan3wrgj" path="res://assets/audio/651988__deadrobotmusic__foley-perc-27.wav" id="10_impact_sfx"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pattern"]
+shader = ExtResource("3_pattern_shader")
+shader_parameter/icon_texture = ExtResource("2_bird")
+shader_parameter/icon_color = Color(0.56, 0.69, 0.82, 0.18)
+shader_parameter/tile_count = Vector2(6, 6)
+shader_parameter/motion_speed = 0.2
+shader_parameter/travel = Vector2(0.045, 0.028)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_photo"]
+bg_color = Color(0.97, 0.94, 0.84, 1)
+border_width_left = 12
+border_width_top = 12
+border_width_right = 12
+border_width_bottom = 28
+border_color = Color(0.99, 0.97, 0.9, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+shadow_color = Color(0.015, 0.02, 0.05, 0.5)
+shadow_size = 18
+
+[node name="RedstartUnlock" type="Control" unique_id=142311110]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("4_unlock_theme")
+script = ExtResource("1_script")
+
+[node name="Dimmer" type="ColorRect" parent="." unique_id=1283121823]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.055, 0.075, 0.12, 1)
+
+[node name="IconPattern" type="ColorRect" parent="." unique_id=50672624]
+material = SubResource("ShaderMaterial_pattern")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="RedstartCall" type="AudioStreamPlayer" parent="." unique_id=1184202040]
+stream = ExtResource("9_redstart_call")
+volume_db = -2.0
+
+[node name="ImpactSFX" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("10_impact_sfx")
+volume_db = 2.0
+
+[node name="PhotoStage" type="Control" parent="." unique_id=661933012]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Photo01" type="PanelContainer" parent="PhotoStage" unique_id=857632464]
+layout_mode = 0
+offset_left = 130.0
+offset_top = 150.0
+offset_right = 740.0
+offset_bottom = 545.0
+rotation = -0.07330383
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_photo")
+
+[node name="Image" type="TextureRect" parent="PhotoStage/Photo01" unique_id=1600927839]
+custom_minimum_size = Vector2(570, 350)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("5_photo1")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Photo02" type="PanelContainer" parent="PhotoStage" unique_id=1070416817]
+layout_mode = 0
+offset_left = 735.0
+offset_top = 80.0
+offset_right = 1095.0
+offset_bottom = 610.0
+rotation = 0.06108652
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_photo")
+
+[node name="Image" type="TextureRect" parent="PhotoStage/Photo02" unique_id=379690188]
+custom_minimum_size = Vector2(320, 485)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("6_photo2")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Photo03" type="PanelContainer" parent="PhotoStage" unique_id=1108021383]
+layout_mode = 0
+offset_left = 1115.0
+offset_top = 180.0
+offset_right = 1515.0
+offset_bottom = 735.0
+rotation = -0.04712389
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_photo")
+
+[node name="Image" type="TextureRect" parent="PhotoStage/Photo03" unique_id=1404454907]
+custom_minimum_size = Vector2(360, 510)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("7_photo3")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Photo04" type="PanelContainer" parent="PhotoStage" unique_id=1106436725]
+layout_mode = 0
+offset_left = 1410.0
+offset_top = 610.0
+offset_right = 1840.0
+offset_bottom = 945.0
+rotation = 0.082030475
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_photo")
+
+[node name="Image" type="TextureRect" parent="PhotoStage/Photo04" unique_id=713317285]
+custom_minimum_size = Vector2(390, 290)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("8_photo4")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Finale" type="Control" parent="." unique_id=1824098489]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Name" type="Label" parent="Finale" unique_id=2017140470]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.46
+anchor_top = 0.38
+anchor_right = 0.96
+anchor_bottom = 0.52
+offset_left = -776.2
+offset_top = -269.4
+offset_right = -37.0
+offset_bottom = 340.9
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.025, 0.04, 0.09, 1)
+theme_override_constants/outline_size = 16
+theme_override_font_sizes/font_size = 338
+text = "红尾    水鸲"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Bird" type="TextureRect" parent="Finale" unique_id=1187771807]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 665.0
+offset_top = -832.0
+offset_right = 1333.8696
+offset_bottom = -191.0
+grow_vertical = 0
+mouse_filter = 0
+texture = ExtResource("2_bird")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Tagline" type="Label" parent="Finale" unique_id=1139891455]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.49
+anchor_top = 0.54
+anchor_right = 0.94
+anchor_bottom = 0.63
+offset_left = -697.80005
+offset_top = -404.2
+offset_right = -167.80005
+offset_bottom = -325.4
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.025, 0.04, 0.09, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 90
+text = "宏伟      水渠"
+horizontal_alignment = 1
+
+[node name="Effect" type="Label" parent="Finale" unique_id=1320957126]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.48
+anchor_top = 0.65
+anchor_right = 0.95
+anchor_bottom = 0.73
+offset_left = -442.6
+offset_top = 146.0
+offset_right = -442.6
+offset_bottom = 146.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.86, 0.9, 1, 1)
+theme_override_colors/font_outline_color = Color(0.025, 0.04, 0.09, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 46
+text = "自动标出1个雷"
+horizontal_alignment = 1
+
+[node name="Continue" type="Button" parent="Finale" unique_id=509145823]
+custom_minimum_size = Vector2(400, 72)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -1192.0
+offset_top = -131.0
+offset_right = -762.0
+offset_bottom = -51.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 28
+text = "于 一！"

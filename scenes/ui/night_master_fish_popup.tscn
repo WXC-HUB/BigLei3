@@ -1,0 +1,71 @@
+[gd_scene format=3 uid="uid://bsjby1d2q2nqg"]
+
+[ext_resource type="Script" uid="uid://qnk7dvet62t6" path="res://scripts/ui/night_master_fish_popup.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://d2e1jgw3a84nc" path="res://my_asset/yelu/bg1.png" id="2_l404k"]
+[ext_resource type="Texture2D" uid="uid://dntb8511xi5ak" path="res://my_asset/yelu/bg3.png" id="3_1ohhs"]
+[ext_resource type="Texture2D" uid="uid://b2mjp8kvih755" path="res://my_asset/yelu/bg2.png" id="4_s33in"]
+[ext_resource type="Texture2D" uid="uid://lu4o0iyvaw7e" path="res://my_asset/birds/black_idle_1.png" id="5_2j0xg"]
+[ext_resource type="Texture2D" uid="uid://j510x2oxiwj8" path="res://my_asset/yelu/sp_1.png" id="6_bdiv3"]
+[ext_resource type="Texture2D" uid="uid://oj0hcm1dguwb" path="res://my_asset/yelu/sp_2.png" id="7_upr2r"]
+
+[node name="NightMasterFishPopup" type="Control" unique_id=1806337686]
+z_index = 95
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 14.0
+offset_right = 12.0
+offset_bottom = 14.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="Bg1" type="Sprite2D" parent="." unique_id=282663555]
+position = Vector2(262.6912, 911.69104)
+scale = Vector2(1.7464138, 1.7464138)
+texture = ExtResource("2_l404k")
+
+[node name="Bg3" type="Sprite2D" parent="." unique_id=1900048435]
+position = Vector2(286.6913, 890.6913)
+scale = Vector2(2.2646081, 2.2646081)
+texture = ExtResource("3_1ohhs")
+
+[node name="Bg2" type="Sprite2D" parent="." unique_id=1367386061]
+position = Vector2(357, 875.00006)
+scale = Vector2(2.1406653, 1.87534)
+texture = ExtResource("4_s33in")
+
+[node name="BlackIdle1" type="Sprite2D" parent="." unique_id=257772019]
+position = Vector2(156, 871.00006)
+scale = Vector2(1.8363637, 1.8363637)
+texture = ExtResource("5_2j0xg")
+
+[node name="Message" type="Label" parent="." unique_id=1080396497]
+layout_mode = 0
+offset_left = 148.0
+offset_top = 790.00006
+offset_right = 612.0
+offset_bottom = 991.00006
+rotation = -0.050420623
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.101961, 0.0705882, 0.0392157, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 47
+text = "夜师傅
+吃了
+你的鱼"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Sp1" type="Sprite2D" parent="." unique_id=670039384]
+position = Vector2(514.0001, 939)
+scale = Vector2(1.6066667, 1.6066667)
+texture = ExtResource("6_bdiv3")
+
+[node name="Sp2" type="Sprite2D" parent="." unique_id=550031629]
+position = Vector2(571, 748)
+scale = Vector2(1.4483346, 1.4883332)
+texture = ExtResource("7_upr2r")

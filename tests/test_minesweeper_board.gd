@@ -8,8 +8,9 @@ func _init() -> void:
 	_test_monster_footprints()
 	_test_revealed_monster_core_does_not_end_board()
 	_test_flags_toggle()
-	_test_revealed_flags_toggle()
+	_test_revealed_cells_reject_flags()
 	_test_items_are_placed_and_resolved()
+	_test_lantern_random_target_count()
 	_test_win_condition()
 	print("MinesweeperBoard: all tests passed")
 	quit()
@@ -30,50 +31,19 @@ func _test_monster_footprints() -> void:
 	var board = BoardModel.new(10, 8, 12, 314159)
 	board.reveal(0)
 	var core_count := 0
-	var large_count := 0
-	var found_single := false
-	var found_large := false
 	var small_core := -1
-	var large_core := -1
 	for index in range(board.width * board.height):
 		if board.is_monster_core(index):
 			core_count += 1
 			assert(board.monster_core_at(index) == index)
-			var peripheral_count := board.monster_peripheral_count(index)
-			assert(peripheral_count == 0 or peripheral_count == 8)
-			if peripheral_count == 8:
-				large_count += 1
-				assert(board.adjacent_mines(index) == 9)
-				large_core = index
-			else:
-				small_core = index
-			found_single = found_single or peripheral_count == 0
-			found_large = found_large or peripheral_count == 8
-		elif board.is_monster_peripheral(index):
-			assert(board.has_mine(index))
-			assert(board.is_monster_core(board.monster_core_at(index)))
-			var expected_value := 1
-			for neighbor in board.neighbors_of(index):
-				if board.has_mine(neighbor):
-					expected_value += 1
-			assert(board.adjacent_mines(index) == expected_value)
-			if board.state_at(index) == BoardModel.CellState.COVERED:
-				assert(board.reveal(index).has(index))
-			assert(board.state_at(index) == BoardModel.CellState.REVEALED)
+			assert(board.monster_peripheral_count(index) == 0)
+			small_core = index
+		assert(not board.is_monster_peripheral(index))
 	assert(core_count == board.mine_count)
-	assert(large_count == 1)
-	assert(found_single)
-	assert(found_large)
 	assert(small_core >= 0)
 	assert(board.mark_mine(small_core))
 	assert(board.resolve_monster_core(small_core))
 	assert(board.state_at(small_core) == BoardModel.CellState.REVEALED)
-	assert(large_core >= 0)
-	var footprint_reveal := board.reveal(large_core)
-	assert(footprint_reveal.has(large_core))
-	for peripheral_index in board.neighbors_of(large_core):
-		assert(board.is_monster_peripheral(peripheral_index))
-		assert(board.state_at(peripheral_index) == BoardModel.CellState.REVEALED)
 
 
 func _test_revealed_monster_core_does_not_end_board() -> void:
@@ -101,27 +71,25 @@ func _test_flags_toggle() -> void:
 	assert(board.flag_count() == 0)
 
 
-func _test_revealed_flags_toggle() -> void:
+func _test_revealed_cells_reject_flags() -> void:
 	var board = BoardModel.new(10, 8, 12, 12345)
 	board.reveal(44)
 	assert(board.state_at(44) == BoardModel.CellState.REVEALED)
-	assert(board.toggle_flag(44))
+	assert(not board.toggle_flag(44))
 	assert(board.state_at(44) == BoardModel.CellState.REVEALED)
-	assert(board.is_flagged(44))
-	assert(board.flag_count() == 1)
-	assert(board.toggle_flag(44))
 	assert(not board.is_flagged(44))
 	assert(board.flag_count() == 0)
 
 
 func _test_items_are_placed_and_resolved() -> void:
-	var board = BoardModel.new(10, 8, 12, 2468, 2, 2, 2, 2)
+	var board = BoardModel.new(10, 8, 12, 2468, 2, 2, 2, 2, 2)
 	board.reveal(0)
 	assert(board.item_count(BoardModel.ItemType.LANTERN) == 2)
 	assert(board.item_count(BoardModel.ItemType.COMPASS) == 2)
 	assert(board.item_count(BoardModel.ItemType.ORBITAL_STRIKE) == 2)
 	assert(board.item_count(BoardModel.ItemType.SUPER_LUCK) == 2)
-	assert(board.item_count(BoardModel.ItemType.NONE) == board.width * board.height - 8)
+	assert(board.item_count(BoardModel.ItemType.MEDICAL_KIT) == 2)
+	assert(board.item_count(BoardModel.ItemType.NONE) == board.width * board.height - 10)
 
 	var lantern_index := -1
 	for index in range(board.width * board.height):
@@ -133,12 +101,10 @@ func _test_items_are_placed_and_resolved() -> void:
 		board.reveal(lantern_index)
 	assert(board.consume_item(lantern_index) == BoardModel.ItemType.LANTERN)
 	assert(board.consume_item(lantern_index) == BoardModel.ItemType.NONE)
-	board.apply_lantern(lantern_index)
-	for target in board.neighbors_of(lantern_index):
-		if board.is_monster_core(target):
-			assert(board.state_at(target) == BoardModel.CellState.FLAGGED)
-		else:
-			assert(board.state_at(target) == BoardModel.CellState.REVEALED)
+	var lantern_targets := board.random_lantern_targets(lantern_index, 1)
+	assert(lantern_targets.size() <= 1)
+	var lantern_result: Dictionary = board.apply_lantern_targets(lantern_targets)
+	assert((lantern_result["revealed"] as PackedInt32Array).size() + (lantern_result["flagged"] as PackedInt32Array).size() <= 1)
 
 	var compass_target := board.random_hidden_safe_cell()
 	if compass_target >= 0:
@@ -166,6 +132,30 @@ func _test_items_are_placed_and_resolved() -> void:
 			assert(board.state_at(target) == BoardModel.CellState.FLAGGED)
 		else:
 			assert(board.state_at(target) == BoardModel.CellState.REVEALED)
+
+
+func _test_lantern_random_target_count() -> void:
+	var board = BoardModel.new(8, 8, 8, 98765, 0, 0, 0, 0, 0)
+	board.ensure_mines_placed(0)
+	var center := -1
+	for candidate in range(board.width * board.height):
+		var covered_neighbors := 0
+		for neighbor in board.neighbors_of(candidate):
+			if board.state_at(neighbor) == BoardModel.CellState.COVERED:
+				covered_neighbors += 1
+		if covered_neighbors >= 3:
+			center = candidate
+			break
+	assert(center >= 0)
+	var targets := board.random_lantern_targets(center, 3)
+	assert(targets.size() == 3)
+	var unique: Dictionary = {}
+	for target in targets:
+		assert(board.neighbors_of(center).has(target))
+		unique[target] = true
+	assert(unique.size() == 3)
+	var result: Dictionary = board.apply_lantern_targets(targets)
+	assert((result["revealed"] as PackedInt32Array).size() + (result["flagged"] as PackedInt32Array).size() == 3)
 
 
 func _test_win_condition() -> void:

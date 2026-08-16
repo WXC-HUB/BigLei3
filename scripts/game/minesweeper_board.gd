@@ -2,7 +2,18 @@ class_name MinesweeperBoard
 extends RefCounted
 
 enum CellState { COVERED, REVEALED, FLAGGED }
-enum ItemType { NONE, LANTERN, COMPASS, ORBITAL_STRIKE, SUPER_LUCK }
+enum ItemType {
+	NONE,
+	LANTERN,
+	COMPASS,
+	ORBITAL_STRIKE,
+	SUPER_LUCK,
+	MEDICAL_KIT,
+	XRAY,
+	CHAIN,
+	ENLARGE,
+	DETECT,
+}
 
 var width: int
 var height: int
@@ -11,6 +22,11 @@ var lantern_count: int
 var compass_count: int
 var orbital_strike_count: int
 var super_luck_count: int
+var medical_kit_count: int
+var xray_count: int
+var chain_count: int
+var enlarge_count: int
+var detect_count: int
 var mines_placed := false
 var game_over := false
 var won := false
@@ -24,7 +40,6 @@ var _states := PackedByteArray()
 var _adjacent := PackedByteArray()
 var _items := PackedByteArray()
 var _items_used := PackedByteArray()
-var _revealed_flags := PackedByteArray()
 var _revealed_safe_cells := 0
 var _monster_peripheral_counts: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
@@ -38,7 +53,12 @@ func _init(
 	lanterns: int = 3,
 	compasses: int = 3,
 	orbital_strikes: int = 2,
-	super_lucks: int = 2
+	super_lucks: int = 2,
+	medical_kits: int = 0,
+	xrays: int = 0,
+	chains: int = 0,
+	enlarges: int = 0,
+	detects: int = 0
 ) -> void:
 	width = board_width
 	height = board_height
@@ -47,6 +67,11 @@ func _init(
 	compass_count = maxi(compasses, 0)
 	orbital_strike_count = maxi(orbital_strikes, 0)
 	super_luck_count = maxi(super_lucks, 0)
+	medical_kit_count = maxi(medical_kits, 0)
+	xray_count = maxi(xrays, 0)
+	chain_count = maxi(chains, 0)
+	enlarge_count = maxi(enlarges, 0)
+	detect_count = maxi(detects, 0)
 	seed = run_seed if run_seed != 0 else int(Time.get_unix_time_from_system() * 1000.0) ^ Time.get_ticks_msec()
 	_rng.seed = seed
 	_mines.resize(width * height)
@@ -57,7 +82,6 @@ func _init(
 	_adjacent.resize(width * height)
 	_items.resize(width * height)
 	_items_used.resize(width * height)
-	_revealed_flags.resize(width * height)
 	_mines.fill(0)
 	_monster_cores.fill(0)
 	_monster_peripherals.fill(0)
@@ -66,7 +90,6 @@ func _init(
 	_adjacent.fill(0)
 	_items.fill(ItemType.NONE)
 	_items_used.fill(0)
-	_revealed_flags.fill(0)
 
 
 func reveal(index: int) -> PackedInt32Array:
@@ -116,9 +139,7 @@ func toggle_flag(index: int) -> bool:
 	if not _is_valid(index) or game_over:
 		return false
 	if state_at(index) == CellState.REVEALED:
-		_revealed_flags[index] = 0 if _revealed_flags[index] == 1 else 1
-		_refresh_mine_completion()
-		return true
+		return false
 	_states[index] = CellState.COVERED if state_at(index) == CellState.FLAGGED else CellState.FLAGGED
 	_refresh_mine_completion()
 	return true
@@ -131,11 +152,16 @@ func state_at(index: int) -> CellState:
 func is_flagged(index: int) -> bool:
 	if not _is_valid(index):
 		return false
-	return state_at(index) == CellState.FLAGGED or _revealed_flags[index] == 1
+	return state_at(index) == CellState.FLAGGED
 
 
 func has_mine(index: int) -> bool:
 	return _mines[index] == 1
+
+
+func ensure_mines_placed(safe_index: int) -> void:
+	if not mines_placed:
+		_place_mines(safe_index)
 
 
 func is_monster_core(index: int) -> bool:
@@ -162,6 +188,22 @@ func item_at(index: int) -> ItemType:
 	return _items[index] as ItemType
 
 
+func force_item_at(index: int, type: ItemType, preserve_count: bool = true) -> bool:
+	if not _is_valid(index) or not mines_placed or has_mine(index) or state_at(index) == CellState.FLAGGED:
+		return false
+	if item_at(index) == type:
+		return true
+	if preserve_count:
+		for other_index in range(width * height):
+			if other_index != index and item_at(other_index) == type:
+				_items[other_index] = ItemType.NONE
+				_items_used[other_index] = 0
+				break
+	_items[index] = type
+	_items_used[index] = 0
+	return true
+
+
 func is_item_used(index: int) -> bool:
 	return _items_used[index] == 1
 
@@ -183,20 +225,41 @@ func item_count(type: ItemType) -> int:
 	return total
 
 
-func apply_lantern(center_index: int) -> Dictionary:
+func random_lantern_targets(center_index: int, count: int) -> PackedInt32Array:
+	var candidates: Array[int] = []
+	if not _is_valid(center_index) or not mines_placed:
+		return PackedInt32Array()
+	for target in neighbors_of(center_index):
+		if state_at(target) == CellState.COVERED:
+			candidates.append(target)
+	for index in range(candidates.size() - 1, 0, -1):
+		var swap_index := _rng.randi_range(0, index)
+		var temporary := candidates[index]
+		candidates[index] = candidates[swap_index]
+		candidates[swap_index] = temporary
+	var targets := PackedInt32Array()
+	for index in range(mini(maxi(count, 0), candidates.size())):
+		targets.append(candidates[index])
+	return targets
+
+
+func apply_lantern(center_index: int, count: int = 1) -> Dictionary:
+	return apply_lantern_targets(random_lantern_targets(center_index, count))
+
+
+func apply_lantern_targets(targets: PackedInt32Array) -> Dictionary:
 	var revealed := PackedInt32Array()
 	var flagged := PackedInt32Array()
-	if not _is_valid(center_index) or not mines_placed:
+	if not mines_placed:
 		return {"revealed": revealed, "flagged": flagged}
-	var targets := neighbors_of(center_index)
-	targets.append(center_index)
-	targets.sort()
 	for target in targets:
+		if not _is_valid(target):
+			continue
 		if is_monster_core(target):
 			if mark_mine(target):
 				flagged.append(target)
 		elif state_at(target) != CellState.REVEALED:
-			for changed in reveal_forced_safe(target):
+			for changed in reveal_exact_forced_safe(target):
 				if not revealed.has(changed):
 					revealed.append(changed)
 	return {"revealed": revealed, "flagged": flagged}
@@ -210,13 +273,24 @@ func apply_orbital_strike(center_index: int) -> Dictionary:
 	var row: int = center_index / width
 	for column in range(width):
 		var target := row * width + column
-		if is_monster_core(target):
-			if mark_mine(target):
-				flagged.append(target)
-		elif state_at(target) != CellState.REVEALED:
-			var changed := reveal_exact_forced_safe(target)
-			if not changed.is_empty():
-				revealed.append(target)
+		var result := apply_orbital_strike_cell(target)
+		revealed.append_array(result["revealed"])
+		flagged.append_array(result["flagged"])
+	return {"revealed": revealed, "flagged": flagged}
+
+
+func apply_orbital_strike_cell(target: int) -> Dictionary:
+	var revealed := PackedInt32Array()
+	var flagged := PackedInt32Array()
+	if not _is_valid(target) or not mines_placed:
+		return {"revealed": revealed, "flagged": flagged}
+	if is_monster_core(target):
+		if mark_mine(target):
+			flagged.append(target)
+	elif state_at(target) != CellState.REVEALED:
+		var changed := reveal_exact_forced_safe(target)
+		if not changed.is_empty():
+			revealed.append(target)
 	return {"revealed": revealed, "flagged": flagged}
 
 
@@ -246,6 +320,30 @@ func random_hidden_safe_cell() -> int:
 	return candidates[_rng.randi_range(0, candidates.size() - 1)]
 
 
+func random_hidden_cell() -> int:
+	var candidates: Array[int] = []
+	for index in range(width * height):
+		if state_at(index) == CellState.COVERED:
+			candidates.append(index)
+	if candidates.is_empty():
+		return -1
+	return candidates[_rng.randi_range(0, candidates.size() - 1)]
+
+
+func random_hidden_mine_cell() -> int:
+	return random_hidden_mine_cell_excluding([])
+
+
+func random_hidden_mine_cell_excluding(excluded: Array[int]) -> int:
+	var candidates: Array[int] = []
+	for index in range(width * height):
+		if is_monster_core(index) and state_at(index) == CellState.COVERED and not excluded.has(index):
+			candidates.append(index)
+	if candidates.is_empty():
+		return -1
+	return candidates[_rng.randi_range(0, candidates.size() - 1)]
+
+
 func reveal_forced_safe(index: int) -> PackedInt32Array:
 	if not _is_valid(index) or is_monster_core(index):
 		return PackedInt32Array()
@@ -261,7 +359,6 @@ func reveal_exact_forced_safe(index: int) -> PackedInt32Array:
 	if state_at(index) == CellState.REVEALED:
 		return changed
 	_states[index] = CellState.REVEALED
-	_revealed_flags[index] = 0
 	_revealed_safe_cells += 1
 	changed.append(index)
 	_refresh_mine_completion()
@@ -271,7 +368,7 @@ func reveal_exact_forced_safe(index: int) -> PackedInt32Array:
 func flag_count() -> int:
 	var total := 0
 	for index in range(_states.size()):
-		if state_at(index) == CellState.FLAGGED or _revealed_flags[index] == 1:
+		if state_at(index) == CellState.FLAGGED:
 			total += 1
 	return total
 
@@ -317,7 +414,7 @@ func inference_at(index: int) -> Dictionary:
 			CellState.FLAGGED:
 				known_mines += 1
 			CellState.REVEALED:
-				if is_flagged(neighbor) or has_mine(neighbor):
+				if has_mine(neighbor):
 					known_mines += 1
 
 	var remaining_mines := adjacent_mines(index) - known_mines
@@ -351,8 +448,11 @@ func neighbors_of(index: int) -> PackedInt32Array:
 
 func _place_mines(first_index: int) -> void:
 	var forbidden: Dictionary = {first_index: true}
-	for neighbor in neighbors_of(first_index):
-		forbidden[neighbor] = true
+	# A full 3x3 first-click safe zone would consume the entire opening board.
+	# On the tutorial-sized first level only the clicked card is guaranteed safe.
+	if width > 3 or height > 3:
+		for neighbor in neighbors_of(first_index):
+			forbidden[neighbor] = true
 	var candidates: Array[int] = []
 	for index in range(width * height):
 		if not forbidden.has(index):
@@ -365,27 +465,18 @@ func _place_mines(first_index: int) -> void:
 
 	var occupied: Dictionary = {}
 	var placed_cores := 0
-	# The initial encounter contains at most one 3x3 monster. Every remaining
-	# monster core is placed as a single-cell small mine.
-	var desired_large_monsters := mini(1, mine_count)
-	for monster_index in range(desired_large_monsters):
-		var core_index := _find_large_monster_core(candidates, forbidden, occupied)
-		if core_index < 0:
-			break
-		_place_monster(core_index, true, occupied)
-		placed_cores += 1
-
+	# Every hazard is a single-cell small mine. Large 3x3 footprints are no longer
+	# part of the board generation rules.
 	while placed_cores < mine_count:
 		var core_index := _find_single_monster_core(candidates, occupied)
 		if core_index < 0:
 			break
-		_place_monster(core_index, false, occupied)
+		_place_monster(core_index, occupied)
 		placed_cores += 1
 	mine_count = placed_cores
 
 	for index in range(width * height):
-		# Hazard cells count themselves as well as their eight neighbors.  This lets
-		# revealed monster-periphery cells legitimately display values up to 9.
+		# Hazard cells count themselves as well as their eight neighbors.
 		var count := 1 if has_mine(index) else 0
 		for neighbor in neighbors_of(index):
 			if has_mine(neighbor):
@@ -395,22 +486,6 @@ func _place_mines(first_index: int) -> void:
 	mines_placed = true
 
 
-func _find_large_monster_core(candidates: Array[int], forbidden: Dictionary, occupied: Dictionary) -> int:
-	for candidate in candidates:
-		var footprint := Array(neighbors_of(candidate))
-		if footprint.size() != 8:
-			continue
-		footprint.append(candidate)
-		var available := true
-		for cell_index in footprint:
-			if forbidden.has(cell_index) or occupied.has(cell_index):
-				available = false
-				break
-		if available:
-			return candidate
-	return -1
-
-
 func _find_single_monster_core(candidates: Array[int], occupied: Dictionary) -> int:
 	for candidate in candidates:
 		if not occupied.has(candidate):
@@ -418,20 +493,12 @@ func _find_single_monster_core(candidates: Array[int], occupied: Dictionary) -> 
 	return -1
 
 
-func _place_monster(core_index: int, has_full_periphery: bool, occupied: Dictionary) -> void:
+func _place_monster(core_index: int, occupied: Dictionary) -> void:
 	_monster_cores[core_index] = 1
 	_mines[core_index] = 1
 	_monster_core_lookup[core_index] = core_index
 	occupied[core_index] = true
-	var peripheral_count := 0
-	if has_full_periphery:
-		for peripheral_index in neighbors_of(core_index):
-			_monster_peripherals[peripheral_index] = 1
-			_mines[peripheral_index] = 1
-			_monster_core_lookup[peripheral_index] = core_index
-			occupied[peripheral_index] = true
-			peripheral_count += 1
-	_monster_peripheral_counts[core_index] = peripheral_count
+	_monster_peripheral_counts[core_index] = 0
 
 
 func _place_items(first_index: int) -> void:
@@ -459,6 +526,21 @@ func _place_items(first_index: int) -> void:
 		cursor += 1
 	for count in range(mini(super_luck_count, candidates.size() - cursor)):
 		_items[candidates[cursor]] = ItemType.SUPER_LUCK
+		cursor += 1
+	for count in range(mini(medical_kit_count, candidates.size() - cursor)):
+		_items[candidates[cursor]] = ItemType.MEDICAL_KIT
+		cursor += 1
+	for count in range(mini(xray_count, candidates.size() - cursor)):
+		_items[candidates[cursor]] = ItemType.XRAY
+		cursor += 1
+	for count in range(mini(chain_count, candidates.size() - cursor)):
+		_items[candidates[cursor]] = ItemType.CHAIN
+		cursor += 1
+	for count in range(mini(enlarge_count, candidates.size() - cursor)):
+		_items[candidates[cursor]] = ItemType.ENLARGE
+		cursor += 1
+	for count in range(mini(detect_count, candidates.size() - cursor)):
+		_items[candidates[cursor]] = ItemType.DETECT
 		cursor += 1
 
 

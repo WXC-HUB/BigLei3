@@ -8,20 +8,6 @@
 [ext_resource type="Texture2D" uid="uid://ci5fu2vxw8uk1" path="res://my_asset/heart.png" id="6_0uejd"]
 [ext_resource type="Texture2D" uid="uid://bqkk584hfysxl" path="res://my_asset/coin.png" id="7_hy4c5"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBox_item_tip"]
-bg_color = Color(0.145, 0.094, 0.055, 0.92)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.92, 0.78, 0.5, 0.82)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
-shadow_color = Color(0, 0, 0, 0.28)
-shadow_size = 5
-
 [node name="ShopOverlay" type="Control" unique_id=1106849960]
 layout_mode = 3
 anchors_preset = 15
@@ -80,46 +66,23 @@ texture = ExtResource("3_shopkeeper")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="ThoughtBubble" type="TextureRect" parent="Center/ShopCard" unique_id=252281515]
-layout_mode = 0
-offset_left = -245.0
-offset_top = -17.0
-offset_right = 514.0
-offset_bottom = 433.0
-mouse_filter = 2
-texture = ExtResource("4_thought")
-expand_mode = 1
-stretch_mode = 5
-
-[node name="Greeting" type="Label" parent="Center/ShopCard" unique_id=189657817]
-layout_mode = 0
-offset_left = -82.0
-offset_top = 137.0
-offset_right = 368.0
-offset_bottom = 304.0
-theme_override_colors/font_color = Color(0.286275, 0.188235, 0.121569, 1)
-theme_override_colors/font_outline_color = Color(1, 0.976471, 0.92549, 1)
-theme_override_constants/outline_size = 3
-theme_override_font_sizes/font_size = 49
-text = "大酬宾哟！"
-horizontal_alignment = 1
-vertical_alignment = 1
-
 [node name="ItemGrid" type="GridContainer" parent="Center/ShopCard" unique_id=1186202842]
 layout_mode = 0
-offset_left = 476.0
-offset_top = 142.0
-offset_right = 1431.0
-offset_bottom = 688.0
-theme_override_constants/h_separation = 54
-columns = 3
+offset_left = 351.0
+offset_top = 301.0
+offset_right = 1499.0
+offset_bottom = 889.0
+theme_override_constants/h_separation = 128
+theme_override_constants/v_separation = 32
+columns = 5
 
 [node name="ItemSlot" type="Control" parent="Center/ShopCard/ItemGrid" unique_id=2100621105]
-custom_minimum_size = Vector2(276, 276)
+custom_minimum_size = Vector2(198, 230)
 layout_mode = 2
 
 [node name="ItemBg" type="Sprite2D" parent="Center/ShopCard/ItemGrid/ItemSlot" unique_id=203383985]
-position = Vector2(138, 138)
+position = Vector2(165.5, 181.5)
+scale = Vector2(1.2433333, 1.2433333)
 texture = ExtResource("5_ncx54")
 
 [node name="Item_Icon" type="Sprite2D" parent="Center/ShopCard/ItemGrid/ItemSlot/ItemBg" unique_id=692612505]
@@ -159,26 +122,81 @@ offset_bottom = 138.0
 mouse_default_cursor_shape = 2
 flat = true
 
-[node name="ItemTip" type="PanelContainer" parent="." unique_id=1325712307]
-z_index = 20
-custom_minimum_size = Vector2(250, 0)
+[node name="ThoughtBubble" type="TextureRect" parent="Center/ShopCard" unique_id=252281515]
 layout_mode = 0
-offset_right = 250.0
-offset_bottom = 70.0
+offset_left = -351.0
+offset_top = -31.0
+offset_right = 555.0
+offset_bottom = 502.0
 mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBox_item_tip")
+texture = ExtResource("4_thought")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="Margin" type="MarginContainer" parent="ItemTip" unique_id=1798519125]
-layout_mode = 2
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 12
-
-[node name="Description" type="Label" parent="ItemTip/Margin" unique_id=737828127]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.94, 0.82, 1)
-theme_override_font_sizes/font_size = 25
-text = "商品说明"
+[node name="Greeting" type="Label" parent="Center/ShopCard" unique_id=189657817]
+layout_mode = 0
+offset_left = -178.0
+offset_top = 156.0
+offset_right = 331.0
+offset_bottom = 323.0
+theme_override_colors/font_color = Color(0.286275, 0.188235, 0.121569, 1)
+theme_override_colors/font_outline_color = Color(1, 0.976471, 0.92549, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 49
+text = "大酬宾哟！"
 horizontal_alignment = 1
-autowrap_mode = 2
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="ContinueButton" type="Button" parent="." unique_id=1363750215]
+custom_minimum_size = Vector2(300, 70)
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = 123.0
+offset_top = -228.0
+offset_right = 423.0
+offset_bottom = -158.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_font_sizes/font_size = 28
+text = "继续前进"
+
+[node name="RefreshButton" type="Button" parent="." unique_id=538213846]
+custom_minimum_size = Vector2(300, 70)
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -217.0
+offset_top = -228.0
+offset_right = 83.0
+offset_bottom = -158.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 25
+text = "刷新并补货  5G"
+
+[node name="ShopGold" type="Label" parent="." unique_id=1295973597]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -957.0
+offset_top = 213.0
+offset_right = -386.0
+offset_bottom = 308.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(1, 0.88, 0.42, 1)
+theme_override_colors/font_outline_color = Color(0.16, 0.09, 0.03, 0.95)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 94
+text = "当前金币：0G"
+horizontal_alignment = 2
+vertical_alignment = 1

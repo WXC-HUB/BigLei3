@@ -1,0 +1,8 @@
+[gd_resource type="AtlasTexture" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" uid="uid://j510x2oxiwj8" path="res://my_asset/yelu/sp_1.png" id="1_fish"]
+
+[resource]
+atlas = ExtResource("1_fish")
+region = Rect2(57, 78, 225, 180)
+filter_clip = true

@@ -1,0 +1,252 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/achievements_screen.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://ctwhatngvb2ne" path="res://assets/backgrounds/birdwatch-tree-stage.png" id="2_background"]
+[ext_resource type="FontFile" uid="uid://dps7jg2qft5qp" path="res://assets/fonts/eva_ming_sc.otf" id="3_font"]
+[ext_resource type="Texture2D" path="res://assets/sprites/generated/achievements/achievement_start_game.png" id="4_start_icon"]
+
+[sub_resource type="StyleBoxFlat" id="CardStyle"]
+content_margin_left = 34.0
+content_margin_top = 28.0
+content_margin_right = 34.0
+content_margin_bottom = 32.0
+bg_color = Color(0.956863, 0.890196, 0.717647, 0.97)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.458824, 0.317647, 0.14902, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+shadow_color = Color(0.145098, 0.0901961, 0.0470588, 0.62)
+shadow_size = 18
+shadow_offset = Vector2(0, 9)
+
+[sub_resource type="StyleBoxFlat" id="ContentStyle"]
+content_margin_left = 24.0
+content_margin_top = 24.0
+content_margin_right = 24.0
+content_margin_bottom = 24.0
+bg_color = Color(0.294118, 0.227451, 0.129412, 0.2)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.458824, 0.317647, 0.14902, 0.55)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="ButtonNormal"]
+content_margin_left = 22.0
+content_margin_top = 10.0
+content_margin_right = 22.0
+content_margin_bottom = 10.0
+bg_color = Color(0.85098, 0.678431, 0.262745, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.458824, 0.317647, 0.14902, 1)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
+shadow_color = Color(0.145098, 0.0901961, 0.0470588, 0.45)
+shadow_size = 6
+shadow_offset = Vector2(0, 4)
+
+[sub_resource type="StyleBoxFlat" id="ButtonHover"]
+content_margin_left = 22.0
+content_margin_top = 10.0
+content_margin_right = 22.0
+content_margin_bottom = 10.0
+bg_color = Color(0.941176, 0.788235, 0.352941, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.458824, 0.317647, 0.14902, 1)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
+shadow_color = Color(0.145098, 0.0901961, 0.0470588, 0.45)
+shadow_size = 6
+shadow_offset = Vector2(0, 4)
+
+[sub_resource type="StyleBoxFlat" id="ButtonPressed"]
+content_margin_left = 22.0
+content_margin_top = 10.0
+content_margin_right = 22.0
+content_margin_bottom = 10.0
+bg_color = Color(0.72549, 0.541176, 0.196078, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.329412, 0.215686, 0.0980392, 1)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
+
+[sub_resource type="StyleBoxFlat" id="EntryStyle"]
+content_margin_left = 20.0
+content_margin_top = 16.0
+content_margin_right = 20.0
+content_margin_bottom = 16.0
+bg_color = Color(0.992157, 0.945098, 0.803922, 0.86)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.588235, 0.419608, 0.196078, 0.72)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[node name="AchievementsScreen" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_background")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Shade" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.04, 0.08, 0.035, 0.56)
+
+[node name="Card" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -490.0
+offset_top = -326.0
+offset_right = 490.0
+offset_bottom = 326.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("CardStyle")
+
+[node name="Layout" type="VBoxContainer" parent="Card"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Header" type="HBoxContainer" parent="Card/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="Card/Layout/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.239216, 0.168627, 0.0901961, 1)
+theme_override_colors/font_outline_color = Color(1, 0.917647, 0.709804, 0.65)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 58
+text = "成就"
+vertical_alignment = 1
+
+[node name="BackButton" type="Button" parent="Card/Layout/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(142, 58)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.239216, 0.168627, 0.0901961, 1)
+theme_override_colors/font_hover_color = Color(0.164706, 0.113725, 0.0627451, 1)
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 25
+theme_override_styles/normal = SubResource("ButtonNormal")
+theme_override_styles/hover = SubResource("ButtonHover")
+theme_override_styles/pressed = SubResource("ButtonPressed")
+text = "返回"
+
+[node name="ContentPanel" type="PanelContainer" parent="Card/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("ContentStyle")
+
+[node name="AchievementScroll" type="ScrollContainer" parent="Card/Layout/ContentPanel"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="AchievementList" type="VBoxContainer" parent="Card/Layout/ContentPanel/AchievementScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="EntryTemplate" type="PanelContainer" parent="Card/Layout/ContentPanel/AchievementScroll/AchievementList"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 142)
+layout_mode = 2
+theme_override_styles/panel = SubResource("EntryStyle")
+
+[node name="Row" type="HBoxContainer" parent="Card/Layout/ContentPanel/AchievementScroll/AchievementList/EntryTemplate"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Icon" type="TextureRect" parent="Card/Layout/ContentPanel/AchievementScroll/AchievementList/EntryTemplate/Row"]
+custom_minimum_size = Vector2(108, 108)
+layout_mode = 2
+texture = ExtResource("4_start_icon")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Copy" type="VBoxContainer" parent="Card/Layout/ContentPanel/AchievementScroll/AchievementList/EntryTemplate/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+alignment = 1
+
+[node name="Name" type="Label" parent="Card/Layout/ContentPanel/AchievementScroll/AchievementList/EntryTemplate/Row/Copy"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.239216, 0.168627, 0.0901961, 1)
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 30
+text = "成就名称"
+
+[node name="Description" type="Label" parent="Card/Layout/ContentPanel/AchievementScroll/AchievementList/EntryTemplate/Row/Copy"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.407843, 0.337255, 0.235294, 1)
+theme_override_font_sizes/font_size = 21
+text = "成就描述"
+
+[node name="Status" type="Label" parent="Card/Layout/ContentPanel/AchievementScroll/AchievementList/EntryTemplate/Row"]
+custom_minimum_size = Vector2(112, 0)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 23
+text = "未获得"
+horizontal_alignment = 1
+vertical_alignment = 1

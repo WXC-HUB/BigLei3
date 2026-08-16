@@ -1,0 +1,264 @@
+[gd_scene format=3 uid="uid://p2hf10p2ns6m"]
+
+[ext_resource type="Script" uid="uid://b40re2eoovfvf" path="res://scripts/ui/night_heron_unlock.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://lu4o0iyvaw7e" path="res://my_asset/birds/black_idle_1.png" id="2_bird"]
+[ext_resource type="Shader" path="res://shaders/unlock_icon_pattern.gdshader" id="3_pattern_shader"]
+[ext_resource type="Texture2D" uid="uid://bla7u3p83nv0v" path="res://assets/unlock/night_heron/photo_01.jpg" id="4_photo1"]
+[ext_resource type="Texture2D" uid="uid://dfh3dd2k6kbk4" path="res://assets/unlock/night_heron/photo_02.jpg" id="5_photo2"]
+[ext_resource type="Texture2D" uid="uid://cfu8cbjwik8op" path="res://assets/unlock/night_heron/photo_03.jpeg" id="6_photo3"]
+[ext_resource type="Texture2D" uid="uid://b541xow0chc5e" path="res://assets/unlock/night_heron/photo_04.jpg" id="7_photo4"]
+[ext_resource type="AudioStream" uid="uid://bksmrh7rvpahd" path="res://assets/audio/black_bird_lantern.mp3" id="8_heron_call"]
+[ext_resource type="AudioStream" uid="uid://casfoaan3wrgj" path="res://assets/audio/651988__deadrobotmusic__foley-perc-27.wav" id="10_impact_sfx"]
+[ext_resource type="Theme" path="res://themes/bird_unlock_theme.tres" id="9_unlock_theme"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pattern"]
+shader = ExtResource("3_pattern_shader")
+shader_parameter/icon_texture = ExtResource("2_bird")
+shader_parameter/icon_color = Color(0.78, 0.88, 0.68, 0.16)
+shader_parameter/tile_count = Vector2(6, 6)
+shader_parameter/motion_speed = 0.2
+shader_parameter/travel = Vector2(0.045, 0.028)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_photo"]
+bg_color = Color(0.97, 0.94, 0.84, 1)
+border_width_left = 12
+border_width_top = 12
+border_width_right = 12
+border_width_bottom = 28
+border_color = Color(0.99, 0.97, 0.9, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+shadow_color = Color(0.01, 0.025, 0.015, 0.46)
+shadow_size = 18
+
+[node name="NightHeronUnlock" type="Control" unique_id=76901264]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("9_unlock_theme")
+script = ExtResource("1_script")
+
+[node name="Dimmer" type="ColorRect" parent="." unique_id=577162164]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.075, 0.115, 0.075, 1)
+
+[node name="IconPattern" type="ColorRect" parent="." unique_id=1934832417]
+material = SubResource("ShaderMaterial_pattern")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HeronCall" type="AudioStreamPlayer" parent="." unique_id=1527527858]
+stream = ExtResource("8_heron_call")
+volume_db = -5.0
+
+[node name="ImpactSFX" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("10_impact_sfx")
+volume_db = 1.0
+
+[node name="PhotoStage" type="Control" parent="." unique_id=1220646124]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="FishRain" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Photo01" type="PanelContainer" parent="PhotoStage" unique_id=426786587]
+layout_mode = 0
+offset_left = 130.0
+offset_top = 150.0
+offset_right = 740.0
+offset_bottom = 545.0
+rotation = -0.07330383
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_photo")
+
+[node name="Image" type="TextureRect" parent="PhotoStage/Photo01" unique_id=1995617495]
+custom_minimum_size = Vector2(570, 350)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("4_photo1")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Photo02" type="PanelContainer" parent="PhotoStage" unique_id=2138623918]
+layout_mode = 0
+offset_left = 735.0
+offset_top = 80.0
+offset_right = 1095.0
+offset_bottom = 610.0
+rotation = 0.06108652
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_photo")
+
+[node name="Image" type="TextureRect" parent="PhotoStage/Photo02" unique_id=1373576649]
+custom_minimum_size = Vector2(320, 485)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("5_photo2")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Photo03" type="PanelContainer" parent="PhotoStage" unique_id=105475768]
+layout_mode = 0
+offset_left = 1115.0
+offset_top = 180.0
+offset_right = 1515.0
+offset_bottom = 735.0
+rotation = -0.04712389
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_photo")
+
+[node name="Image" type="TextureRect" parent="PhotoStage/Photo03" unique_id=1725380591]
+custom_minimum_size = Vector2(360, 510)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("6_photo3")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Photo04" type="PanelContainer" parent="PhotoStage" unique_id=605115020]
+layout_mode = 0
+offset_left = 1410.0
+offset_top = 610.0
+offset_right = 1840.0
+offset_bottom = 945.0
+rotation = 0.082030475
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_photo")
+
+[node name="Image" type="TextureRect" parent="PhotoStage/Photo04" unique_id=2100561861]
+custom_minimum_size = Vector2(390, 290)
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("7_photo4")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Finale" type="Control" parent="." unique_id=1145669928]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Name" type="Label" parent="Finale" unique_id=13356741]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.46
+anchor_top = 0.38
+anchor_right = 0.96
+anchor_bottom = 0.52
+offset_left = -776.2
+offset_top = -269.4
+offset_right = -37.0
+offset_bottom = 340.90002
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.055, 0.09, 0.05, 1)
+theme_override_constants/outline_size = 16
+theme_override_font_sizes/font_size = 500
+text = "夜    鹭"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Tagline" type="Label" parent="Finale" unique_id=1677343527]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.49
+anchor_top = 0.54
+anchor_right = 0.94
+anchor_bottom = 0.63
+offset_left = -413.80005
+offset_top = -479.2
+offset_right = -413.80005
+offset_bottom = -400.40002
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.055, 0.09, 0.05, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 120
+text = "中华田园企鹅"
+horizontal_alignment = 1
+
+[node name="Bird" type="TextureRect" parent="Finale" unique_id=1965532274]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 552.0
+offset_top = -882.0
+offset_right = 1395.1305
+offset_bottom = -74.0
+grow_vertical = 0
+mouse_filter = 0
+texture = ExtResource("2_bird")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Effect" type="Label" parent="Finale" unique_id=1571756301]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.48
+anchor_top = 0.65
+anchor_right = 0.95
+anchor_bottom = 0.73
+offset_left = -442.59998
+offset_top = 146.0
+offset_right = -442.6001
+offset_bottom = 146.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.95, 0.91, 0.76, 1)
+theme_override_colors/font_outline_color = Color(0.055, 0.09, 0.05, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 40
+text = "翻开后随机在周围翻开1个格子（必没有雷）"
+horizontal_alignment = 1
+
+[node name="Continue" type="Button" parent="Finale" unique_id=1217186528]
+custom_minimum_size = Vector2(400, 72)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -1192.0
+offset_top = -131.0
+offset_right = -762.0
+offset_bottom = -51.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 28
+text = "呱~"
