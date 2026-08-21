@@ -28,6 +28,7 @@ const CursorFxView := preload("res://scripts/ui/cursor_fx.gd")
 const TUTORIAL_GUIDE_TEXTURE := preload("res://my_asset/guide.png")
 const TUTORIAL_GUIDE_2_TEXTURE := preload("res://my_asset/guide_2.png")
 const AchievementCatalogData := preload("res://scripts/game/achievement_catalog.gd")
+const GameSaveData := preload("res://scripts/game/game_save.gd")
 const ACHIEVEMENT_START_GAME := AchievementCatalogData.START_GAME
 const ACHIEVEMENT_NIGHT_MASTER_FISH := AchievementCatalogData.NIGHT_MASTER_FISH
 
@@ -189,6 +190,7 @@ var _board_interface_shown := false
 var _board_interface_fade: Tween
 var _tutorial_guide: TextureRect
 var _run_number := 0
+var _resume_level := 1
 var _blue_bird_unlocked := true
 var _red_bird_unlocked := false
 var _night_heron_unlocked := false
@@ -310,6 +312,7 @@ func _ready() -> void:
 	_build_wrong_flag_guide_banner()
 	_build_night_master_fish_guide_banner()
 	_build_item_tooltip()
+	_load_saved_progress()
 	_build_start_screen()
 	_apply_bird_unlock_visibility()
 
@@ -393,7 +396,7 @@ func _build_credits_screen() -> void:
 
 
 func _build_achievements_screen() -> void:
-	# This title-only page deliberately has no persistence or save dependency.
+	# The page remains display-only; Main supplies the persisted unlock state.
 	var canvas := CanvasLayer.new()
 	canvas.layer = 160
 	add_child(canvas)
@@ -453,6 +456,7 @@ func _unlock_achievement(achievement_id: String) -> void:
 		push_warning("Unknown achievement id: %s" % achievement_id)
 		return
 	_unlocked_achievements[achievement_id] = true
+	_save_progress()
 	# 从标题页翻开成就页本身就是一个成就，所以横幅必须当场刷新。
 	_refresh_achievement_banner()
 	if _achievements_screen != null:
@@ -470,6 +474,82 @@ func _refresh_achievement_banner() -> void:
 	_start_screen.set_achievement_progress(
 		_unlocked_achievements.size(), AchievementCatalogData.ENTRIES.size()
 	)
+
+
+func _save_progress() -> void:
+	GameSaveData.write({
+		"current_level": maxi(_resume_level, 1),
+		"tutorial_completed": _resume_level > TUTORIAL_LEVEL_COUNT,
+		"gold": _gold,
+		"player_hp": _player_hp,
+		"player_max_hp": _player_max_hp,
+		"blue_bird_unlocked": _blue_bird_unlocked,
+		"red_bird_unlocked": _red_bird_unlocked,
+		"night_heron_unlocked": _night_heron_unlocked,
+		"attacker_bird_unlocked": _attacker_bird_unlocked,
+		"lucky_bird_unlocked": _lucky_bird_unlocked,
+		"lantern_bonus": _lantern_bonus,
+		"compass_bonus": _compass_bonus,
+		"orbital_strike_bonus": _orbital_strike_bonus,
+		"super_luck_bonus": _super_luck_bonus,
+		"medical_kit_bonus": _medical_kit_bonus,
+		"healing_power_bonus": _healing_power_bonus,
+		"super_luck_click_bonus": _super_luck_click_bonus,
+		"orbital_cross_unlocked": _orbital_cross_unlocked,
+		"lantern_target_bonus": _lantern_target_bonus,
+		"compass_mark_bonus": _compass_mark_bonus,
+		"xray_bonus": _xray_bonus,
+		"chain_bonus": _chain_bonus,
+		"enlarge_bonus": _enlarge_bonus,
+		"achievements": _unlocked_achievements.keys(),
+	})
+	_refresh_title_save_state()
+
+
+func _load_saved_progress() -> bool:
+	var data := GameSaveData.load_data()
+	if data.is_empty():
+		return false
+	_resume_level = maxi(int(data.get("current_level", 1)), 1)
+	if bool(data.get("tutorial_completed", false)):
+		_resume_level = maxi(_resume_level, TUTORIAL_LEVEL_COUNT + 1)
+	# `_start_game` increments first, so the title holds the level immediately
+	# before the checkpoint that should be rebuilt.
+	_run_number = _resume_level - 1
+	_gold = maxi(int(data.get("gold", 0)), 0)
+	_player_max_hp = maxi(int(data.get("player_max_hp", PLAYER_START_MAX_HP)), PLAYER_START_MAX_HP)
+	_player_hp = clampi(int(data.get("player_hp", _player_max_hp)), 0, _player_max_hp)
+	_blue_bird_unlocked = bool(data.get("blue_bird_unlocked", true))
+	_red_bird_unlocked = bool(data.get("red_bird_unlocked", false))
+	_night_heron_unlocked = bool(data.get("night_heron_unlocked", false))
+	_attacker_bird_unlocked = bool(data.get("attacker_bird_unlocked", false))
+	_lucky_bird_unlocked = bool(data.get("lucky_bird_unlocked", false))
+	_lantern_bonus = maxi(int(data.get("lantern_bonus", 0)), 0)
+	_compass_bonus = maxi(int(data.get("compass_bonus", 0)), 0)
+	_orbital_strike_bonus = maxi(int(data.get("orbital_strike_bonus", 0)), 0)
+	_super_luck_bonus = maxi(int(data.get("super_luck_bonus", 0)), 0)
+	_medical_kit_bonus = maxi(int(data.get("medical_kit_bonus", 0)), 0)
+	_healing_power_bonus = maxi(int(data.get("healing_power_bonus", 0)), 0)
+	_super_luck_click_bonus = maxi(int(data.get("super_luck_click_bonus", 0)), 0)
+	_orbital_cross_unlocked = bool(data.get("orbital_cross_unlocked", false))
+	_lantern_target_bonus = maxi(int(data.get("lantern_target_bonus", 0)), 0)
+	_compass_mark_bonus = maxi(int(data.get("compass_mark_bonus", 0)), 0)
+	_xray_bonus = maxi(int(data.get("xray_bonus", 0)), 0)
+	_chain_bonus = maxi(int(data.get("chain_bonus", 0)), 0)
+	_enlarge_bonus = maxi(int(data.get("enlarge_bonus", 0)), 0)
+	_unlocked_achievements.clear()
+	for achievement_id in data.get("achievements", []):
+		var id := str(achievement_id)
+		if AchievementCatalogData.has(id):
+			_unlocked_achievements[id] = true
+	if _achievements_screen != null:
+		for entry in AchievementCatalogData.ENTRIES:
+			var id := str(entry["id"])
+			_achievements_screen.set_unlocked(id, _unlocked_achievements.has(id))
+	_shop_layer.set_offer_owned(ShopOffer.ORBITAL_CROSS, _orbital_cross_unlocked)
+	_refresh_health_bar()
+	_refresh_gold_display()
+	return true
 
 
 func _on_achievements_requested() -> void:
@@ -508,8 +588,39 @@ func _build_start_screen() -> void:
 	_start_screen.connect("start_requested", _on_start_game_requested)
 	_start_screen.connect("achievements_requested", _on_achievements_requested)
 	_start_screen.connect("credits_requested", _on_credits_requested)
+	_start_screen.connect("clear_save_requested", _on_clear_save_requested)
+	_start_screen.connect("abandon_run_requested", _on_abandon_run_requested)
 	canvas.add_child(_start_screen)
+	_refresh_title_save_state()
 	_refresh_achievement_banner()
+
+
+## 标题页上有两组和存档有关的东西：「清除存档」看文件在不在，「继续游戏／放弃本
+## 轮」看有没有一轮打到一半。成就和进度共用一个文件，所以这两件事必须分开问。
+func _refresh_title_save_state() -> void:
+	if _start_screen == null:
+		return
+	_start_screen.set_save_available(GameSaveData.exists())
+	_start_screen.set_run_in_progress(_resume_level > 1)
+
+
+func _on_clear_save_requested() -> void:
+	GameSaveData.clear()
+	_return_to_main_menu()
+	_refresh_title_save_state()
+	if _start_screen != null:
+		_refresh_achievement_banner()
+
+
+## 放弃本轮：留下成就、丢掉跑图进度。做法是直接写一份「只剩成就」的存档，再走一
+## 遍回标题页的常规流程——那条路会把内存清空后重新读盘，读到的就是这份新档。
+func _on_abandon_run_requested() -> void:
+	GameSaveData.write({
+		"current_level": 1,
+		"tutorial_completed": false,
+		"achievements": _unlocked_achievements.keys(),
+	})
+	_return_to_main_menu()
 
 
 func _on_start_game_requested() -> void:
@@ -519,10 +630,11 @@ func _on_start_game_requested() -> void:
 	_start_screen = null
 	if is_instance_valid(screen) and screen.get_parent() != null:
 		screen.get_parent().queue_free()
-	# The headphone card owns the beat between the title and the first board.
-	if _headphone_notice != null:
+	# Intro pages only belong to a fresh first level, not a resumed checkpoint.
+	var show_intro := _run_number == 0
+	if show_intro and _headphone_notice != null:
 		await _headphone_notice.present()
-	if _opening_story != null:
+	if show_intro and _opening_story != null:
 		await _opening_story.present()
 	_start_game()
 
@@ -1007,6 +1119,7 @@ func _choose_shop_offer(offer: ShopOffer) -> void:
 			_enlarge_bonus += 1
 	_shop_layer.mark_offer_sold_out(offer)
 	_shop_layer.update_gold(_gold, SHOP_ITEM_COST)
+	_save_progress()
 
 
 func _on_shop_continue() -> void:
@@ -1020,6 +1133,7 @@ func _on_shop_refresh_requested() -> void:
 	_gold -= SHOP_ITEM_COST
 	_refresh_gold_display()
 	_shop_layer.refresh_offers(_gold, SHOP_ITEM_COST)
+	_save_progress()
 
 
 func _start_game() -> void:
@@ -1038,6 +1152,7 @@ func _start_game() -> void:
 	_gold_rewarded_this_run = false
 	_night_master_fish_count = 0
 	_run_number += 1
+	_resume_level = _run_number
 	# The tutorial is allowed to teach through damage without carrying that
 	# penalty into the real run. This happens exactly once, on level five.
 	if _run_number == TUTORIAL_LEVEL_COUNT + 1:
@@ -1155,6 +1270,7 @@ func _start_game() -> void:
 	_update_tutorial_skip_visibility()
 	_update_regular_skip_visibility()
 	_unlock_achievement(ACHIEVEMENT_START_GAME)
+	_save_progress()
 
 
 func _resize_board_layout(columns: int, rows: int) -> void:
@@ -3951,6 +4067,8 @@ func _finish_game() -> void:
 		_gold += flagged_mines + _night_master_fish_count
 		_gold_rewarded_this_run = true
 		_refresh_gold_display()
+	_resume_level = _run_number + 1
+	_save_progress()
 	await _level_bill.present(_run_number, flagged_mines, _night_master_fish_count, _gold)
 	_show_shop()
 
@@ -4061,6 +4179,7 @@ func _return_to_main_menu() -> void:
 	_kestrel_demo_pending = false
 	_kestrel_demo_index = -1
 	_run_number = 0
+	_resume_level = 1
 	_music_break_played = false
 	_blue_bird_unlocked = true
 	_red_bird_unlocked = false
@@ -4081,6 +4200,10 @@ func _return_to_main_menu() -> void:
 	_xray_bonus = 0
 	_chain_bonus = 0
 	_enlarge_bonus = 0
+	_unlocked_achievements.clear()
+	if _achievements_screen != null:
+		for entry in AchievementCatalogData.ENTRIES:
+			_achievements_screen.set_unlocked(str(entry["id"]), false)
 	_enlarge_click_invincible = false
 	_game_finish_started = false
 	_started = false
@@ -4090,8 +4213,13 @@ func _return_to_main_menu() -> void:
 		bird.reset_to_idle()
 	_apply_bird_unlock_visibility()
 	_refresh_gold_display()
+	_load_saved_progress()
+	_apply_bird_unlock_visibility()
 	if _start_screen == null:
 		_build_start_screen()
+	else:
+		_refresh_title_save_state()
+		_refresh_achievement_banner()
 
 
 func _board_field_style() -> StyleBoxFlat:

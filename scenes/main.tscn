@@ -23,18 +23,18 @@
 [ext_resource type="Shader" path="res://shaders/parchment_backdrop.gdshader" id="21_backdrop_shader"]
 [ext_resource type="PackedScene" uid="uid://cuyx0oqi644s2" path="res://scenes/birds/blue_bird_perch.tscn" id="22_blue_bird"]
 [ext_resource type="AudioStream" uid="uid://0c0q1y1x5rya" path="res://assets/audio/rhythm_factory.mp3" id="23_bgm"]
-[ext_resource type="AudioStream" path="res://assets/audio/card_reveal_crack.wav" id="28_reveal_sfx"]
-[ext_resource type="AudioStream" path="res://assets/audio/correct_flag.wav" id="29_correct_flag_sfx"]
-[ext_resource type="AudioStream" path="res://assets/audio/wrong_flag.mp3" id="30_wrong_flag_sfx"]
-[ext_resource type="AudioStream" path="res://assets/audio/mine_trigger.wav" id="31_mine_trigger_sfx"]
 [ext_resource type="PackedScene" uid="uid://cs87ck6hjn8sr" path="res://scenes/birds/red_bird_perch.tscn" id="24_red_bird"]
 [ext_resource type="PackedScene" uid="uid://b415v5m3dtpen" path="res://scenes/birds/black_bird_perch.tscn" id="25_black_bird"]
 [ext_resource type="PackedScene" uid="uid://dvr3h2ugw60ic" path="res://scenes/birds/attacker_bird_perch.tscn" id="26_attacker_bird"]
-[ext_resource type="PackedScene" path="res://scenes/birds/eg_bird_perch.tscn" id="27_eg_bird"]
+[ext_resource type="PackedScene" uid="uid://ov0pdby6lwfx" path="res://scenes/birds/eg_bird_perch.tscn" id="27_eg_bird"]
 [ext_resource type="Texture2D" uid="uid://bcpdub8c5uow3" path="res://my_asset/tree_bg.png" id="27_tree_bg"]
-[ext_resource type="Texture2D" path="res://my_asset/bg/bg_left.png" id="32_bg_left"]
-[ext_resource type="Texture2D" path="res://my_asset/bg/bg_right.png" id="33_bg_right"]
-[ext_resource type="Shader" path="res://shaders/tree_sway.gdshader" id="34_sway_shader"]
+[ext_resource type="AudioStream" uid="uid://8284dvt0vyua" path="res://assets/audio/card_reveal_crack.wav" id="28_reveal_sfx"]
+[ext_resource type="AudioStream" uid="uid://cl488lyb4eudr" path="res://assets/audio/correct_flag.wav" id="29_correct_flag_sfx"]
+[ext_resource type="AudioStream" uid="uid://caoexpigbmcs8" path="res://assets/audio/wrong_flag.mp3" id="30_wrong_flag_sfx"]
+[ext_resource type="AudioStream" uid="uid://c8pu6dwblu14l" path="res://assets/audio/mine_trigger.wav" id="31_mine_trigger_sfx"]
+[ext_resource type="Texture2D" uid="uid://coly5qpqeo3qx" path="res://my_asset/bg/bg_left.png" id="32_bg_left"]
+[ext_resource type="Texture2D" uid="uid://dwo1mhmq2kcq0" path="res://my_asset/bg/bg_right.png" id="33_bg_right"]
+[ext_resource type="Shader" uid="uid://dlm47234bkb0p" path="res://shaders/tree_sway.gdshader" id="34_sway_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_backdrop"]
 shader = ExtResource("21_backdrop_shader")
@@ -81,22 +81,22 @@ process_mode = 3
 stream = ExtResource("23_bgm")
 volume_db = -12.0
 
-[node name="CardRevealSFX" type="AudioStreamPlayer" parent="."]
+[node name="CardRevealSFX" type="AudioStreamPlayer" parent="." unique_id=2077550567]
 process_mode = 3
 stream = ExtResource("28_reveal_sfx")
 volume_db = -9.0
 
-[node name="CorrectFlagSFX" type="AudioStreamPlayer" parent="."]
+[node name="CorrectFlagSFX" type="AudioStreamPlayer" parent="." unique_id=23496861]
 process_mode = 3
 stream = ExtResource("29_correct_flag_sfx")
 volume_db = -7.0
 
-[node name="WrongFlagSFX" type="AudioStreamPlayer" parent="."]
+[node name="WrongFlagSFX" type="AudioStreamPlayer" parent="." unique_id=2130954858]
 process_mode = 3
 stream = ExtResource("30_wrong_flag_sfx")
 volume_db = -6.0
 
-[node name="MineTriggerSFX" type="AudioStreamPlayer" parent="."]
+[node name="MineTriggerSFX" type="AudioStreamPlayer" parent="." unique_id=1317499560]
 process_mode = 3
 stream = ExtResource("31_mine_trigger_sfx")
 volume_db = -8.0
@@ -127,7 +127,7 @@ texture = ExtResource("2_background")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="SideFoliageLeft" type="TextureRect" parent="."]
+[node name="SideFoliageLeft" type="TextureRect" parent="." unique_id=2033125945]
 modulate = Color(1, 1, 1, 0.6)
 z_index = -9
 material = SubResource("ShaderMaterial_side_foliage_left")
@@ -143,7 +143,7 @@ texture = ExtResource("32_bg_left")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="SideFoliageRight" type="TextureRect" parent="."]
+[node name="SideFoliageRight" type="TextureRect" parent="." unique_id=143244490]
 modulate = Color(1, 1, 1, 0.6)
 z_index = -9
 material = SubResource("ShaderMaterial_side_foliage_right")
@@ -215,7 +215,7 @@ offset_right = 1948.0
 offset_bottom = 371.0
 scale = Vector2(0.9, 0.9)
 
-[node name="EgBirdPerch" parent="." instance=ExtResource("27_eg_bird")]
+[node name="EgBirdPerch" parent="." unique_id=24600169 instance=ExtResource("27_eg_bird")]
 z_index = 50
 layout_mode = 0
 offset_left = 810.0

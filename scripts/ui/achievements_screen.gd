@@ -1,6 +1,6 @@
 class_name AchievementsScreen
 extends Control
-## 成就页只展示当前运行内由 Main 传入的状态，不读写任何存档数据。
+## 成就页只展示由 Main 传入的状态；存档读写仍由 Main 统一负责。
 ##
 ## 列表按 AchievementCatalog 的总表在运行时铺出来：场景里只留一条隐藏的模板，
 ## 每个成就复制一份填字填图。加成就只改总表，这一页和提示条都会自动跟上。

@@ -4,6 +4,8 @@ extends Control
 signal start_requested
 signal achievements_requested
 signal credits_requested
+signal clear_save_requested
+signal abandon_run_requested
 
 const ButtonMotion := preload("res://scripts/ui/button_motion.gd")
 const TextCoaster := preload("res://scripts/ui/text_coaster.gd")
@@ -44,26 +46,88 @@ const BANNER_PULSE_SPEED := 2.4
 @onready var start_button: Button = %StartButton
 @onready var achievements_button: Button = %AchievementsButton
 @onready var credits_button: Button = %CreditsButton
+@onready var clear_save_button: Button = %ClearSaveButton
+@onready var clear_confirmation: Control = %ClearConfirmation
+@onready var clear_card: PanelContainer = %ClearCard
+@onready var clear_dimmer: ColorRect = %ClearDimmer
+@onready var clear_confirm_button: Button = %ClearConfirmButton
+@onready var clear_cancel_button: Button = %ClearCancelButton
 @onready var title: Label = $Menu/Title
 @onready var bouncers: Array[Node] = [
 	$Menu/StartSlot/Swing, $Menu/AchievementsSlot/Swing, $Menu/CreditsSlot/Swing
 ]
 @onready var achievement_banner: TextureRect = %Banner
 @onready var achievement_count: Label = %Count
+@onready var confirm_eyebrow: Label = $ClearConfirmation/Center/ClearCard/Margin/Stack/Eyebrow
+@onready var confirm_title: Label = $ClearConfirmation/Center/ClearCard/Margin/Stack/Title
+@onready var confirm_message: Label = $ClearConfirmation/Center/ClearCard/Margin/Stack/Message
+
+## 「放弃本轮」是运行时挂上去的，不在场景里：这一屏的 .tscn 常年开在编辑器里，
+## 编辑器一保存就会把外部改过的节点抹掉。按钮的样式全部从「清除存档」身上抄，
+## 所以改那颗按钮的皮，这颗跟着变。
+var abandon_run_button: Button
+
+## 有存档时开始按钮整颗换成绿色：金色=开新局，绿色=接着上次。两套只差底色和描边，
+## 形状／圆角／投影都是从场景那套复制出来的。
+const CONTINUE_BG := Color(0.482, 0.635, 0.247)
+const CONTINUE_BG_HOVER := Color(0.573, 0.737, 0.318)
+const CONTINUE_BG_PRESSED := Color(0.376, 0.514, 0.192)
+const CONTINUE_BORDER := Color(0.224, 0.325, 0.137)
+
+enum ConfirmKind {CLEAR_SAVE, ABANDON_RUN}
+
+## 两个动作共用同一张确认卡，只换文案：一张卡的进出场动画不必写两遍。
+const CONFIRM_COPY := {
+	ConfirmKind.CLEAR_SAVE: {
+		"eyebrow": "单槽存档管理",
+		"title": "清除存档？",
+		"message": "所有关卡进度、鸟类解锁、道具与成就都会被删除，且无法恢复。",
+		"cancel": "保留存档",
+		"confirm": "确认清除",
+	},
+	ConfirmKind.ABANDON_RUN: {
+		"eyebrow": "本轮进度",
+		"title": "放弃本轮？",
+		"message": "本轮的关卡、金币、道具与鸟类解锁会全部清空，从第 1 关重新开始；成就保留。",
+		"cancel": "继续本轮",
+		"confirm": "确认放弃",
+	},
+}
 
 var _closing := false
 var _title_coaster: TextCoaster
 var _bounce_time := 0.0
 var _banner_home := 0.0
+var _clear_confirmation_closing := false
+var _confirm_kind := ConfirmKind.CLEAR_SAVE
+var _run_in_progress := false
+var _start_styles: Dictionary = {}
+var _continue_styles: Dictionary = {}
 
 
 func _ready() -> void:
 	start_button.pressed.connect(_on_start_button_pressed)
 	achievements_button.pressed.connect(_on_achievements_button_pressed)
 	credits_button.pressed.connect(_on_credits_button_pressed)
+	clear_save_button.pressed.connect(_open_clear_confirmation)
+	clear_confirm_button.pressed.connect(_confirm_clear_save)
+	clear_cancel_button.pressed.connect(_cancel_clear_save)
+	abandon_run_button = _build_abandon_run_button()
+	abandon_run_button.pressed.connect(_open_abandon_confirmation)
 	ButtonMotion.bind(start_button, start_button, -1.0)
 	ButtonMotion.bind(achievements_button, achievements_button, -1.0)
 	ButtonMotion.bind(credits_button, credits_button, -1.0)
+	ButtonMotion.bind(clear_save_button, clear_save_button, 0.8)
+	ButtonMotion.bind(abandon_run_button, abandon_run_button, 0.8)
+	ButtonMotion.bind(clear_confirm_button, clear_confirm_button, 0.8)
+	ButtonMotion.bind(clear_cancel_button, clear_cancel_button, -0.8)
+	_build_start_button_palettes()
+	# 过山车是 _ready 里挂上去的最后一个子节点，默认画在确认卡前面——标题的字和
+	# 「9」会浮在卡片上。抬一层 z 让卡片始终盖住它。
+	clear_confirmation.z_index = 10
+	clear_confirmation.visible = false
+	clear_save_button.visible = false
+	set_run_in_progress(false)
 	# The coaster sits outside the menu container, which would otherwise try to
 	# lay its glyph copies out as menu rows.
 	_title_coaster = TextCoaster.new()
@@ -90,6 +154,159 @@ func _process(delta: float) -> void:
 ## 外面把已解锁数和总数丢进来，横幅只负责显示；标题页自己不记账。
 func set_achievement_progress(unlocked: int, total: int) -> void:
 	achievement_count.text = "成就解锁 %d/%d" % [unlocked, total]
+
+
+## 贴在开始按钮右边的次要动作。锚在槽位的右边缘上，槽位怎么排它都跟着走；不进
+## Swing 层，所以开始按钮蹦的时候它自己是稳的。
+func _build_abandon_run_button() -> Button:
+	var button := Button.new()
+	button.name = "AbandonRunButton"
+	button.text = "放弃本轮"
+	button.visible = false
+	button.disabled = true
+	button.tooltip_text = "清空本轮进度，从第 1 关重新开始；成就保留"
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.custom_minimum_size = Vector2(206, 58)
+	button.anchor_left = 1.0
+	button.anchor_right = 1.0
+	button.anchor_top = 0.5
+	button.anchor_bottom = 0.5
+	button.offset_left = 18.0
+	button.offset_right = 224.0
+	button.offset_top = -29.0
+	button.offset_bottom = 29.0
+	button.grow_horizontal = Control.GROW_DIRECTION_END
+	for state in ["normal", "hover", "pressed"]:
+		button.add_theme_stylebox_override(state, clear_save_button.get_theme_stylebox(state))
+	for color_name in ["font_color", "font_hover_color", "font_outline_color"]:
+		button.add_theme_color_override(color_name, clear_save_button.get_theme_color(color_name))
+	button.add_theme_constant_override(
+		"outline_size", clear_save_button.get_theme_constant("outline_size")
+	)
+	button.add_theme_font_size_override("font_size", 26)
+	$Menu/StartSlot.add_child(button)
+	return button
+
+
+func _build_start_button_palettes() -> void:
+	for state in ["normal", "hover", "pressed"]:
+		var base := start_button.get_theme_stylebox(state) as StyleBoxFlat
+		_start_styles[state] = base
+		var tinted := base.duplicate() as StyleBoxFlat
+		match state:
+			"hover":
+				tinted.bg_color = CONTINUE_BG_HOVER
+			"pressed":
+				tinted.bg_color = CONTINUE_BG_PRESSED
+			_:
+				tinted.bg_color = CONTINUE_BG
+		tinted.border_color = CONTINUE_BORDER
+		_continue_styles[state] = tinted
+
+
+func set_save_available(value: bool) -> void:
+	clear_save_button.visible = value
+	clear_save_button.disabled = not value
+	if not value:
+		clear_confirmation.visible = false
+		_clear_confirmation_closing = false
+
+
+## 「有存档」和「有一轮打到一半」是两件事：成就和进度存在同一个文件里，所以清完
+## 本轮之后存档还在，只是这一组按钮要收回去。
+func set_run_in_progress(value: bool) -> void:
+	_run_in_progress = value
+	start_button.text = "继续游戏" if value else "开始游戏"
+	for state in _start_styles:
+		var styles: Dictionary = _continue_styles if value else _start_styles
+		start_button.add_theme_stylebox_override(state, styles[state])
+	abandon_run_button.visible = value
+	abandon_run_button.disabled = not value
+	if not value and _confirm_kind == ConfirmKind.ABANDON_RUN:
+		clear_confirmation.visible = false
+		_clear_confirmation_closing = false
+
+
+func _apply_confirmation_copy(kind: int) -> void:
+	var copy: Dictionary = CONFIRM_COPY[kind]
+	confirm_eyebrow.text = copy["eyebrow"]
+	confirm_title.text = copy["title"]
+	confirm_message.text = copy["message"]
+	clear_cancel_button.text = copy["cancel"]
+	clear_confirm_button.text = copy["confirm"]
+
+
+func _open_clear_confirmation() -> void:
+	await _open_confirmation(ConfirmKind.CLEAR_SAVE)
+
+
+func _open_abandon_confirmation() -> void:
+	await _open_confirmation(ConfirmKind.ABANDON_RUN)
+
+
+func _open_confirmation(kind: int) -> void:
+	var trigger := _confirmation_trigger(kind)
+	if _closing or trigger.disabled or clear_confirmation.visible:
+		return
+	_confirm_kind = kind
+	_apply_confirmation_copy(kind)
+	trigger.disabled = true
+	clear_confirmation.visible = true
+	clear_dimmer.modulate.a = 0.0
+	await get_tree().process_frame
+	clear_card.pivot_offset = clear_card.size * 0.5
+	clear_card.scale = Vector2(0.86, 0.86)
+	clear_card.modulate.a = 0.0
+	var tween := create_tween().set_parallel(true)
+	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(clear_dimmer, "modulate:a", 1.0, 0.18)
+	tween.tween_property(clear_card, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK)
+	tween.tween_property(clear_card, "modulate:a", 1.0, 0.16)
+	clear_cancel_button.grab_focus()
+
+
+func _confirm_clear_save() -> void:
+	await _close_clear_confirmation(true)
+
+
+func _cancel_clear_save() -> void:
+	await _close_clear_confirmation(false)
+
+
+func _close_clear_confirmation(confirmed: bool) -> void:
+	if not clear_confirmation.visible or _clear_confirmation_closing:
+		return
+	_clear_confirmation_closing = true
+	clear_confirm_button.disabled = true
+	clear_cancel_button.disabled = true
+	var tween := create_tween().set_parallel(true)
+	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(clear_dimmer, "modulate:a", 0.0, 0.16)
+	tween.tween_property(clear_card, "scale", Vector2(0.92, 0.92), 0.16)
+	tween.tween_property(clear_card, "modulate:a", 0.0, 0.13)
+	await tween.finished
+	clear_confirmation.visible = false
+	clear_card.scale = Vector2.ONE
+	clear_card.modulate = Color.WHITE
+	clear_dimmer.modulate = Color.WHITE
+	clear_confirm_button.disabled = false
+	clear_cancel_button.disabled = false
+	_clear_confirmation_closing = false
+	var trigger := _confirmation_trigger(_confirm_kind)
+	if not confirmed:
+		trigger.disabled = false
+		return
+	# 按钮先收起来，外面处理完再通过 set_save_available / set_run_in_progress 决定
+	# 它还该不该在。
+	trigger.visible = false
+	if _confirm_kind == ConfirmKind.CLEAR_SAVE:
+		clear_save_requested.emit()
+	else:
+		abandon_run_requested.emit()
+
+
+func _confirmation_trigger(kind: int) -> Button:
+	return clear_save_button if kind == ConfirmKind.CLEAR_SAVE else abandon_run_button
 
 
 func _animate_banner() -> void:
