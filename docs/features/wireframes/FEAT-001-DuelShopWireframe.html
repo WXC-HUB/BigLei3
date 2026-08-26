@@ -1,0 +1,329 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
+<title>FEAT-001 · DuelShop 线框</title>
+<style>
+  body{margin:0;font-family:system-ui,"Microsoft YaHei",sans-serif;background:#0f172a;color:#e2e8f0}
+  .workspace{display:flex;gap:12px;padding:12px;height:100vh;box-sizing:border-box}
+  .svg-panel{flex:0 0 auto;background:#1e293b;border-radius:8px;padding:8px}
+  .svg-panel svg{height:calc(100vh - 40px);width:auto;background:#0b1220;border-radius:4px}
+  .right-col{flex:1;display:flex;flex-direction:column;gap:12px;min-width:360px}
+  .panel{background:#1e293b;border-radius:8px;padding:12px;overflow:auto}
+  .panel h2{font-size:13px;margin:0 0 6px;color:#94a3b8;letter-spacing:.5px}
+  g.node{cursor:pointer}
+  g.node>.hit{fill:transparent;stroke:transparent;transition:all .12s;pointer-events:all}
+  g.node:hover>.hit{fill:rgba(252,211,77,.10);stroke:#fbbf24;stroke-width:2}
+  g.node.selected>.hit{fill:rgba(239,68,68,.18);stroke:#ef4444;stroke-width:3}
+  .b,.ins-b{display:inline-block;padding:1px 6px;margin-left:3px;border-radius:7px;font-size:10.5px;font-weight:700;color:#fff;cursor:help}
+  .b-assign{background:#2563eb}.b-click{background:#f59e0b}.b-hover{background:#7c3aed}.b-state{background:#f43f5e}.b-copy{background:#10b981}
+  .d{display:inline-block;padding:2px 8px;margin-left:4px;border-radius:6px;font-size:12px;font-weight:800;color:#fff;border:2px solid rgba(255,255,255,.55)}
+  .d-new{background:#16a34a}.d-changed{background:#ea580c}.d-moved{background:#0284c7}.d-removed{background:#dc2626}
+  #changes{border:2px solid #ea580c}
+  #changes .chg{cursor:pointer;padding:4px 6px;border-radius:5px;margin:2px 0;font-size:12px}
+  #changes .chg:hover{background:rgba(234,88,12,.15)}
+  #tree div{font-size:12px;padding:1px 0;cursor:pointer;white-space:pre;font-family:ui-monospace,Consolas,monospace}
+  #tree div:hover{background:rgba(148,163,184,.15)}
+  #tree div.selected{background:rgba(239,68,68,.25)}
+  #breadcrumb{font-size:12px;color:#7dd3fc;margin-bottom:6px}
+  #details{font-size:12.5px;line-height:1.7}
+  #details .k{color:#94a3b8;display:inline-block;width:64px}
+  .beh{background:#0b1220;border-radius:6px;padding:6px 8px;margin:4px 0;font-size:12px;line-height:1.6}
+  .child{font-size:12px;padding:2px 0;cursor:pointer;color:#cbd5e1}
+  .child:hover{color:#fbbf24}
+  svg text{font-family:system-ui,"Microsoft YaHei",sans-serif}
+  .lbl{fill:#94a3b8;font-size:15px}
+  .lbl-s{fill:#64748b;font-size:12px}
+  .box{fill:none;stroke:#475569;stroke-width:1.5}
+  .box-f{fill:#1e293b;stroke:#475569;stroke-width:1.5}
+</style></head><body>
+<div class="workspace">
+  <div class="svg-panel panel"><svg viewBox="0 0 1920 1080">
+    <g class="node" data-node-id="root">
+      <rect class="hit" x="0" y="0" width="1920" height="1080"/>
+      <rect x="2" y="2" width="1916" height="1076" fill="#0d1526" stroke="#334155" stroke-width="2"/>
+      <text class="lbl-s" x="14" y="1070">DuelShop · 1920×1080 · 中场休息 + 大全商店（基于既有 shop_overlay.tscn 扩建）</text>
+
+      <g class="node" data-node-id="dimmer">
+        <rect class="hit" x="16" y="16" width="1888" height="1040"/>
+        <rect x="16" y="16" width="1888" height="1040" fill="#000" opacity=".28"/>
+        <text class="lbl-s" x="28" y="40">Dimmer（复用）</text>
+      </g>
+
+      <g class="node" data-node-id="shop-stage">
+        <rect class="hit" x="150" y="110" width="1180" height="700"/>
+        <g class="node" data-node-id="shop-card">
+          <rect class="hit" x="150" y="110" width="1180" height="700"/>
+          <rect class="box-f" x="150" y="110" width="1180" height="700" rx="14"/>
+          <g class="node" data-node-id="shopkeeper">
+            <rect class="hit" x="180" y="140" width="180" height="180"/>
+            <rect class="box" x="180" y="140" width="180" height="180" rx="8"/>
+            <text class="lbl-s" x="228" y="240">店主立绘</text>
+          </g>
+          <g class="node" data-node-id="greeting">
+            <rect class="hit" x="390" y="150" width="910" height="120"/>
+            <rect class="box" x="390" y="150" width="910" height="120" rx="8"/>
+            <text class="lbl" x="410" y="200">大酬宾哟！ / 悬停某项时显示该强化的说明</text>
+            <text class="lbl-s" x="410" y="240">自动缩放字号 (_set_greeting_text)</text>
+          </g>
+          <g class="node" data-node-id="item-grid">
+            <rect class="hit" x="180" y="340" width="1120" height="440"/>
+            <rect class="box" x="180" y="340" width="1120" height="440" rx="8"/>
+            <text class="lbl-s" x="192" y="362">ItemGrid · 13 项全部可见（对战下不 roll）</text>
+            <g class="node" data-node-id="item-slot">
+              <rect class="hit" x="196" y="376" width="200" height="180"/>
+              <rect class="box-f" x="196" y="376" width="200" height="180" rx="8"/>
+              <g class="node" data-node-id="item-bg">
+                <rect class="hit" x="204" y="384" width="184" height="164"/>
+                <rect class="box" x="204" y="384" width="184" height="164" rx="6"/>
+                <g class="node" data-node-id="item-icon">
+                  <rect class="hit" x="216" y="394" width="60" height="60"/>
+                  <rect x="216" y="394" width="60" height="60" fill="#475569"/>
+                </g>
+                <g class="node" data-node-id="item-name">
+                  <rect class="hit" x="288" y="394" width="94" height="60"/>
+                  <text class="lbl-s" x="292" y="420">夜鹭 +1</text>
+                </g>
+                <g class="node" data-node-id="item-cost">
+                  <rect class="hit" x="216" y="462" width="80" height="34"/>
+                  <text class="lbl" x="220" y="488">5G</text>
+                </g>
+                <g class="node" data-node-id="buy-button">
+                  <rect class="hit" x="304" y="462" width="78" height="76"/>
+                  <rect class="box-f" x="304" y="462" width="78" height="76" rx="6"/>
+                  <text class="lbl-s" x="326" y="506">购买</text>
+                </g>
+              </g>
+            </g>
+            <rect class="box" x="420" y="376" width="200" height="180" rx="8" opacity=".55"/>
+            <rect class="box" x="644" y="376" width="200" height="180" rx="8" opacity=".55"/>
+            <rect class="box" x="868" y="376" width="200" height="180" rx="8" opacity=".55"/>
+            <rect class="box" x="1092" y="376" width="200" height="180" rx="8" opacity=".55"/>
+            <rect class="box" x="196" y="576" width="200" height="180" rx="8" opacity=".4"/>
+            <rect class="box" x="420" y="576" width="200" height="180" rx="8" opacity=".4"/>
+            <rect class="box" x="644" y="576" width="200" height="180" rx="8" opacity=".4"/>
+            <rect class="box" x="868" y="576" width="200" height="180" rx="8" opacity=".4"/>
+            <rect class="box" x="1092" y="576" width="200" height="180" rx="8" opacity=".4"/>
+            <text class="lbl-s" x="196" y="772">… 共 13 格（首个展开为模板，其余实例化）</text>
+          </g>
+        </g>
+      </g>
+
+      <g class="node" data-node-id="shop-gold">
+        <rect class="hit" x="1370" y="120" width="500" height="60"/>
+        <rect class="box-f" x="1370" y="120" width="500" height="60" rx="8"/>
+        <text class="lbl" x="1390" y="158">当前金币：12G</text>
+      </g>
+
+      <g class="node" data-node-id="refresh-button">
+        <rect class="hit" x="1370" y="740" width="500" height="64"/>
+        <rect class="box" x="1370" y="740" width="500" height="64" rx="8" stroke="#dc2626" stroke-dasharray="6 4"/>
+        <text class="lbl-s" x="1390" y="778">RefreshButton [State:对战下隐藏] — 大全商店不刷新</text>
+      </g>
+
+      <g>
+        <rect class="box-f" x="1370" y="200" width="500" height="512" rx="8" stroke-dasharray="5 4"/>
+        <text class="lbl-s" x="1390" y="228">对手（全公开）· 实现里已并入 IntermissionBar</text>
+        <g class="node" data-node-id="opp-shop-health">
+          <rect class="hit" x="1390" y="244" width="460" height="46"/>
+          <rect class="box" x="1390" y="244" width="460" height="46" rx="6"/>
+          <text class="lbl" x="1404" y="276">对手　血量 7 / 10　金币 9G</text>
+        </g>
+        <rect class="box" x="1390" y="302" width="460" height="46" rx="6" opacity=".5"/>
+        <text class="lbl-s" x="1404" y="334">金币读数已并入上面那行状态 Label</text>
+        <g class="node" data-node-id="opp-shop-upgrades">
+          <rect class="hit" x="1390" y="360" width="460" height="336"/>
+          <rect class="box" x="1390" y="360" width="460" height="336" rx="6"/>
+          <text class="lbl-s" x="1402" y="382">已购强化</text>
+          <g class="node" data-node-id="opp-shop-upgrade-icon">
+            <rect class="hit" x="1402" y="394" width="76" height="76"/>
+            <rect class="box-f" x="1402" y="394" width="76" height="76" rx="6"/>
+            <text class="lbl-s" x="1444" y="464">×2</text>
+          </g>
+          <rect class="box" x="1490" y="394" width="76" height="76" rx="6" opacity=".5"/>
+          <rect class="box" x="1578" y="394" width="76" height="76" rx="6" opacity=".5"/>
+          <rect class="box" x="1666" y="394" width="76" height="76" rx="6" opacity=".35"/>
+        </g>
+      </g>
+
+      <g class="node" data-node-id="intermission-bar">
+        <rect class="hit" x="150" y="840" width="1180" height="180"/>
+        <rect class="box-f" x="150" y="840" width="1180" height="180" rx="10" stroke="#16a34a"/>
+        <g class="node" data-node-id="round-result">
+          <rect class="hit" x="176" y="862" width="600" height="52"/>
+          <text class="lbl" x="186" y="898">第 1 轮 — 你率先清盘</text>
+        </g>
+        <g class="node" data-node-id="countdown">
+          <rect class="hit" x="176" y="926" width="240" height="70"/>
+          <rect class="box" x="176" y="926" width="240" height="70" rx="8"/>
+          <text class="lbl" x="196" y="972">23s 后自动开始</text>
+        </g>
+        <g class="node" data-node-id="opp-ready">
+          <rect class="hit" x="440" y="926" width="380" height="70"/>
+          <rect class="box" x="440" y="926" width="380" height="70" rx="8"/>
+          <text class="lbl" x="460" y="972">对手：选购中…</text>
+        </g>
+        <g class="node" data-node-id="ready-button">
+          <rect class="hit" x="900" y="900" width="400" height="96"/>
+          <rect class="box-f" x="900" y="900" width="400" height="96" rx="10" stroke="#16a34a" stroke-width="2.5"/>
+          <text class="lbl" x="1040" y="956" fill="#4ade80">准备好了</text>
+        </g>
+      </g>
+    </g>
+  </svg></div>
+  <div class="right-col">
+    <div class="panel" id="changes"><h2>本次改动 (vs 模块归档线框)</h2><div id="changes-base"></div><div id="changes-list"></div></div>
+    <div class="panel inspector">
+      <h2>层级链</h2><div id="breadcrumb"></div>
+      <div id="details"></div>
+      <h2>改动</h2><div id="diffbox"></div>
+      <h2>行为</h2><div id="behaviors"></div>
+      <h2>直接子节点</h2><div id="children"></div>
+    </div>
+    <div class="panel tree-panel"><h2>完整层级树</h2><div id="tree"></div></div>
+  </div>
+</div>
+<script>
+const BASELINE = null;
+const NODES = {
+  'root': { name:'DuelShop', ctrl:'Control', module:'ShopEconomy', term:'中场休息', size:'1920×1080',
+    desc:'中场休息全屏层。实现方式为扩建既有 ShopOverlay（scenes/shop_overlay.tscn），不新建场景。', parent:null,
+    state:true, stateWhat:'一轮结束(round_over)后 visible=true；双方 ready 或倒计时归零后 _play_exit() 收起。复用 shop_overlay.gd:221 _play_enter / :237 _play_exit。' },
+
+  'dimmer': { name:'Dimmer', ctrl:'ColorRect', module:'ShopEconomy', size:'1920×1080',
+    desc:'半透明遮罩，复用 $Dimmer（shop_overlay.gd:59），无改动。', parent:'root' },
+
+  'shop-stage': { name:'Center', ctrl:'CenterContainer', module:'ShopEconomy', size:'1180×700',
+    desc:'商店卡的居中舞台，复用 $Center（shop_overlay.gd:60）。入场/退场 tween 作用在它身上。', parent:'root' },
+  'shop-card': { name:'ShopCard', ctrl:'NinePatchRect', module:'ShopEconomy', size:'1180×700',
+    desc:'商店卡背板，复用 $Center/ShopCard，无改动。', parent:'shop-stage' },
+  'shopkeeper': { name:'Shopkeeper', ctrl:'TextureRect', module:'ShopEconomy', size:'180×180',
+    desc:'店主立绘，复用。呼吸动画 _play_shopkeeper_breathing 原样保留。', parent:'shop-card' },
+  'greeting': { name:'Greeting', ctrl:'Label', module:'ShopEconomy', size:'910×120',
+    desc:'吆喝语 / 悬停时显示强化说明。复用 $Center/ShopCard/Greeting。', parent:'shop-card',
+    assign:true, assignWhat:'进入商店时写 GREETING_TEXT；悬停某项时写 OFFER_DESCRIPTIONS[offer_index]（已 grep 确认 shop_overlay.gd:43 存在且为 13 条）。走既有 _set_greeting_text() 自动缩放字号。' },
+
+  'item-grid': { name:'ItemGrid', ctrl:'GridContainer', module:'ShopEconomy', term:'大全商店', size:'1120×440',
+    desc:'强化陈列网格。关键发现：_build_offer_items() 本来就建了全部 13 个槽位，_roll_offers() 只是把没抽中的 visible=false。对战下跳过 roll 即为大全商店。', parent:'shop-card',
+    assign:true, assignWhat:'进入中场休息时调新增的 ShopOverlay.present_full(gold, price)（⚠️ 需新增；内部不调 _roll_offers()，改为把 13 项 _current_offers 全填、全部 visible=true）。既有 present() 单机路径不动。' },
+  'item-slot': { name:'ItemSlot', ctrl:'Control', module:'ShopEconomy', size:'200×180',
+    desc:'单个强化槽位。首个在场景里，其余 12 个由 _build_offer_items() duplicate。', parent:'item-grid',
+    copy:true, copyWhat:'既有行为，不改：shop_overlay.gd:157-174 以 item_slot_prototype.duplicate() 建满 OFFER_NAMES.size()=13 份。' },
+  'item-bg': { name:'ItemBg', ctrl:'Sprite2D', module:'ShopEconomy', size:'184×164',
+    desc:'槽位底图，承载图标/名称/价格/按钮。复用。', parent:'item-slot' },
+  'item-icon': { name:'Item_Icon', ctrl:'TextureRect', module:'ShopEconomy', size:'60×60',
+    desc:'强化图标。', parent:'item-bg',
+    assign:true, assignWhat:'建槽位时一次性写入。texture = OFFER_ICONS[offer_index]（已 grep 确认 shop_overlay.gd:13-27 为 13 项 Texture2D）。既有逻辑，不改。' },
+  'item-name': { name:'Label_Name', ctrl:'Label', module:'ShopEconomy', size:'94×60',
+    desc:'强化名。', parent:'item-bg',
+    assign:true, assignWhat:'建槽位时写入 OFFER_NAMES[offer_index]（已 grep 确认 shop_overlay.gd:28-42）。既有逻辑，不改。' },
+  'item-cost': { name:'Label_Cost', ctrl:'Label', module:'ShopEconomy', size:'80×34',
+    desc:'价格 / 售罄 / 已购 三态文案。', parent:'item-bg',
+    assign:true, assignWhat:'_update_cost_labels() 里刷新：已购→"已购"，本轮已买→"售罄"，否则 "%dG" % _current_price（已 grep 确认 shop_overlay.gd:259）。对战下 price 固定为 main.gd 的 SHOP_ITEM_COST=5。' },
+  'buy-button': { name:'BuyButton', ctrl:'Button', module:'ShopEconomy', size:'78×76',
+    desc:'购买按钮。', parent:'item-bg',
+    click:true, clickWhat:'Pressed → offer_selected(offer_index) 信号 → main.gd:1162 _choose_shop_offer(offer)。对战下 _choose_shop_offer 额外做两件事：跳过 _save_progress()，并让 DuelSession 广播 upgrade_bought 消息（⚠️ 需新增）。',
+    hover:true, hoverWhat:'mouse_entered → _set_greeting_text(OFFER_DESCRIPTIONS[offer_index])；mouse_exited → 恢复 GREETING_TEXT。既有逻辑（shop_overlay.gd:168-169），不改。' },
+
+  'shop-gold': { name:'ShopGold', ctrl:'Label', module:'ShopEconomy', size:'500×60',
+    desc:'自身金币读数，复用 $ShopGold。', parent:'root',
+    assign:true, assignWhat:'进入商店与每次购买后刷新。调既有 ShopOverlay.update_gold(gold, price)（shop_overlay.gd:111）。' },
+
+  'refresh-button': { name:'RefreshButton', ctrl:'Button', module:'ShopEconomy', size:'500×64',
+    desc:'单机的「刷新并补货」。对战下大全商店不刷新，整个按钮隐藏。', parent:'root',
+    anno:'[State:对战下隐藏]',
+    state:true, stateWhat:'present_full() 里设 refresh_button.visible=false。既有 present_game_over()（shop_overlay.gd:149）已经是同一手法，照抄即可。单机 present() 路径仍 visible=true。' },
+
+  'opp-shop-health': { name:'OpponentShopStatusLabel', ctrl:'Label', module:'Netplay', size:'460×46',
+    desc:'对手血量与金币合成的一行状态。中场休息时这是最关键的决策信息（该买输出还是该买血）。实施期把原先平级的 OpponentShopPanel 并进了 IntermissionBar，少一层容器。', parent:'intermission-bar',
+    assign:true, assignWhat:'收到对手 state_sync 时刷新。ShopOverlay.set_duel_opponent() 写入 "对手　血量 %d / %d　金币 %dG" % [opponent.hp, opponent.max_hp, opponent.gold]。' },
+  'opp-shop-upgrades': { name:'OpponentShopUpgradeGrid', ctrl:'GridContainer', module:'ShopEconomy', term:'大全商店', size:'460×336',
+    desc:'对手已购强化墙。Q7 全公开的落点之一。实施期随对手状态一起并进 IntermissionBar。', parent:'intermission-bar',
+    assign:true, assignWhat:'对手每次购买后收到 upgrade_bought 时重建。数据来源 opponent.upgrades: Dictionary[offer_index -> count]，图标取 ShopOverlay.OFFER_ICONS[offer_index]。' },
+  'opp-shop-upgrade-icon': { name:'OpponentShopUpgradeIcon', ctrl:'TextureRect', module:'ShopEconomy', size:'76×76',
+    desc:'单个强化图标，tooltip 带「名称 ×层数」。', parent:'opp-shop-upgrades',
+    copy:true, copyWhat:'按 opponent.upgrades 条目数实例化，最多 13 份。与 DuelHud 的 OpponentUpgradeIcon 同款，实现上抽一个共用的构建函数。' },
+
+  'intermission-bar': { name:'IntermissionBar', ctrl:'PanelContainer', module:'Netplay', term:'中场休息', size:'1180×180',
+    desc:'底部中场休息条：本轮结果 + 倒计时 + 对手就绪态 + 准备按钮。', parent:'root' },
+  'round-result': { name:'RoundResultLabel', ctrl:'Label', module:'Netplay', term:'对战轮', size:'600×52',
+    desc:'刚结束那一轮的结果播报。', parent:'intermission-bar',
+    assign:true, assignWhat:'进入中场休息时写入。Text = "第 %d 轮 — %s" % [round_index, "你率先清盘" 或 "对手率先清盘"]，来源为 round_over 消息的 winner 字段。' },
+  'countdown': { name:'CountdownLabel', ctrl:'Label', module:'Netplay', size:'240×70',
+    desc:'自动开始倒计时，Q8 定的 30 秒。', parent:'intermission-bar',
+    assign:true, assignWhat:'_process 里每帧刷新。Text = "%ds 后自动开始" % ceil(remaining)。计时由 host 端权威：host 跑 DuelConfig.INTERMISSION_SECONDS=30 的计时器，归零时广播 round_start；client 只显示 host 下发的剩余秒数（⚠️ 全部需新增）。' },
+  'opp-ready': { name:'OpponentReadyLabel', ctrl:'Label', module:'Netplay', size:'380×70',
+    desc:'对手是否已准备。', parent:'intermission-bar',
+    assign:true, assignWhat:'收到对手 ready 消息时刷新。未就绪 "对手：选购中…"，已就绪 "对手：已准备 ✓"。' },
+  'ready-button': { name:'ReadyButton', ctrl:'Button', module:'Netplay', size:'400×96',
+    desc:'准备按钮。实现上复用既有 $ContinueButton 节点，仅改文案与信号去向，不新建节点。', parent:'intermission-bar',
+    click:true, clickWhat:'Pressed → 发 ready 消息给对方 + 本地标记已就绪。既有 continue_pressed 信号（shop_overlay.gd:6）改接 DuelSession.mark_ready()（⚠️ 需新增）；单机路径仍接 main.gd:1209 _on_shop_continue。双方都 ready 或倒计时归零 → host 广播 round_start。',
+    state:true, stateWhat:'本方已 ready 后 disabled=true 且文案改「等待对手…」，防止重复发送。' }
+};
+const TAG_META = {
+  state:  { label:'状态', cls:'b-state',  name:'显隐切换 (Visible)', defWhy:'Controller 通过 Visible 控显隐' },
+  hover:  { label:'悬停', cls:'b-hover',  name:'悬停逻辑 (Hover)',   defWhy:'连 mouse_entered/exited' },
+  click:  { label:'点击', cls:'b-click',  name:'点击逻辑 (Click)',   defWhy:'连 Pressed / gui_input' },
+  assign: { label:'赋值', cls:'b-assign', name:'赋值逻辑 (Assign)',  defWhy:'运行时写入内容' },
+  copy:   { label:'拷贝', cls:'b-copy',   name:'实例化模板 (Copy)',  defWhy:'作为模板被实例化多份' }
+};
+const DIFF_META = {
+  new:     { label:'🆕 新增', cls:'d-new' },
+  changed: { label:'✏️ 改动', cls:'d-changed' },
+  moved:   { label:'↔️ 移位', cls:'d-moved' },
+  removed: { label:'🗑️ 删除', cls:'d-removed' }
+};
+function getNodeTags(node){
+  const t=[];
+  if(node.copy)  t.push({key:'copy', ...TAG_META.copy,  why:node.copyWhat  ||TAG_META.copy.defWhy});
+  if(node.state) t.push({key:'state',...TAG_META.state, why:node.stateWhat ||TAG_META.state.defWhy});
+  if(node.hover) t.push({key:'hover',...TAG_META.hover, why:node.hoverWhat ||TAG_META.hover.defWhy});
+  if(node.click) t.push({key:'click',...TAG_META.click, why:node.clickWhat ||TAG_META.click.defWhy});
+  if(node.assign)t.push({key:'assign',...TAG_META.assign,why:node.assignWhat||TAG_META.assign.defWhy});
+  return t;
+}
+function getNodeDiff(node){ return node.diff ? {...DIFF_META[node.diff], why:node.diffWhat||''} : null; }
+function buildPath(id){const p=[];let c=id;while(c&&NODES[c]){p.unshift({id:c,...NODES[c]});c=NODES[c].parent}return p}
+function getChildren(id){return Object.entries(NODES).filter(([_,n])=>n.parent===id).map(([cid,n])=>({id:cid,...n}))}
+function tagHtml(n){return getNodeTags(n).map(t=>`<span class="b ${t.cls}" title="${t.why.replace(/"/g,'&quot;')}">${t.label}</span>`).join('')}
+function buildTree(){
+  const box=document.getElementById('tree'); let html='';
+  (function walk(id,depth){
+    const n=NODES[id]; if(!n) return;
+    html+=`<div data-node-id="${id}">${'  '.repeat(depth)}${depth?'└ ':''}[${n.ctrl}] ${n.name}${tagHtml(n)}</div>`;
+    getChildren(id).forEach(c=>walk(c.id,depth+1));
+  })('root',0);
+  box.innerHTML=html;
+  box.querySelectorAll('div').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-node-id'))));
+}
+function selectNode(id){
+  const n=NODES[id]; if(!n) return;
+  document.querySelectorAll('.selected').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll(`[data-node-id="${id}"]`).forEach(el=>el.classList.add('selected'));
+  document.querySelector(`#tree [data-node-id="${id}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'});
+  document.getElementById('breadcrumb').textContent=buildPath(id).map(p=>p.name).join('  ›  ');
+  document.getElementById('details').innerHTML=
+    `<div><span class="k">控件</span>${n.ctrl}</div>`+
+    `<div><span class="k">模块</span>${n.module||'—'}</div>`+
+    (n.term?`<div><span class="k">术语</span>${n.term}</div>`:'')+
+    `<div><span class="k">尺寸</span>${n.size||'—'}</div>`+
+    (n.anno?`<div><span class="k">标注</span>${n.anno}</div>`:'')+
+    `<div><span class="k">说明</span>${n.desc||'—'}</div>`;
+  const d=getNodeDiff(n);
+  document.getElementById('diffbox').innerHTML = d?`<span class="d ${d.cls}">${d.label}</span> ${d.why}`:'<span style="color:#64748b;font-size:12px">无（全新界面，无归档基线）</span>';
+  const tags=getNodeTags(n);
+  document.getElementById('behaviors').innerHTML = tags.length? tags.map(t=>`<div class="beh"><span class="ins-b ${t.cls}">${t.label}</span> <b>${t.name}</b><br>${t.why}</div>`).join('') : '<span style="color:#64748b;font-size:12px">无行为标签（静态节点）</span>';
+  const ch=getChildren(id);
+  document.getElementById('children').innerHTML = ch.length? ch.map(c=>`<div class="child" data-jump="${c.id}">[${c.ctrl}] ${c.name}</div>`).join('') : '<span style="color:#64748b;font-size:12px">无子节点</span>';
+  document.querySelectorAll('#children .child').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-jump'))));
+}
+function bindSVG(){document.querySelectorAll('svg g.node').forEach(g=>g.addEventListener('click',e=>{e.stopPropagation();selectNode(g.getAttribute('data-node-id'))}))}
+function buildChanges(){
+  const box=document.getElementById('changes');
+  document.getElementById('changes-base').textContent = BASELINE? ('基线: '+BASELINE) : '全新界面（无归档基线）— 但结构上是既有 scenes/shop_overlay.tscn 的扩建，复用节点已在各节点 desc 中注明';
+  const diffs=Object.entries(NODES).filter(([_,n])=>n.diff);
+  const list=document.getElementById('changes-list');
+  if(!BASELINE || !diffs.length){ box.querySelector('h2').textContent = BASELINE?'本次改动: 无结构变化':'全新界面（扩建既有 shop_overlay）'; return; }
+  list.innerHTML = diffs.map(([id,n])=>{const d=getNodeDiff(n);return `<div class="chg" data-jump="${id}"><span class="d ${d.cls}">${d.label}</span> <b>${n.name}</b> — ${n.diffWhat||''}</div>`}).join('');
+  list.querySelectorAll('.chg').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-jump'))));
+}
+buildTree(); bindSVG(); buildChanges(); selectNode('root');
+</script>
+</body></html>

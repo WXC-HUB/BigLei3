@@ -15,6 +15,8 @@ const DEFAULT_CONTENT_Z := 20
 const CORPSE_CONTENT_Z := 8
 const USED_ITEM_SHADER := preload("res://shaders/used_item_grayscale.gdshader")
 const CHAIN_MARKER_TEXTURE := preload("res://assets/sprites/generated/marker_chain_special.png")
+## 连携标记点 A 是道具牌上的角标，缩到这个比例才不会压住牌面。
+const CHAIN_ANCHOR_BADGE_SCALE := 0.58
 ## Size the flag settles at once its card has been blown away.
 const SEALED_MARKER_SCALE := 0.66
 
@@ -379,15 +381,22 @@ func set_flag_marker(marker: Texture2D) -> void:
 		_apply_sealed_look()
 
 
-func set_chain_marker(value: bool) -> void:
+## 「连携」的标记点 A 落在已经翻开的道具牌上，所以标记画成右上角的一枚小角标，
+## 不去盖住道具本身的图。display_revealed() 每次都会藏起 _marker，因此每次刷新
+## 这张牌之后都要重新调一次。
+func set_chain_anchor(value: bool) -> void:
+	if not value:
+		if _marker.texture == CHAIN_MARKER_TEXTURE:
+			_marker.texture = null
+			_marker.visible = false
+			_marker.scale = Vector2.ONE
+			_marker.position = Vector2.ZERO
+		return
+	_marker.texture = CHAIN_MARKER_TEXTURE
+	_marker.visible = true
 	_marker.modulate = Color.WHITE
-	_marker.scale = Vector2.ONE
-	if value:
-		_marker.texture = CHAIN_MARKER_TEXTURE
-		_marker.visible = true
-		play_border_flash(Color("74f3ff"), 3, 0.09)
-	if _flag_sealed:
-		_apply_sealed_look()
+	_marker.scale = Vector2(CHAIN_ANCHOR_BADGE_SCALE, CHAIN_ANCHOR_BADGE_SCALE)
+	_marker.position = Vector2(_cell_size * (1.0 - CHAIN_ANCHOR_BADGE_SCALE), -_cell_size * 0.06)
 
 
 func show_xray_hint(texture: Texture2D, number_value: int, duration: float = 3.0) -> void:

@@ -4,6 +4,9 @@ extends Control
 signal offer_selected(offer: int)
 signal refresh_requested
 signal continue_pressed
+## 对战的中场休息里，「继续」按钮的语义变成「我准备好了」，走这条信号而不是
+## `continue_pressed`——按下之后商店不关，要等对手或倒计时。
+signal ready_pressed
 
 const ButtonMotion := preload("res://scripts/ui/button_motion.gd")
 const GREETING_TEXT := "大酬宾哟！"
@@ -52,7 +55,7 @@ const OFFER_DESCRIPTIONS := [
 	"自动标出1个雷",
 	"每只红尾水鸲额外标记 1 个有雷格子",
 	"随机1个格子出现内容（不翻开）3s后消失",
-	"特殊标记，标记连线雷后中间全被翻开",
+	"道具那格与下一颗标出的雷之间，格子全被翻开（可转弯）",
 	"无敌，下一步选中的格子周围会被一起翻开",
 ]
 @onready var shopkeeper: TextureRect = $Center/ShopCard/Shopkeeper
@@ -75,6 +78,14 @@ var _owned_offers: Dictionary = {}
 var _sold_out_offers: Dictionary = {}
 var _current_offers: Array[int] = []
 var _rng := RandomNumberGenerator.new()
+var _can_afford := false
+var _duel_mode := false
+var _duel_bar: PanelContainer
+var _duel_result_label: Label
+var _duel_countdown_label: Label
+var _duel_opponent_ready_label: Label
+var _duel_opponent_label: Label
+var _duel_opponent_upgrades: GridContainer
 
 
 func _ready() -> void:
@@ -95,15 +106,151 @@ func present(_result: String, _progress: String, gold: int, price: int) -> void:
 	gold_label.text = "当前金币：%dG" % gold
 	_sold_out_offers.clear()
 	_roll_offers()
+	_can_afford = gold >= price
 	_update_cost_labels()
-	_set_offers_enabled(gold >= price)
-	refresh_button.disabled = gold < price
+	_set_offers_enabled(_can_afford)
+	refresh_button.disabled = not _can_afford
 	visible = true
 	_play_enter()
 
 
+## 大全商店：13 项一次全摆出来，不刷新。关键在于 `_build_offer_items()` 本来就把
+## 13 个槽位都建好了，`_roll_offers()` 只是把没抽中的藏起来——所以「大全」不是新
+## 界面，只是跳过那次抽取。
+func present_full(gold: int, price: int) -> void:
+	_duel_mode = true
+	_set_greeting_text(GREETING_TEXT)
+	_current_price = price
+	gold_label.text = "当前金币：%dG" % gold
+	_sold_out_offers.clear()
+	_current_offers.clear()
+	for offer_index in range(OFFER_NAMES.size()):
+		_current_offers.append(offer_index)
+		_item_slots[offer_index].visible = true
+		_item_nodes[offer_index].visible = true
+	# 大全商店不刷新，刷新按钮整个收起来（`present_game_over()` 已经是同一手法）。
+	refresh_button.visible = false
+	refresh_button.disabled = true
+	_build_duel_bar()
+	_duel_bar.visible = true
+	set_duel_self_ready(false)
+	set_duel_opponent_ready(false)
+	_can_afford = gold >= price
+	_update_cost_labels()
+	_set_offers_enabled(_can_afford)
+	visible = true
+	_play_enter()
+
+
+func set_duel_round_result(text: String) -> void:
+	if _duel_result_label != null:
+		_duel_result_label.text = text
+
+
+func set_duel_countdown(seconds: float) -> void:
+	if _duel_countdown_label != null:
+		_duel_countdown_label.text = "%ds 后自动开始" % maxi(ceili(seconds), 0)
+
+
+func set_duel_opponent(hp: int, max_hp: int, gold: int, upgrades: Dictionary) -> void:
+	if _duel_opponent_label != null:
+		_duel_opponent_label.text = "对手　血量 %d / %d　金币 %dG" % [hp, max_hp, gold]
+	if _duel_opponent_upgrades == null:
+		return
+	for child in _duel_opponent_upgrades.get_children():
+		child.queue_free()
+	var offers := upgrades.keys()
+	offers.sort()
+	for offer in offers:
+		var offer_index := int(offer)
+		if offer_index < 0 or offer_index >= OFFER_ICONS.size():
+			continue
+		var icon := TextureRect.new()
+		icon.texture = OFFER_ICONS[offer_index]
+		icon.custom_minimum_size = Vector2(52, 52)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.tooltip_text = "%s ×%d" % [OFFER_NAMES[offer_index], int(upgrades[offer])]
+		_duel_opponent_upgrades.add_child(icon)
+
+
+func set_duel_opponent_ready(is_ready: bool) -> void:
+	if _duel_opponent_ready_label != null:
+		_duel_opponent_ready_label.text = "对手：已准备 ✓" if is_ready else "对手：选购中…"
+
+
+func set_duel_self_ready(is_ready: bool) -> void:
+	continue_button.disabled = is_ready
+	continue_button.text = "等待对手…" if is_ready else "准备好了"
+
+
+## 对战结束时把商店还原成单机形态，免得下一次单机开局继承了大全模式。
+func exit_duel_mode() -> void:
+	_duel_mode = false
+	if _duel_bar != null:
+		_duel_bar.visible = false
+	refresh_button.visible = true
+	continue_button.disabled = false
+	continue_button.text = "继续"
+
+
+func _build_duel_bar() -> void:
+	if _duel_bar != null:
+		return
+	_duel_bar = PanelContainer.new()
+	_duel_bar.name = "IntermissionBar"
+	_duel_bar.add_theme_stylebox_override("panel", _duel_bar_style())
+	_duel_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_duel_bar.custom_minimum_size = Vector2(1180, 150)
+	_duel_bar.position = Vector2(-590, -170)
+	add_child(_duel_bar)
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 8)
+	_duel_bar.add_child(column)
+
+	_duel_result_label = _make_duel_label("RoundResultLabel", "", 28)
+	column.add_child(_duel_result_label)
+	_duel_opponent_label = _make_duel_label("OpponentShopStatusLabel", "对手　血量 —　金币 —", 24)
+	column.add_child(_duel_opponent_label)
+
+	_duel_opponent_upgrades = GridContainer.new()
+	_duel_opponent_upgrades.name = "OpponentShopUpgradeGrid"
+	_duel_opponent_upgrades.columns = 13
+	column.add_child(_duel_opponent_upgrades)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 24)
+	column.add_child(row)
+	_duel_countdown_label = _make_duel_label("CountdownLabel", "", 24)
+	row.add_child(_duel_countdown_label)
+	_duel_opponent_ready_label = _make_duel_label("OpponentReadyLabel", "对手：选购中…", 24)
+	_duel_opponent_ready_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(_duel_opponent_ready_label)
+
+
+func _make_duel_label(node_name: String, text: String, font_size: int) -> Label:
+	var label := Label.new()
+	label.name = node_name
+	label.text = text
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", Color("f4e8c1"))
+	return label
+
+
+func _duel_bar_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.11, 0.16, 0.11, 0.9)
+	style.border_color = Color("3d5136")
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(14)
+	return style
+
+
 func show_insufficient_gold(gold: int, _price: int) -> void:
 	gold_label.text = "当前金币：%dG" % gold
+	_can_afford = false
 	_set_offers_enabled(false)
 	refresh_button.disabled = true
 
@@ -111,9 +258,10 @@ func show_insufficient_gold(gold: int, _price: int) -> void:
 func update_gold(gold: int, price: int) -> void:
 	_current_price = price
 	gold_label.text = "当前金币：%dG" % gold
+	_can_afford = gold >= price
 	_update_cost_labels()
-	_set_offers_enabled(gold >= price)
-	refresh_button.disabled = gold < price
+	_set_offers_enabled(_can_afford)
+	refresh_button.disabled = not _can_afford
 
 
 func refresh_offers(gold: int, price: int) -> void:
@@ -128,7 +276,9 @@ func mark_offer_sold_out(offer_index: int) -> void:
 		return
 	_sold_out_offers[offer_index] = true
 	_update_cost_labels()
-	_set_offers_enabled(not refresh_button.disabled)
+	# 别拿 refresh_button.disabled 当「买得起吗」的替身：大全商店把刷新按钮整个
+	# 关了，那样一买完东西整排货就会被连坐禁用。
+	_set_offers_enabled(_can_afford)
 
 
 func current_offers() -> Array[int]:
@@ -181,6 +331,11 @@ func _on_offer_pressed(offer_index: int) -> void:
 
 
 func _on_continue_pressed() -> void:
+	if _duel_mode:
+		# 对战里按下的是「我准备好了」：商店不关，继续等对手或等倒计时归零。
+		set_duel_self_ready(true)
+		ready_pressed.emit()
+		return
 	continue_button.disabled = true
 	refresh_button.disabled = true
 	_set_offers_enabled(false)

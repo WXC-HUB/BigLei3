@@ -42,6 +42,15 @@ var _items := PackedByteArray()
 var _items_used := PackedByteArray()
 var _revealed_safe_cells := 0
 var _monster_peripheral_counts: Dictionary = {}
+## 新被标出的雷，按标记发生的顺序排队。标雷的入口太多（手动右键、红尾水鸲、探测、
+## 夜鹭、啄木鸟、推理……），「连携」这类只关心「下一个被标出的雷」的效果就在这里
+## 统一取，不用去 hook 每一处调用点。
+var _marked_mine_log: Array[int] = []
+## 「已计分的雷」队列，只增不减，且按格号去重。对战的标雷伤害要按雷逐个结算，
+## 但不能蹭上面那个队列——`_marked_mine_log` 被连携取走即清空，两边共用会互相
+## 偷走对方的事件。去重则保证反复插旗/撤旗同一格也只计一次分。
+var _scored_mine_log: Array[int] = []
+var _scored_mines: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 
 
@@ -141,6 +150,12 @@ func toggle_flag(index: int) -> bool:
 	if state_at(index) == CellState.REVEALED:
 		return false
 	_states[index] = CellState.COVERED if state_at(index) == CellState.FLAGGED else CellState.FLAGGED
+	if is_monster_core(index):
+		if state_at(index) == CellState.FLAGGED:
+			_marked_mine_log.append(index)
+			_record_scored_mine(index)
+		else:
+			_marked_mine_log.erase(index)
 	_refresh_mine_completion()
 	return true
 
@@ -225,6 +240,41 @@ func item_count(type: ItemType) -> int:
 	return total
 
 
+## How many item cards this level holds in total. Items only get scattered on the
+## first reveal, so before that the configured budget is the honest answer — the
+## board may still trim it if the level is too small to fit every card.
+func total_item_count() -> int:
+	if not mines_placed:
+		return (
+			lantern_count
+			+ compass_count
+			+ orbital_strike_count
+			+ super_luck_count
+			+ medical_kit_count
+			+ xray_count
+			+ chain_count
+			+ enlarge_count
+			+ detect_count
+		)
+	var total := 0
+	for item in _items:
+		if item != ItemType.NONE:
+			total += 1
+	return total
+
+
+## Item cards the player has yet to dig up. Revealing a card hands its item over
+## immediately, so "not revealed" is exactly what is still waiting on the board.
+func hidden_item_count() -> int:
+	if not mines_placed:
+		return total_item_count()
+	var total := 0
+	for index in range(_items.size()):
+		if _items[index] != ItemType.NONE and state_at(index) != CellState.REVEALED:
+			total += 1
+	return total
+
+
 func random_lantern_targets(center_index: int, count: int) -> PackedInt32Array:
 	var candidates: Array[int] = []
 	if not _is_valid(center_index) or not mines_placed:
@@ -298,14 +348,56 @@ func mark_mine(index: int) -> bool:
 	if not _is_valid(index) or not is_monster_core(index) or state_at(index) != CellState.COVERED:
 		return false
 	_states[index] = CellState.FLAGGED
+	_marked_mine_log.append(index)
+	_record_scored_mine(index)
 	_refresh_mine_completion()
 	return true
+
+
+## 取走并清空「新标出的雷」队列。取走即消费：同一次标记只会被结算一次。
+func take_marked_mine_log() -> Array[int]:
+	var marked := _marked_mine_log.duplicate()
+	_marked_mine_log.clear()
+	return marked
+
+
+## 取走并清空「已计分的雷」队列，用来结算对战的标雷伤害与金币收入。与
+## `take_marked_mine_log()` 互不干扰：那一条被连携消费，这一条只服务计分。
+func take_scored_mine_log() -> Array[int]:
+	var scored := _scored_mine_log.duplicate()
+	_scored_mine_log.clear()
+	return scored
+
+
+func _record_scored_mine(index: int) -> void:
+	if _scored_mines.has(index):
+		return
+	_scored_mines[index] = true
+	_scored_mine_log.append(index)
+
+
+## 由种子推出的开局格。对战双方用同一个种子建盘，于是也拿到同一个开局格；它直接
+## 充当 `_place_mines()` 的 `first_index`，双方的雷区布局与起跑线因此完全一致。
+##
+## 这解决了一个绕不过去的矛盾：首点安全是靠「把首点 3×3 排除出布雷范围」实现的，
+## 所以只要两人第一下点在不同格，候选数组的内容和长度就都不同，洗牌结果随之发散
+## ——光有同一个种子也拿不到同一张盘。把 first_index 交给种子决定就没这回事了，
+## 而且首点安全自动成立，不需要任何「生成后搬雷」的补丁。
+static func opening_cell_for(board_seed: int, board_width: int, board_height: int) -> int:
+	var total := board_width * board_height
+	if total <= 0:
+		return -1
+	# 用一支独立的 RNG，别去动棋盘自己那支——布雷的随机流不能被这次取样带偏。
+	var picker := RandomNumberGenerator.new()
+	picker.seed = board_seed
+	return picker.randi_range(0, total - 1)
 
 
 func resolve_monster_core(index: int) -> bool:
 	if not _is_valid(index) or not is_monster_core(index):
 		return false
 	_states[index] = CellState.REVEALED
+	_marked_mine_log.erase(index)
 	_refresh_mine_completion()
 	return true
 

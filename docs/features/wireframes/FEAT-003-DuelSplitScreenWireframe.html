@@ -1,0 +1,332 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
+<title>FEAT-003 · DuelSplitScreen 线框</title>
+<style>
+  body{margin:0;font-family:system-ui,"Microsoft YaHei",sans-serif;background:#0f172a;color:#e2e8f0}
+  .workspace{display:flex;gap:12px;padding:12px;height:100vh;box-sizing:border-box}
+  .svg-panel{flex:0 0 auto;background:#1e293b;border-radius:8px;padding:8px}
+  .svg-panel svg{height:calc(100vh - 40px);width:auto;background:#0b1220;border-radius:4px}
+  .right-col{flex:1;display:flex;flex-direction:column;gap:12px;min-width:360px}
+  .panel{background:#1e293b;border-radius:8px;padding:12px;overflow:auto}
+  .panel h2{font-size:13px;margin:0 0 6px;color:#94a3b8;letter-spacing:.5px}
+  g.node{cursor:pointer}
+  g.node>.hit{fill:transparent;stroke:transparent;transition:all .12s;pointer-events:all}
+  g.node:hover>.hit{fill:rgba(252,211,77,.10);stroke:#fbbf24;stroke-width:2}
+  g.node.selected>.hit{fill:rgba(239,68,68,.18);stroke:#ef4444;stroke-width:3}
+  .b,.ins-b{display:inline-block;padding:1px 6px;margin-left:3px;border-radius:7px;font-size:10.5px;font-weight:700;color:#fff;cursor:help}
+  .b-assign{background:#2563eb}.b-click{background:#f59e0b}.b-hover{background:#7c3aed}.b-state{background:#f43f5e}.b-copy{background:#10b981}
+  .d{display:inline-block;padding:2px 8px;margin-left:4px;border-radius:6px;font-size:12px;font-weight:800;color:#fff;border:2px solid rgba(255,255,255,.55)}
+  .d-new{background:#16a34a}.d-changed{background:#ea580c}.d-moved{background:#0284c7}.d-removed{background:#dc2626}
+  g.node>.hit.diff-new{stroke:#16a34a;stroke-width:3;stroke-dasharray:7 4;fill:rgba(22,163,74,.08)}
+  g.node>.hit.diff-changed{stroke:#ea580c;stroke-width:3;stroke-dasharray:7 4;fill:rgba(234,88,12,.10)}
+  g.node>.hit.diff-moved{stroke:#0284c7;stroke-width:3;stroke-dasharray:7 4;fill:rgba(2,132,199,.10)}
+  g.node>.hit.diff-removed{stroke:#dc2626;stroke-width:3;stroke-dasharray:3 3;fill:rgba(220,38,38,.10)}
+  #changes{border:2px solid #ea580c}
+  #changes .chg{cursor:pointer;padding:4px 6px;border-radius:5px;margin:2px 0;font-size:12px}
+  #changes .chg:hover{background:rgba(234,88,12,.15)}
+  #tree div{font-size:12px;padding:1px 0;cursor:pointer;white-space:pre;font-family:ui-monospace,Consolas,monospace}
+  #tree div:hover{background:rgba(148,163,184,.15)}
+  #tree div.selected{background:rgba(239,68,68,.25)}
+  #breadcrumb{font-size:12px;color:#7dd3fc;margin-bottom:6px}
+  #details{font-size:12.5px;line-height:1.7}
+  #details .k{color:#94a3b8;display:inline-block;width:64px}
+  .beh{background:#0b1220;border-radius:6px;padding:6px 8px;margin:4px 0;font-size:12px;line-height:1.6}
+  .child{font-size:12px;padding:2px 0;cursor:pointer;color:#cbd5e1}
+  .child:hover{color:#fbbf24}
+  svg text{font-family:system-ui,"Microsoft YaHei",sans-serif}
+  .lbl{fill:#94a3b8;font-size:15px}
+  .lbl-s{fill:#64748b;font-size:12px}
+  .box{fill:none;stroke:#475569;stroke-width:1.5}
+  .box-f{fill:#1e293b;stroke:#475569;stroke-width:1.5}
+</style></head><body>
+<div class="workspace">
+  <div class="svg-panel panel"><svg viewBox="0 0 1920 1080">
+    <g class="node" data-node-id="root">
+      <rect class="hit" x="0" y="0" width="1920" height="1080"/>
+      <rect x="2" y="2" width="1916" height="1076" fill="#0d1526" stroke="#334155" stroke-width="2"/>
+
+      <g class="node" data-node-id="round-label">
+        <rect class="hit" x="836" y="6" width="248" height="46"/>
+        <rect class="box-f" x="836" y="6" width="248" height="46" rx="8"/>
+        <text class="lbl" x="884" y="37">第 2 轮 · 7×7</text>
+      </g>
+
+      <g class="node" data-node-id="divider">
+        <rect class="hit" x="952" y="60" width="16" height="1010"/>
+        <rect x="958" y="60" width="4" height="1010" fill="#3d5136"/>
+      </g>
+
+      <g class="node" data-node-id="self-half">
+        <rect class="hit" x="6" y="60" width="946" height="1010"/>
+        <rect class="box" x="6" y="60" width="946" height="1010" rx="8" stroke-dasharray="10 6"/>
+        <text class="lbl-s" x="20" y="80">SelfHalf · 0–960 · 我的半屏</text>
+
+        <g class="node" data-node-id="self-status">
+          <rect class="hit" x="24" y="92" width="440" height="104"/>
+          <rect class="box-f" x="24" y="92" width="440" height="104" rx="8"/>
+          <circle cx="70" cy="144" r="30" fill="#334155" stroke="#64748b"/>
+          <text class="lbl-s" x="112" y="132">♥♥♥♥♥♥♥♡♡♡</text>
+          <text class="lbl-s" x="112" y="164">12G</text>
+        </g>
+
+        <g class="node" data-node-id="mine-counter">
+          <rect class="hit" x="520" y="112" width="200" height="56"/>
+          <rect class="box-f" x="520" y="112" width="200" height="56" rx="6"/>
+          <text class="lbl-s" x="534" y="146">剩余雷 008</text>
+        </g>
+        <g class="node" data-node-id="item-counter">
+          <rect class="hit" x="732" y="112" width="200" height="56"/>
+          <rect class="box-f" x="732" y="112" width="200" height="56" rx="6"/>
+          <text class="lbl-s" x="746" y="146">剩余道具 3/5</text>
+        </g>
+
+        <g class="node" data-node-id="self-board-panel">
+          <rect class="hit" x="40" y="184" width="880" height="880"/>
+          <rect class="box-f" x="40" y="184" width="880" height="880" rx="10"/>
+          <g class="node" data-node-id="mine-card-grid">
+            <rect class="hit" x="52" y="196" width="856" height="856"/>
+            <rect class="box" x="52" y="196" width="856" height="856" rx="6"/>
+            <text class="lbl-s" x="64" y="218">MineCardGrid · 格子边长自适应（10×10 时 81.7，原 88）</text>
+            <rect class="box" x="70" y="232" width="78" height="78"/>
+            <rect class="box" x="156" y="232" width="78" height="78"/>
+            <rect class="box" x="242" y="232" width="78" height="78"/>
+            <rect class="box" x="70" y="318" width="78" height="78"/>
+            <rect class="box" x="156" y="318" width="78" height="78"/>
+            <rect class="box" x="242" y="318" width="78" height="78"/>
+            <text class="lbl-s" x="360" y="330">… 真实棋盘，可交互</text>
+          </g>
+        </g>
+      </g>
+
+      <g class="node" data-node-id="opponent-half">
+        <rect class="hit" x="968" y="60" width="946" height="1010"/>
+        <rect class="box" x="968" y="60" width="946" height="1010" rx="8" stroke-dasharray="10 6"/>
+        <text class="lbl-s" x="982" y="80">OpponentHalf · 960–1920 · 对手半屏</text>
+
+        <g class="node" data-node-id="opponent-panel">
+          <rect class="hit" x="1000" y="92" width="880" height="120"/>
+          <rect class="box-f" x="1000" y="92" width="880" height="120" rx="8"/>
+          <text class="lbl-s" x="1014" y="122">对手　● 已连接　血量 7/10　已标 3/8　9G</text>
+          <g class="node" data-node-id="opp-upgrade-grid">
+            <rect class="hit" x="1500" y="100" width="370" height="60"/>
+            <rect class="box" x="1500" y="100" width="370" height="60" rx="6"/>
+            <rect class="box-f" x="1510" y="108" width="44" height="44" rx="4"/>
+            <rect class="box" x="1562" y="108" width="44" height="44" rx="4" opacity=".6"/>
+            <rect class="box" x="1614" y="108" width="44" height="44" rx="4" opacity=".4"/>
+            <text class="lbl-s" x="1676" y="136">已购强化</text>
+          </g>
+        </g>
+
+        <g class="node" data-node-id="opponent-board-slot">
+          <rect class="hit" x="1000" y="184" width="880" height="880"/>
+          <rect class="box-f" x="1000" y="184" width="880" height="880" rx="10"/>
+          <g class="node" data-node-id="fog-grid-backdrop">
+            <rect class="hit" x="1012" y="196" width="856" height="856"/>
+            <rect class="box" x="1012" y="196" width="856" height="856" rx="6"/>
+            <rect class="box" x="1030" y="232" width="78" height="78" opacity=".35"/>
+            <rect class="box" x="1116" y="232" width="78" height="78" opacity=".35"/>
+            <rect class="box" x="1202" y="232" width="78" height="78" opacity=".35"/>
+            <rect class="box" x="1030" y="318" width="78" height="78" opacity=".35"/>
+            <rect class="box" x="1116" y="318" width="78" height="78" opacity=".35"/>
+            <rect class="box" x="1202" y="318" width="78" height="78" opacity=".35"/>
+            <text class="lbl-s" x="1320" y="330">格子轮廓底 · 行列数与真实棋盘一致</text>
+          </g>
+          <g class="node" data-node-id="fog-veil">
+            <rect class="hit" x="1012" y="196" width="856" height="856"/>
+            <rect x="1012" y="196" width="856" height="856" rx="6" fill="#1a2438" opacity=".93" stroke="#4a5a72" stroke-width="2"/>
+            <text class="lbl-s" x="1026" y="222">FogVeil · 不透明，全程不散</text>
+            <g class="node" data-node-id="fog-hint">
+              <rect class="hit" x="1240" y="590" width="400" height="60"/>
+              <text class="lbl" x="1330" y="630">对手的雷区</text>
+            </g>
+          </g>
+        </g>
+      </g>
+
+      <g class="node" data-node-id="damage-feed">
+        <rect class="hit" x="700" y="220" width="520" height="180"/>
+        <rect class="box" x="700" y="220" width="520" height="180" rx="8" stroke-dasharray="4 4"/>
+        <text class="lbl-s" x="714" y="242">DamageFeedLayer · 飘字从右屏飞向左屏血条（全屏层）</text>
+        <text class="lbl" x="940" y="320" fill="#f87171">-1</text>
+      </g>
+
+      <g class="node" data-node-id="freeze-dimmer">
+        <rect class="hit" x="60" y="900" width="1800" height="140"/>
+        <rect class="box" x="60" y="900" width="1800" height="140" rx="8" stroke="#f43f5e" stroke-dasharray="8 5"/>
+        <text class="lbl-s" x="74" y="924">FreezeDimmer [State:默认隐藏] · 跨两屏全屏遮罩，此处缩略示意</text>
+        <text class="lbl" x="800" y="990">对手已清盘 — 本轮结束</text>
+      </g>
+    </g>
+  </svg></div>
+  <div class="right-col">
+    <div class="panel" id="changes"><h2>本次改动 (vs 基线线框)</h2><div id="changes-base"></div><div id="changes-list"></div></div>
+    <div class="panel inspector">
+      <h2>层级链</h2><div id="breadcrumb"></div>
+      <div id="details"></div>
+      <h2>改动</h2><div id="diffbox"></div>
+      <h2>行为</h2><div id="behaviors"></div>
+      <h2>直接子节点</h2><div id="children"></div>
+    </div>
+    <div class="panel tree-panel"><h2>完整层级树</h2><div id="tree"></div></div>
+  </div>
+</div>
+<script>
+// 注意：这不是「模块归档线框」——SplitScreen/Netplay 都还没跑过 that-is-all，docs/modules/ 是空的。
+// 这里拿 FEAT-001 的 DuelHud 工作线框当基线做 diff，因为分屏本质就是把那一版重排。
+const BASELINE = 'docs/features/wireframes/FEAT-001-DuelHudWireframe.html';
+const NODES = {
+  'root': { name:'DuelSplitScreen', ctrl:'Control', module:'SplitScreen', term:'分屏', size:'1920×1080',
+    desc:'对战分屏根节点。单机路径下整棵树不启用，棋盘仍走原来的全屏居中布局。', parent:null,
+    state:true, stateWhat:'`_is_duel()` 为真时启用分屏布局；为假时 `_apply_split_layout(false)` 还原成居中全屏。切换点在 `_resize_board_layout()`。',
+    diff:'changed', diffWhat:'原 DuelHud 是「叠在居中棋盘上的一层 HUD」；现在升级为「决定整个视口怎么切」的布局根。' },
+
+  'round-label': { name:'RoundLabel', ctrl:'Label', module:'Netplay', term:'对战轮', size:'248×46',
+    desc:'当前轮次与盘面尺寸。跨两屏的全局信息，压在中缝顶端。', parent:'root',
+    assign:true, assignWhat:'每轮开局时 `DuelHud.set_round(round_index, w, h)` 写入（FEAT-001 既有，不改）。',
+    diff:'moved', diffWhat:'从「棋盘正上方」改到「视口顶端中缝」——棋盘不再居中，原锚点会落在左屏棋盘上。' },
+
+  'divider': { name:'SplitDivider', ctrl:'ColorRect', module:'SplitScreen', term:'分屏', size:'4×1010',
+    desc:'两屏之间的分隔线。纯装饰，但没有它两块半屏会糊成一片。', parent:'root',
+    diff:'new', diffWhat:'分屏引入的新节点。' },
+
+  'self-half': { name:'SelfHalf', ctrl:'Control', module:'SplitScreen', term:'分屏', size:'960×1080',
+    desc:'左半屏容器：我的棋盘与我的 HUD。', parent:'root',
+    diff:'new', diffWhat:'新增的半屏容器。原来这些节点直接挂在全屏根上、按视口中心锚定。' },
+
+  'self-status': { name:'PlayerStatus', ctrl:'Control', module:'GameFlow', size:'440×104',
+    desc:'既有的自身状态 HUD（头像 + 心 + 金币），复用不新建。', parent:'self-half',
+    assign:true, assignWhat:'血量/金币变化时调 `PlayerStatus.set_health()` / `set_gold()`（player_status.gd:28,44，既有）。',
+    diff:'moved', diffWhat:'原锚在全屏左上角 (24,18)；现归属左半屏，需避开上移后的计数器行。' },
+
+  'mine-counter': { name:'MineCounter', ctrl:'PanelContainer', module:'GameFlow', size:'200×56',
+    desc:'剩余雷读数。', parent:'self-half',
+    assign:true, assignWhat:'`_mine_label.text = "%03d" % (mine_count - flag_count())`（main.gd 既有）。',
+    diff:'moved', diffWhat:'原按 `_position_board_counters()` 挂在居中棋盘正上方；现随左屏棋盘一起左移。' },
+  'item-counter': { name:'ItemCounter', ctrl:'PanelContainer', module:'GameFlow', size:'200×56',
+    desc:'剩余道具读数。', parent:'self-half',
+    assign:true, assignWhat:'`_refresh_item_counter()`（main.gd:904，既有）。',
+    diff:'moved', diffWhat:'同 MineCounter，随左屏棋盘左移。' },
+
+  'self-board-panel': { name:'BoardPanel', ctrl:'PanelContainer', module:'GameFlow', size:'880×880',
+    desc:'我的棋盘面板，唯一可交互的那块盘。', parent:'self-half',
+    diff:'changed', diffWhat:'`_set_centered_board_panel_rect()` 的 offset 全部加上一个水平位移 `_board_center_x`（分屏时 = -480），并按半屏可用宽高缩放。' },
+  'mine-card-grid': { name:'MineCardGrid', ctrl:'Control', module:'GameFlow', term:'自适应格子尺寸', size:'856×856',
+    desc:'真实格子网格，MineCell 实例的家。', parent:'self-board-panel',
+    diff:'changed', diffWhat:'格子边长改用 `_cell_size`（按可用宽高算）而非常量 `CELL_SIZE = 88`；10×10 时约 81.7。`MineCell.configure(index, _cell_size)` 与 `_cell_center()` 本来就是尺寸无关的，不必跟改。' },
+
+  'opponent-half': { name:'OpponentHalf', ctrl:'Control', module:'SplitScreen', term:'分屏', size:'960×1080',
+    desc:'右半屏容器：对手面板 + 迷雾罩下的对手棋盘位。', parent:'root',
+    diff:'new', diffWhat:'新增的半屏容器。' },
+
+  'opponent-panel': { name:'OpponentPanel', ctrl:'PanelContainer', module:'Netplay', size:'880×120',
+    desc:'FEAT-001 的对手面板。分屏后从右上角的竖排卡片压成横跨右屏顶部的一条。实施期发现单行放不下：13 个强化图标即便缩到 44px 也占 572px，加上第一行的身份/连接/血条/进度/金币会超出 848px 可用宽，于是改成上下两行（第一行状态、第二行强化墙），高度从 76 涨到 120。', parent:'opponent-half',
+    assign:true, assignWhat:'`DuelHud.refresh_opponent(opponent, total_mines)`（FEAT-001 既有）。数据仍是血量/标雷进度/金币/强化——全是 HUD 级聚合量，不含任何棋盘空间信息。',
+    diff:'changed', diffWhat:'从 560×404 的竖排卡片改为 880×120 的横排双行条：右屏的竖向空间要整块让给棋盘位。' },
+  'opp-upgrade-grid': { name:'OpponentUpgradeGrid', ctrl:'GridContainer', module:'ShopEconomy', size:'370×60',
+    desc:'对手已购强化图标墙，压进面板右段。', parent:'opponent-panel',
+    assign:true, assignWhat:'收到 `upgrade_bought` 后重建，图标取 `ShopOverlay.OFFER_ICONS[offer_index]`（FEAT-001 既有）。',
+    diff:'changed', diffWhat:'从 6 列的方阵改为单行横排（13 列），图标从 76px 缩到 44px；实施期把它挪到了面板的第二行。' },
+
+  'opponent-board-slot': { name:'OpponentBoardSlot', ctrl:'PanelContainer', module:'SplitScreen', term:'对手棋盘位', size:'880×880',
+    desc:'对手棋盘位。尺寸与左屏棋盘面板严格一致——这是「那边和我一副同样大的盘」这句话的视觉落点。', parent:'opponent-half',
+    assign:true, assignWhat:'每轮开局时随 `_resize_board_layout()` 一起定尺寸：与左屏 BoardPanel 用同一个 `_cell_size` 和同一组行列数（双方同种子同曲线，尺寸必然相同）。',
+    diff:'new', diffWhat:'本 FEAT 的核心新增。' },
+  'fog-grid-backdrop': { name:'FogGridBackdrop', ctrl:'Control', module:'SplitScreen', size:'856×856',
+    desc:'格子轮廓平铺底。用 `_draw()` 画行列线，**不放 MineCell**——全遮之下没有任何格子状态要显示，摆 100 张牌是约 2000 个节点换零像素。', parent:'opponent-board-slot',
+    diff:'new', diffWhat:'随对手棋盘位一起新增。',
+    assign:true, assignWhat:'开局时 `set_grid(columns, rows, cell_size)` 后 `queue_redraw()`。行列数来自本地棋盘（双方同盘），不需要任何网络数据。' },
+  'fog-veil': { name:'FogVeil', ctrl:'ColorRect', module:'SplitScreen', term:'迷雾罩', size:'856×856',
+    desc:'不透明迷雾罩，全程不散。Q1 定的「棋盘全遮」的落点，也是「棋盘状态不需要同步」这条推论的来源。', parent:'opponent-board-slot',
+    diff:'new', diffWhat:'本 FEAT 的核心新增节点。',
+    assign:true, assignWhat:'静态覆盖，无状态写入。对手标雷时调 `flash()` 走一次高光 tween —— 事件源是 FEAT-001 既有的 `MINE_MARKED` 消息，零协议成本；闪的是整片雾，不指示位置。' },
+  'fog-hint': { name:'FogHintLabel', ctrl:'Label', module:'SplitScreen', size:'400×60',
+    desc:'雾面上的静态说明文案「对手的雷区」，避免右屏读起来像加载失败。', parent:'fog-veil',
+    diff:'new', diffWhat:'随迷雾罩一起新增。' },
+
+  'damage-feed': { name:'DamageFeedLayer', ctrl:'Control', module:'Netplay', term:'标雷伤害', size:'1920×1080',
+    desc:'受击飘字层。分屏后飘字的语义更强了：从右屏（对手侧）飞向左屏我的血条，一眼看出伤害是谁打的。', parent:'root',
+    copy:true, copyWhat:'每收到一条 `MINE_MARKED` 实例化一个 Label（FEAT-001 既有的 `play_incoming_damage()`）。',
+    diff:'changed', diffWhat:'起点从「右上角对手面板下沿」改为「右屏棋盘位中心」，飞行距离更长、指向更明确。' },
+
+  'freeze-dimmer': { name:'FreezeDimmer', ctrl:'ColorRect', module:'Netplay', term:'对战轮', size:'1920×1080',
+    desc:'回合冻结遮罩。跨两屏的全屏层，不参与分屏切分。', parent:'root',
+    anno:'[State:默认隐藏]',
+    state:true, stateWhat:'`round_over` 或本地清盘时 visible=true 并吃掉输入（FEAT-001 既有，不改）。' }
+};
+const TAG_META = {
+  state:  { label:'状态', cls:'b-state',  name:'显隐切换 (Visible)', defWhy:'Controller 通过 Visible 控显隐' },
+  hover:  { label:'悬停', cls:'b-hover',  name:'悬停逻辑 (Hover)',   defWhy:'连 mouse_entered/exited' },
+  click:  { label:'点击', cls:'b-click',  name:'点击逻辑 (Click)',   defWhy:'连 Pressed / gui_input' },
+  assign: { label:'赋值', cls:'b-assign', name:'赋值逻辑 (Assign)',  defWhy:'运行时写入内容' },
+  copy:   { label:'拷贝', cls:'b-copy',   name:'实例化模板 (Copy)',  defWhy:'作为模板被实例化多份' }
+};
+const DIFF_META = {
+  new:     { label:'🆕 新增', cls:'d-new' },
+  changed: { label:'✏️ 改动', cls:'d-changed' },
+  moved:   { label:'↔️ 移位', cls:'d-moved' },
+  removed: { label:'🗑️ 删除', cls:'d-removed' }
+};
+function getNodeTags(node){
+  const t=[];
+  if(node.copy)  t.push({key:'copy', ...TAG_META.copy,  why:node.copyWhat  ||TAG_META.copy.defWhy});
+  if(node.state) t.push({key:'state',...TAG_META.state, why:node.stateWhat ||TAG_META.state.defWhy});
+  if(node.hover) t.push({key:'hover',...TAG_META.hover, why:node.hoverWhat ||TAG_META.hover.defWhy});
+  if(node.click) t.push({key:'click',...TAG_META.click, why:node.clickWhat ||TAG_META.click.defWhy});
+  if(node.assign)t.push({key:'assign',...TAG_META.assign,why:node.assignWhat||TAG_META.assign.defWhy});
+  return t;
+}
+function getNodeDiff(node){ return node.diff ? {...DIFF_META[node.diff], why:node.diffWhat||''} : null; }
+function buildPath(id){const p=[];let c=id;while(c&&NODES[c]){p.unshift({id:c,...NODES[c]});c=NODES[c].parent}return p}
+function getChildren(id){return Object.entries(NODES).filter(([_,n])=>n.parent===id).map(([cid,n])=>({id:cid,...n}))}
+function tagHtml(n){return getNodeTags(n).map(t=>`<span class="b ${t.cls}" title="${t.why.replace(/"/g,'&quot;')}">${t.label}</span>`).join('')}
+function buildTree(){
+  const box=document.getElementById('tree'); let html='';
+  (function walk(id,depth){
+    const n=NODES[id]; if(!n) return;
+    const d=getNodeDiff(n);
+    html+=`<div data-node-id="${id}">${'  '.repeat(depth)}${depth?'└ ':''}[${n.ctrl}] ${n.name}${d?' '+d.label:''}${tagHtml(n)}</div>`;
+    getChildren(id).forEach(c=>walk(c.id,depth+1));
+  })('root',0);
+  box.innerHTML=html;
+  box.querySelectorAll('div').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-node-id'))));
+}
+function selectNode(id){
+  const n=NODES[id]; if(!n) return;
+  document.querySelectorAll('.selected').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll(`[data-node-id="${id}"]`).forEach(el=>el.classList.add('selected'));
+  document.querySelector(`#tree [data-node-id="${id}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'});
+  document.getElementById('breadcrumb').textContent=buildPath(id).map(p=>p.name).join('  ›  ');
+  document.getElementById('details').innerHTML=
+    `<div><span class="k">控件</span>${n.ctrl}</div>`+
+    `<div><span class="k">模块</span>${n.module||'—'}</div>`+
+    (n.term?`<div><span class="k">术语</span>${n.term}</div>`:'')+
+    `<div><span class="k">尺寸</span>${n.size||'—'}</div>`+
+    (n.anno?`<div><span class="k">标注</span>${n.anno}</div>`:'')+
+    `<div><span class="k">说明</span>${n.desc||'—'}</div>`;
+  const d=getNodeDiff(n);
+  document.getElementById('diffbox').innerHTML = d?`<span class="d ${d.cls}">${d.label}</span> ${d.why}`:'<span style="color:#64748b;font-size:12px">相对基线无变化</span>';
+  const tags=getNodeTags(n);
+  document.getElementById('behaviors').innerHTML = tags.length? tags.map(t=>`<div class="beh"><span class="ins-b ${t.cls}">${t.label}</span> <b>${t.name}</b><br>${t.why}</div>`).join('') : '<span style="color:#64748b;font-size:12px">无行为标签（静态节点）</span>';
+  const ch=getChildren(id);
+  document.getElementById('children').innerHTML = ch.length? ch.map(c=>`<div class="child" data-jump="${c.id}">[${c.ctrl}] ${c.name}</div>`).join('') : '<span style="color:#64748b;font-size:12px">无子节点</span>';
+  document.querySelectorAll('#children .child').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-jump'))));
+}
+function bindSVG(){document.querySelectorAll('svg g.node').forEach(g=>g.addEventListener('click',e=>{e.stopPropagation();selectNode(g.getAttribute('data-node-id'))}))}
+function applyDiffClasses(){
+  Object.entries(NODES).forEach(([id,n])=>{
+    if(!n.diff) return;
+    document.querySelectorAll(`svg [data-node-id="${id}"] > .hit`).forEach(el=>el.classList.add('diff-'+n.diff));
+  });
+}
+function buildChanges(){
+  document.getElementById('changes-base').innerHTML =
+    '基线: <code>'+BASELINE+'</code><br><span style="color:#94a3b8;font-size:11px">注意：这是 FEAT-001 的<b>工作</b>线框，不是模块归档线框（docs/modules/ 还是空的，两个 FEAT 都没跑过 that-is-all）。</span>';
+  const diffs=Object.entries(NODES).filter(([_,n])=>n.diff);
+  document.getElementById('changes-list').innerHTML = diffs.map(([id,n])=>{
+    const d=getNodeDiff(n);
+    return `<div class="chg" data-jump="${id}"><span class="d ${d.cls}">${d.label}</span> <b>${n.name}</b> — ${n.diffWhat||''}</div>`;
+  }).join('');
+  document.querySelectorAll('#changes .chg').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-jump'))));
+}
+buildTree(); bindSVG(); applyDiffClasses(); buildChanges(); selectNode('root');
+</script>
+</body></html>

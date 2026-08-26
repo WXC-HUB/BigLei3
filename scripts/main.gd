@@ -29,6 +29,8 @@ const TUTORIAL_GUIDE_TEXTURE := preload("res://my_asset/guide.png")
 const TUTORIAL_GUIDE_2_TEXTURE := preload("res://my_asset/guide_2.png")
 const AchievementCatalogData := preload("res://scripts/game/achievement_catalog.gd")
 const GameSaveData := preload("res://scripts/game/game_save.gd")
+const DuelSessionScript := preload("res://scripts/net/duel_session.gd")
+const DuelHudScript := preload("res://scripts/ui/duel_hud.gd")
 const ACHIEVEMENT_START_GAME := AchievementCatalogData.START_GAME
 const ACHIEVEMENT_NIGHT_MASTER_FISH := AchievementCatalogData.NIGHT_MASTER_FISH
 
@@ -48,8 +50,22 @@ const DETECT_COUNT := 0
 const SUPER_LUCK_CLICKS_PER_ITEM := 1
 const CELL_SIZE := 88.0
 const CELL_GAP := 7.0
+## 分屏几何。以设计分辨率 1920×1080 为准：左半屏放我的棋盘，右半屏放对手棋盘位。
+## SPLIT_HUD_BAND 是顶部让给 HUD 的高度（自身状态 + 读数行 / 对手面板都在这条带里）。
+const SPLIT_VIEWPORT := Vector2(1920.0, 1080.0)
+const SPLIT_CENTER_SHIFT := 480.0
+const SPLIT_MARGIN := 40.0
+const SPLIT_HUD_BAND := 160.0
+const SPLIT_BOTTOM_MARGIN := 12.0
+const SPLIT_PANEL_PADDING := 24.0
+## 10 颗心的自身 HUD 有 540px 宽，塞不进左半屏还不撞上读数行，缩一档正好。
+const SPLIT_STATUS_SCALE := 0.72
 const BOARD_VERTICAL_LIFT := 32.0
 const BOARD_VERTICAL_SHIFT := CELL_SIZE - 36.0
+# 棋盘上方那排读数面板：剩余雷和剩余道具并排居中，整体尺寸写死方便定位。
+const MINE_COUNTER_SIZE := Vector2(224, 58)
+const ITEM_COUNTER_SIZE := Vector2(244, 58)
+const BOARD_COUNTER_GAP := 16.0
 # Impact weight. The shake is stepped rather than interpolated — smoothing the
 # swing is what makes a hit read as a wobble instead of a punch.
 const BOARD_SHAKE_STEP_TIME := 0.028
@@ -106,6 +122,7 @@ const XRAY_TEXTURE := preload("res://assets/sprites/generated/item_treasure_map.
 const CHAIN_TEXTURE := preload("res://assets/sprites/generated/item_rope.png")
 const ENLARGE_TEXTURE := preload("res://assets/sprites/generated/potion_star_purple.png")
 const DETECT_TEXTURE := preload("res://assets/sprites/generated/tool_metal_detector.png")
+const ITEM_COUNTER_TEXTURE := preload("res://assets/sprites/generated/item_backpack.png")
 const RED_FLY_TEXTURE := preload("res://my_asset/birds/red_fly_fx_only.png")
 const BLACK_FLY_TEXTURE_1 := preload("res://my_asset/birds/black_fly_fx_only_1.png")
 const BLACK_FLY_TEXTURE_2 := preload("res://my_asset/birds/black_fly_fx_only_2.png")
@@ -157,6 +174,11 @@ var _grid: Control
 var _status_label: Label
 var _mine_label: Label
 var _mine_counter_panel: PanelContainer
+var _item_label: Label
+var _item_counter_panel: PanelContainer
+var _item_counter_shown := -1
+var _item_counter_total := -1
+var _item_counter_pulse: Tween
 var _super_luck_watermark: CenterContainer
 var _super_luck_watermark_count: Label
 var _time_label: Label
@@ -191,6 +213,35 @@ var _board_interface_fade: Tween
 var _tutorial_guide: TextureRect
 var _run_number := 0
 var _resume_level := 1
+## 本次运行的 run 种子。每关的棋盘种子由它派生，于是同一次运行里的一局是可复现的。
+## 对战下改由对局种子接管，双方因此长出逐格一致的棋盘。
+var _run_seed := 0
+## --- 世界地图 / 关卡 (FEAT-002 · WorldMap) ---
+## 当前在打哪一关；空串 = 不在关卡里（标题页或对战）。
+var _stage_id := ""
+## 本关的目标盘数，从关卡表取。
+var _stage_target_round := 0
+## 本关已打到第几盘。**不能拿 `_run_number` 顶替**：`_run_number` 是全局盘序、驱动棋盘
+## 尺寸曲线，教学关从 0 起、其余关卡从 TUTORIAL_LEVEL_COUNT 起，拿它比目标盘数会算出
+## 完全不同的关长。
+var _stage_round := 0
+var _cleared_stages: Array = []
+## 唯一那个续局槽属于哪一关；空串 = 没有打到一半的关卡。
+var _resume_stage_id := ""
+var _world_map: WorldMap
+var _duel: DuelSession
+var _duel_hud: DuelHud
+## 入站的标雷伤害先排队。收到时本地可能正卡在结算锁、红隼模态或连携挂起里，
+## 那时候直接扣血会把在飞的结算搅乱，只能等棋盘空下来再落地。
+var _duel_pending_damage := 0
+var _duel_frozen := false
+var _duel_self_cleared := false
+## 当前格子边长。单机恒为 CELL_SIZE；分屏时按左半屏可用宽高算，只有最大的
+## 10×10 会真的缩（到约 79.3），6×6 到 9×9 仍是 88。
+var _cell_size := CELL_SIZE
+## 棋盘整体相对视口中心的位移。棋盘和它的读数、教程图、震屏都锚在中心，
+## 挪到左半屏就是给所有 offset 写入点统一加上这一个量。
+var _board_center_offset := Vector2.ZERO
 var _blue_bird_unlocked := true
 var _red_bird_unlocked := false
 var _night_heron_unlocked := false
@@ -226,8 +277,12 @@ var _super_luck_hover_index := -1
 var _gold := 0
 var _gold_rewarded_this_run := false
 var _night_master_fish_count := 0
-var _chain_mark_charges := 0
-var _chain_marked_mines: Array[int] = []
+## 已经落地、还在等搭档的「连携」标记点 A（道具牌自己的格子）。
+var _chain_anchors: Array[int] = []
+## 标记点 A 落地之后被标出的雷，排队等着当标记点 B。
+var _chain_pending_partners: Array[int] = []
+## 连携翻牌会把新道具翻出来、进而触发新的连携，用这个标志把递归压平成一层循环。
+var _chain_flush_active := false
 var _enlarge_mark_charges := 0
 var _enlarge_click_invincible := false
 var _last_xray_target := -1
@@ -300,6 +355,7 @@ func _ready() -> void:
 	_start_bgm()
 	_build_interface()
 	_build_shop_interface()
+	_build_duel()
 	_build_progression_interface()
 	_build_tutorial_skip_interface()
 	_build_regular_skip_interface()
@@ -477,6 +533,10 @@ func _refresh_achievement_banner() -> void:
 
 
 func _save_progress() -> void:
+	if _is_duel():
+		# 对战不写存档。这一条挡在最外层，是因为成就解锁和商店购买都会绕道进来，
+		# 逐个调用点去堵迟早会漏一个，然后单机那一槽就被对战进度污染了。
+		return
 	GameSaveData.write({
 		"current_level": maxi(_resume_level, 1),
 		"tutorial_completed": _resume_level > TUTORIAL_LEVEL_COUNT,
@@ -502,6 +562,13 @@ func _save_progress() -> void:
 		"chain_bonus": _chain_bonus,
 		"enlarge_bonus": _enlarge_bonus,
 		"achievements": _unlocked_achievements.keys(),
+		# --- FEAT-002 · schema v2 ---
+		"cleared_stages": _cleared_stages.duplicate(),
+		"resume_stage_id": _resume_stage_id,
+		"stage_round": _stage_round,
+		# 换歌插播原本只活在内存里，于是每次重开游戏都会再放一次。落盘后它在整个存档
+		# 周期内只放一次——非教学关起点是第 4 盘，多数关都会经过触发点第 9 盘。
+		"music_break_played": _music_break_played,
 	})
 	_refresh_title_save_state()
 
@@ -516,6 +583,26 @@ func _load_saved_progress() -> bool:
 	# `_start_game` increments first, so the title holds the level immediately
 	# before the checkpoint that should be rebuilt.
 	_run_number = _resume_level - 1
+	# --- FEAT-002 · schema v2 ---
+	# 同理，`_stage_round` 也退一格，让 `_start_game` 把它加回存档里的那个值——续上的
+	# 是"那一盘的开头"，和 `current_level` 的语义保持一致。
+	_cleared_stages.clear()
+	for stage_id in data.get("cleared_stages", []):
+		var id := String(stage_id)
+		if StageTable.has_stage(id) and not _cleared_stages.has(id):
+			_cleared_stages.append(id)
+	_resume_stage_id = String(data.get("resume_stage_id", ""))
+	if not StageTable.has_stage(_resume_stage_id):
+		_resume_stage_id = ""
+	_stage_round = maxi(int(data.get("stage_round", 0)) - 1, 0)
+	# 有半局进度但没写归属关卡的档（v1 老档，或任何只填了部分字段的存档），一律归给
+	# 第一关——和 `GameSave._migrate` 同一条规则。放在读取侧再兜一次，是因为
+	# `GameSave.write()` 总会盖上当前版本号，所以"版本是 2 但字段不全"这种档确实存在，
+	# 那时迁移分支根本不会跑。
+	if _resume_stage_id == "" and _resume_level > 1 and not StageTable.STAGES.is_empty():
+		_resume_stage_id = String(StageTable.STAGES[0]["id"])
+		_stage_round = maxi(_resume_level - 1, 0)
+	_music_break_played = bool(data.get("music_break_played", false))
 	_gold = maxi(int(data.get("gold", 0)), 0)
 	_player_max_hp = maxi(int(data.get("player_max_hp", PLAYER_START_MAX_HP)), PLAYER_START_MAX_HP)
 	_player_hp = clampi(int(data.get("player_hp", _player_max_hp)), 0, _player_max_hp)
@@ -590,6 +677,8 @@ func _build_start_screen() -> void:
 	_start_screen.connect("credits_requested", _on_credits_requested)
 	_start_screen.connect("clear_save_requested", _on_clear_save_requested)
 	_start_screen.connect("abandon_run_requested", _on_abandon_run_requested)
+	_start_screen.connect("duel_host_requested", _on_duel_host_requested)
+	_start_screen.connect("duel_join_requested", _on_duel_join_requested)
 	canvas.add_child(_start_screen)
 	_refresh_title_save_state()
 	_refresh_achievement_banner()
@@ -601,7 +690,9 @@ func _refresh_title_save_state() -> void:
 	if _start_screen == null:
 		return
 	_start_screen.set_save_available(GameSaveData.exists())
-	_start_screen.set_run_in_progress(_resume_level > 1)
+	# 「有一关打到一半」现在由续局槽说话，而不是看盘序走到哪——盘序在关卡之间会重置，
+	# 单看它会把"刚通关一整关"误判成"还有半局没打完"。
+	_start_screen.set_run_in_progress(_resume_stage_id != "")
 
 
 func _on_clear_save_requested() -> void:
@@ -614,11 +705,18 @@ func _on_clear_save_requested() -> void:
 
 ## 放弃本轮：留下成就、丢掉跑图进度。做法是直接写一份「只剩成就」的存档，再走一
 ## 遍回标题页的常规流程——那条路会把内存清空后重新读盘，读到的就是这份新档。
+##
+## FEAT-002：**已通关的关卡也要留下**。放弃的是手上那一关的半局进度，不是整张地图的
+## 战绩——把 `cleared_stages` 一起清掉等于把玩家几小时的推图作废。
 func _on_abandon_run_requested() -> void:
 	GameSaveData.write({
 		"current_level": 1,
 		"tutorial_completed": false,
 		"achievements": _unlocked_achievements.keys(),
+		"cleared_stages": _cleared_stages.duplicate(),
+		"resume_stage_id": "",
+		"stage_round": 0,
+		"music_break_played": _music_break_played,
 	})
 	_return_to_main_menu()
 
@@ -631,21 +729,27 @@ func _on_start_game_requested() -> void:
 	if is_instance_valid(screen) and screen.get_parent() != null:
 		screen.get_parent().queue_free()
 	# Intro pages only belong to a fresh first level, not a resumed checkpoint.
-	var show_intro := _run_number == 0
+	# FEAT-002：判据从"盘序还在 0"改成"地图上一片空白"——盘序在关卡之间会重置，
+	# 单看它会让每次回标题再开始都重放一遍开场。
+	var show_intro := _cleared_stages.is_empty() and _resume_stage_id == ""
 	if show_intro and _headphone_notice != null:
 		await _headphone_notice.present()
 	if show_intro and _opening_story != null:
 		await _opening_story.present()
-	_start_game()
+	# 「开始」不再直接开棋盘，而是进世界地图选关（FEAT-002 共识 1）。
+	_show_world_map()
 
 
 func _process(delta: float) -> void:
+	if _is_duel():
+		_tick_duel()
 	if _started and not _board.game_over:
 		_elapsed += delta
 		_time_label.text = "%03d" % mini(int(_elapsed), 999)
 	if _super_luck_mode_active and _super_luck_clicks_remaining <= 0:
 		_finish_super_luck_mode_after_clicks(_super_luck_mode_generation)
 	_refresh_super_luck_watermark()
+	_refresh_item_counter()
 	var invincible := _is_invincible()
 	if _player_status != null:
 		_player_status.set_invincible(
@@ -722,50 +826,21 @@ func _build_interface() -> void:
 	board_stage.add_child(_tutorial_guide)
 	_position_tutorial_guide(panel_size)
 
-	_mine_counter_panel = PanelContainer.new()
-	_mine_counter_panel.name = "MineCounter"
-	_mine_counter_panel.custom_minimum_size = Vector2(224, 58)
-	_mine_counter_panel.z_index = 8
-	_mine_counter_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_mine_counter_panel.set_anchors_preset(Control.PRESET_CENTER)
-	var counter_style := StyleBoxFlat.new()
-	counter_style.bg_color = Color("172719ed")
-	counter_style.border_color = Color("d7c073")
-	counter_style.set_border_width_all(2)
-	counter_style.set_corner_radius_all(15)
-	counter_style.set_content_margin_all(9.0)
-	counter_style.shadow_color = Color("10170d70")
-	counter_style.shadow_size = 8
-	counter_style.shadow_offset = Vector2(0, 4)
-	_mine_counter_panel.add_theme_stylebox_override("panel", counter_style)
+	var mine_counter := _build_board_counter(
+		"MineCounter", MONSTER_SMALL_TEXTURE, "剩余雷", MINE_COUNTER_SIZE, 54.0, "000"
+	)
+	_mine_counter_panel = mine_counter[0]
+	_mine_label = mine_counter[1]
 	board_stage.add_child(_mine_counter_panel)
 
-	var mine_counter_row := HBoxContainer.new()
-	mine_counter_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	mine_counter_row.add_theme_constant_override("separation", 10)
-	_mine_counter_panel.add_child(mine_counter_row)
-	var mine_icon := TextureRect.new()
-	mine_icon.custom_minimum_size = Vector2(38, 38)
-	mine_icon.texture = MONSTER_SMALL_TEXTURE
-	mine_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	mine_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	mine_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mine_counter_row.add_child(mine_icon)
-	var mine_caption := Label.new()
-	mine_caption.text = "剩余雷"
-	mine_caption.add_theme_color_override("font_color", Color("f4e8c1"))
-	mine_caption.add_theme_font_size_override("font_size", 20)
-	mine_counter_row.add_child(mine_caption)
-	_mine_label = Label.new()
-	_mine_label.text = "000"
-	_mine_label.add_theme_color_override("font_color", Color("ffd768"))
-	_mine_label.add_theme_color_override("font_outline_color", Color("302418"))
-	_mine_label.add_theme_constant_override("outline_size", 4)
-	_mine_label.add_theme_font_size_override("font_size", 28)
-	_mine_label.custom_minimum_size.x = 54
-	_mine_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	mine_counter_row.add_child(_mine_label)
-	_position_mine_counter(panel_size)
+	# 道具卡和雷一样是「关卡里还剩多少件事没做」的信息，所以并排放在同一排读数上。
+	var item_counter := _build_board_counter(
+		"ItemCounter", ITEM_COUNTER_TEXTURE, "剩余道具", ITEM_COUNTER_SIZE, 84.0, "0/0"
+	)
+	_item_counter_panel = item_counter[0]
+	_item_label = item_counter[1]
+	board_stage.add_child(_item_counter_panel)
+	_position_board_counters(panel_size)
 
 	_grid = Control.new()
 	_grid.name = "MineCardGrid"
@@ -802,6 +877,66 @@ func _build_interface() -> void:
 	# 标题页、耳机提示和开场剧情之间都有淡入淡出，任何一次穿帮都会露出底下这块
 	# 空棋盘。第一关真正搭起来之前，棋盘和它的信息 UI 一律不存在于画面上。
 	_hide_board_interface()
+
+
+## 棋盘上方的小读数面板：图标 + 说明文字 + 数值。返回 `[面板, 数值 Label]`，让调用
+## 方自己决定挂到哪里、以及怎么刷新数值。
+func _build_board_counter(
+	node_name: String,
+	icon_texture: Texture2D,
+	caption_text: String,
+	counter_size: Vector2,
+	value_width: float,
+	initial_value: String
+) -> Array:
+	var panel := PanelContainer.new()
+	panel.name = node_name
+	panel.custom_minimum_size = counter_size
+	panel.z_index = 8
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	var counter_style := StyleBoxFlat.new()
+	counter_style.bg_color = Color("172719ed")
+	counter_style.border_color = Color("d7c073")
+	counter_style.set_border_width_all(2)
+	counter_style.set_corner_radius_all(15)
+	counter_style.set_content_margin_all(9.0)
+	counter_style.shadow_color = Color("10170d70")
+	counter_style.shadow_size = 8
+	counter_style.shadow_offset = Vector2(0, 4)
+	panel.add_theme_stylebox_override("panel", counter_style)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	panel.add_child(row)
+
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(38, 38)
+	icon.texture = icon_texture
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+
+	var caption := Label.new()
+	caption.text = caption_text
+	caption.add_theme_color_override("font_color", Color("f4e8c1"))
+	caption.add_theme_font_size_override("font_size", 20)
+	row.add_child(caption)
+
+	var value := Label.new()
+	value.name = "Value"
+	value.text = initial_value
+	value.add_theme_color_override("font_color", Color("ffd768"))
+	value.add_theme_color_override("font_outline_color", Color("302418"))
+	value.add_theme_constant_override("outline_size", 4)
+	value.add_theme_font_size_override("font_size", 28)
+	value.custom_minimum_size.x = value_width
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(value)
+
+	return [panel, value]
 
 
 func _build_super_luck_watermark(board_panel: PanelContainer) -> void:
@@ -853,6 +988,41 @@ func _refresh_super_luck_watermark() -> void:
 			_super_luck_watermark_count.text = count_text
 
 
+## 剩余道具读数写成「还没翻开 / 本关总数」。道具会在第一次点击时才撒到棋盘上，
+## 所以这里全程按棋盘的当前口径取值，不去追每一处翻牌/发牌的调用点。
+func _refresh_item_counter() -> void:
+	if _item_label == null or _board == null:
+		return
+	var remaining := _board.hidden_item_count()
+	var total := _board.total_item_count()
+	if remaining == _item_counter_shown and total == _item_counter_total:
+		return
+	var dropped := _item_counter_total == total and remaining < _item_counter_shown
+	_item_counter_shown = remaining
+	_item_counter_total = total
+	_item_label.text = "%d/%d" % [remaining, total]
+	_item_label.add_theme_color_override(
+		"font_color", Color("9adf88") if remaining == 0 else Color("ffd768")
+	)
+	if dropped:
+		_play_item_counter_pulse()
+
+
+## 捡到一件道具时给读数一个回弹，让「少了一件」这件事在余光里也能被注意到。
+func _play_item_counter_pulse() -> void:
+	if _item_label == null or not _item_label.is_inside_tree():
+		return
+	if _item_counter_pulse != null and _item_counter_pulse.is_valid():
+		_item_counter_pulse.kill()
+	_item_label.pivot_offset = _item_label.size * 0.5
+	_item_label.scale = Vector2.ONE
+	_item_counter_pulse = create_tween()
+	_item_counter_pulse.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_item_counter_pulse.tween_property(_item_label, "scale", Vector2(1.22, 1.22), 0.09)
+	_item_counter_pulse.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_item_counter_pulse.tween_property(_item_label, "scale", Vector2.ONE, 0.24)
+
+
 func _build_interface_legacy() -> void:
 	var page := MarginContainer.new()
 	page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -902,6 +1072,9 @@ func _build_interface_legacy() -> void:
 	_mine_label = Label.new()
 	_mine_label.visible = false
 	header.add_child(_mine_label)
+	_item_label = Label.new()
+	_item_label.visible = false
+	header.add_child(_item_label)
 	_time_label = Label.new()
 	_time_label.visible = false
 	header.add_child(_time_label)
@@ -1022,6 +1195,7 @@ func _build_shop_interface() -> void:
 	_shop_layer.offer_selected.connect(_choose_shop_offer)
 	_shop_layer.refresh_requested.connect(_on_shop_refresh_requested)
 	_shop_layer.continue_pressed.connect(_on_shop_continue)
+	_shop_layer.ready_pressed.connect(_on_duel_ready_pressed)
 	_shop_layer.visible = false
 	shop_canvas.add_child(_shop_layer)
 
@@ -1060,7 +1234,7 @@ func _build_progression_interface() -> void:
 	_redstart_unlock = RedstartUnlockView.instantiate()
 	_attacker_unlock = AttackerUnlockView.instantiate()
 	_kestrel_unlock = KestrelUnlockView.instantiate()
-	_game_over_overlay.return_requested.connect(_return_to_main_menu)
+	_game_over_overlay.return_requested.connect(_on_game_over_return)
 	# 四个解锁页里的彩蛋各自对应一条成就，触发时由页面自己报上来。
 	for unlock_page in [
 		_night_heron_unlock, _redstart_unlock, _attacker_unlock, _kestrel_unlock
@@ -1119,6 +1293,10 @@ func _choose_shop_offer(offer: ShopOffer) -> void:
 			_enlarge_bonus += 1
 	_shop_layer.mark_offer_sold_out(offer)
 	_shop_layer.update_gold(_gold, SHOP_ITEM_COST)
+	if _is_duel():
+		# Q7 选了全公开：买了什么要立刻让对面看见。
+		_duel.report_upgrade(offer)
+		_duel.report_state(_player_hp, _player_max_hp, _gold)
 	_save_progress()
 
 
@@ -1153,6 +1331,10 @@ func _start_game() -> void:
 	_night_master_fish_count = 0
 	_run_number += 1
 	_resume_level = _run_number
+	# 本关内的盘计数和全局盘序分开走：教学关从 0 起、其余关卡从 TUTORIAL_LEVEL_COUNT
+	# 起，只有这一个计数器能和目标盘数直接比。
+	if _is_stage_run():
+		_stage_round += 1
 	# The tutorial is allowed to teach through damage without carrying that
 	# penalty into the real run. This happens exactly once, on level five.
 	if _run_number == TUTORIAL_LEVEL_COUNT + 1:
@@ -1166,11 +1348,12 @@ func _start_game() -> void:
 	var board_height := 1 if first_tutorial else board_width
 	var mine_count := 1 if first_tutorial else maxi(3, roundi(board_width * board_height * MINE_DENSITY))
 	var bird_only_tutorial := _run_number <= TUTORIAL_LEVEL_COUNT
+	var level_seed := _level_seed_for_current_round()
 	_board = BoardModel.new(
 		board_width,
 		board_height,
 		mine_count,
-		0,
+		level_seed,
 		_lantern_bonus,
 		_compass_bonus,
 		_orbital_strike_bonus,
@@ -1215,8 +1398,9 @@ func _start_game() -> void:
 	_last_dashed_line_target_count = 0
 	_last_compass_flyover_count = 0
 	_last_lantern_fish_count = 0
-	_chain_mark_charges = 0
-	_chain_marked_mines.clear()
+	_chain_anchors.clear()
+	_chain_pending_partners.clear()
+	_chain_flush_active = false
 	_enlarge_mark_charges = 0
 	_enlarge_click_invincible = false
 	_enlarge_hover_generation += 1
@@ -1239,6 +1423,10 @@ func _start_game() -> void:
 	_status_label.text = "从任意草地开始挖掘"
 	_status_label.add_theme_color_override("font_color", COLOR_INK)
 	_mine_label.text = "%03d" % _board.mine_count
+	# 新棋盘从头计数，别让上一关的读数被误判成「刚捡到一件」而弹一下。
+	_item_counter_shown = -1
+	_item_counter_total = -1
+	_refresh_item_counter()
 	_refresh_health_bar()
 	_refresh_gold_display()
 	for bird in [_blue_bird, _red_bird, _black_bird, _attacker_bird, _eg_bird]:
@@ -1252,10 +1440,10 @@ func _start_game() -> void:
 		var row := index / _board.width
 		var column := index % _board.width
 		var cell_rect := Rect2(
-			Vector2(column, row) * (CELL_SIZE + CELL_GAP),
-			Vector2.ONE * CELL_SIZE
+			Vector2(column, row) * (_cell_size + CELL_GAP),
+			Vector2.ONE * _cell_size
 		)
-		cell.configure(index, CELL_SIZE)
+		cell.configure(index, _cell_size)
 		cell.primary_pressed.connect(_on_cell_revealed)
 		cell.secondary_pressed.connect(_on_cell_flagged)
 		cell.hover_started.connect(_on_cell_hover_started)
@@ -1269,19 +1457,58 @@ func _start_game() -> void:
 	_reveal_board_interface()
 	_update_tutorial_skip_visibility()
 	_update_regular_skip_visibility()
+	if _is_duel():
+		_duel_hud.set_round(_duel.round_index, board_width, board_height)
+		_refresh_duel_opponent()
+		_duel.report_state(_player_hp, _player_max_hp, _gold)
+		# 开局格由种子决定而不是由玩家点出来 —— 这正是双方棋盘能逐格一致的原因，
+		# 顺带让首点安全自动成立，不需要任何「生成后搬雷」的补丁。
+		var opening := MinesweeperBoard.opening_cell_for(level_seed, board_width, board_height)
+		if opening >= 0:
+			_resolve_turn(opening)
+		return
 	_unlock_achievement(ACHIEVEMENT_START_GAME)
 	_save_progress()
 
 
 func _resize_board_layout(columns: int, rows: int) -> void:
+	_apply_split_layout(columns, rows)
 	var grid_size := Vector2(
-		CELL_SIZE * columns + CELL_GAP * (columns - 1),
-		CELL_SIZE * rows + CELL_GAP * (rows - 1)
+		_cell_size * columns + CELL_GAP * (columns - 1),
+		_cell_size * rows + CELL_GAP * (rows - 1)
 	)
 	_grid.custom_minimum_size = grid_size
 	_grid.size = grid_size
-	var panel_size := grid_size + Vector2(24, 24)
+	var panel_size := grid_size + Vector2(SPLIT_PANEL_PADDING, SPLIT_PANEL_PADDING)
 	_set_centered_board_panel_rect(_board_panel, panel_size)
+	if _is_duel():
+		# 右屏那块位的行列与格子边长全部取自**本地**棋盘：双方同种子同曲线，尺寸
+		# 必然相同，所以画出对手的盘不需要任何网络数据。
+		_duel_hud.set_opponent_board(columns, rows, _cell_size, CELL_GAP, _board_center_offset)
+
+
+## 算出这一关的格子边长与棋盘位移。单机走原来的居中全屏，分屏才收缩并左移。
+func _apply_split_layout(columns: int, rows: int) -> void:
+	if not _is_duel():
+		_cell_size = CELL_SIZE
+		_board_center_offset = Vector2.ZERO
+		if _player_status != null:
+			_player_status.scale = Vector2.ONE
+		return
+	var available := Vector2(
+		SPLIT_VIEWPORT.x * 0.5 - SPLIT_MARGIN * 2.0 - SPLIT_PANEL_PADDING,
+		SPLIT_VIEWPORT.y - SPLIT_HUD_BAND - SPLIT_BOTTOM_MARGIN - SPLIT_PANEL_PADDING
+	)
+	var fit_width := (available.x - CELL_GAP * (columns - 1)) / float(maxi(columns, 1))
+	var fit_height := (available.y - CELL_GAP * (rows - 1)) / float(maxi(rows, 1))
+	# 上限锁死在 CELL_SIZE：小棋盘按可用空间算能涨到 140，但整套牌面美术是按 88
+	# 调的，放大只会露馅。缩得下就缩，绝不放大。
+	_cell_size = minf(CELL_SIZE, minf(fit_width, fit_height))
+	var board_band_center := SPLIT_HUD_BAND + (SPLIT_VIEWPORT.y - SPLIT_HUD_BAND - SPLIT_BOTTOM_MARGIN) * 0.5
+	var rest_center_y := SPLIT_VIEWPORT.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT
+	_board_center_offset = Vector2(-SPLIT_CENTER_SHIFT, board_band_center - rest_center_y)
+	if _player_status != null:
+		_player_status.scale = Vector2.ONE * SPLIT_STATUS_SCALE
 
 
 func _set_centered_board_panel_rect(panel: Control, panel_size: Vector2) -> void:
@@ -1292,23 +1519,40 @@ func _set_centered_board_panel_rect(panel: Control, panel_size: Vector2) -> void
 	# instead of baking its current displacement into the new rest position.
 	_board_panel_size = panel_size
 	_cancel_board_shake()
-	panel.offset_left = -panel_size.x * 0.5
-	panel.offset_right = panel_size.x * 0.5
-	panel.offset_top = -panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT
-	panel.offset_bottom = panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT
-	_position_mine_counter(panel_size)
+	panel.offset_left = -panel_size.x * 0.5 + _board_center_offset.x
+	panel.offset_right = panel_size.x * 0.5 + _board_center_offset.x
+	panel.offset_top = -panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT + _board_center_offset.y
+	panel.offset_bottom = panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT + _board_center_offset.y
+	_position_board_counters(panel_size)
 	_position_tutorial_guide(panel_size)
 
 
-func _position_mine_counter(board_panel_size: Vector2) -> void:
+## 两块读数面板作为一个整体居中在棋盘正上方：雷在左、道具在右。
+func _position_board_counters(board_panel_size: Vector2) -> void:
 	if _mine_counter_panel == null:
 		return
-	var counter_size := Vector2(224, 58)
-	var bottom := -board_panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT - 14.0
-	_mine_counter_panel.offset_left = -counter_size.x * 0.5
-	_mine_counter_panel.offset_right = counter_size.x * 0.5
-	_mine_counter_panel.offset_top = bottom - counter_size.y
+	var bottom := (
+		-board_panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT
+		+ _board_center_offset.y - 14.0
+	)
+	var row_width := MINE_COUNTER_SIZE.x + BOARD_COUNTER_GAP + ITEM_COUNTER_SIZE.x
+	var left := -row_width * 0.5 + _board_center_offset.x
+	if _is_duel():
+		# 分屏下左半屏塞不下「自身 HUD + 居中读数」两块：10 颗心缩放后仍占约 389px，
+		# 读数行 484px，居中摆会和它撞上。读数改为贴左半屏右缘，两者才分得开。
+		left = -SPLIT_MARGIN - row_width
+		bottom = SPLIT_HUD_BAND - SPLIT_VIEWPORT.y * 0.5 - 10.0
+	_mine_counter_panel.offset_left = left
+	_mine_counter_panel.offset_right = left + MINE_COUNTER_SIZE.x
+	_mine_counter_panel.offset_top = bottom - MINE_COUNTER_SIZE.y
 	_mine_counter_panel.offset_bottom = bottom
+	if _item_counter_panel == null:
+		return
+	var item_left := left + MINE_COUNTER_SIZE.x + BOARD_COUNTER_GAP
+	_item_counter_panel.offset_left = item_left
+	_item_counter_panel.offset_right = item_left + ITEM_COUNTER_SIZE.x
+	_item_counter_panel.offset_top = bottom - ITEM_COUNTER_SIZE.y
+	_item_counter_panel.offset_bottom = bottom
 
 
 func _position_tutorial_guide(board_panel_size: Vector2) -> void:
@@ -1317,10 +1561,13 @@ func _position_tutorial_guide(board_panel_size: Vector2) -> void:
 	# The source has transparent padding above its drawings. Pulling the texture
 	# rect slightly under the panel leaves the first visible pixel just below it.
 	var guide_size := Vector2(360, 270)
-	var board_bottom := board_panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT
+	var board_bottom := (
+		board_panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT
+		+ _board_center_offset.y
+	)
 	var top := board_bottom - 38.0
-	_tutorial_guide.offset_left = -guide_size.x * 0.5
-	_tutorial_guide.offset_right = guide_size.x * 0.5
+	_tutorial_guide.offset_left = -guide_size.x * 0.5 + _board_center_offset.x
+	_tutorial_guide.offset_right = guide_size.x * 0.5 + _board_center_offset.x
 	_tutorial_guide.offset_top = top
 	_tutorial_guide.offset_bottom = top + guide_size.y
 
@@ -1329,7 +1576,7 @@ func _position_tutorial_guide(board_panel_size: Vector2) -> void:
 ## 该出现」的东西，统一由这两个函数开关，免得漏掉其中一件。
 func _board_interface_nodes() -> Array[Control]:
 	var nodes: Array[Control] = []
-	for node in [_board_panel, _mine_counter_panel, _player_status]:
+	for node in [_board_panel, _mine_counter_panel, _item_counter_panel, _player_status]:
 		if node != null:
 			nodes.append(node as Control)
 	return nodes
@@ -1566,6 +1813,10 @@ func _resolve_inferred_mine_cells(mine_cells: PackedInt32Array) -> void:
 			await get_tree().create_timer(0.035).timeout
 	_mine_label.text = "%03d" % maxi(_board.mine_count - _board.flag_count(), 0)
 	_status_label.text = "推理成立：自动标记了 %d 个雷格。" % marked
+	# 自动标记也算连携的标记点 B，趁锁还在手上把连线结清。
+	await _flush_chain_links(false)
+	if _game_finish_started:
+		return
 	_resolving = false
 	_restart_button.disabled = false
 	_set_board_interactable(true)
@@ -1740,10 +1991,12 @@ func _apply_board_shake_offset(offset: Vector2) -> void:
 	if _board_panel == null or _board_panel_size == Vector2.ZERO:
 		return
 	_board_shake_offset = offset
-	_board_panel.offset_left = -_board_panel_size.x * 0.5 + offset.x
-	_board_panel.offset_right = _board_panel_size.x * 0.5 + offset.x
-	_board_panel.offset_top = -_board_panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT + offset.y
-	_board_panel.offset_bottom = _board_panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT + offset.y
+	# 这里独立重写四个 offset、绕过了 _set_centered_board_panel_rect()，所以分屏位移
+	# 必须在这里也加一遍 —— 漏掉的话棋盘一震就会弹回屏幕正中。
+	_board_panel.offset_left = -_board_panel_size.x * 0.5 + _board_center_offset.x + offset.x
+	_board_panel.offset_right = _board_panel_size.x * 0.5 + _board_center_offset.x + offset.x
+	_board_panel.offset_top = -_board_panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT + _board_center_offset.y + offset.y
+	_board_panel.offset_bottom = _board_panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT + _board_center_offset.y + offset.y
 
 
 func _cancel_board_shake() -> void:
@@ -1858,6 +2111,7 @@ func _mark_mine_in_super_luck_mode(index: int) -> void:
 	_refresh_cell(index)
 	_play_correct_flag_feedback(index)
 	_mine_label.text = "%03d" % maxi(_board.mine_count - _board.flag_count(), 0)
+	# 红隼模式里所有发现都留到次数耗尽后统一结算，连携也跟着排到那时候。
 	_status_label.text = "红隼模式：发现小雷，已直接标记"
 	_resolving = false
 	_restart_button.disabled = false
@@ -1878,6 +2132,9 @@ func _mark_small_mine_with_super_luck(index: int) -> void:
 	var target := _nearest_active_big_monster(index)
 	if target >= 0:
 		await _attack_big_with_small_mines(target, [index])
+	await _flush_chain_links(false)
+	if _game_finish_started:
+		return
 	_update_round_completion()
 	if _board.game_over:
 		await _finish_game()
@@ -1923,10 +2180,8 @@ func _on_cell_flagged(index: int) -> void:
 	_play_correct_flag_feedback(index)
 	_mine_label.text = "%03d" % maxi(_board.mine_count - _board.flag_count(), 0)
 	var is_now_flagged := _board.state_at(index) == MinesweeperBoard.CellState.FLAGGED
-	if not is_now_flagged:
-		_chain_marked_mines.erase(index)
-	elif found_mine:
-		await _handle_correct_player_mark(index)
+	if is_now_flagged and found_mine:
+		await _flush_chain_links()
 		if _game_finish_started:
 			return
 	if _super_luck_mode_active:
@@ -1952,7 +2207,6 @@ func _reveal_wrong_player_mark(index: int) -> bool:
 		return false
 	_play_wrong_flag_sfx()
 	_wrong_flagged_cells[index] = true
-	_chain_marked_mines.erase(index)
 	if _board.item_at(index) != MinesweeperBoard.ItemType.NONE:
 		_board.consume_item(index)
 	_refresh_cell(index, true)
@@ -2018,43 +2272,104 @@ func _show_tutorial_lifeline_feedback() -> void:
 	_animate_floating_label(label, center + Vector2(0, 24), Color("b8f28c"))
 
 
-func _handle_correct_player_mark(index: int) -> void:
-	if _chain_mark_charges > 0:
-		_chain_mark_charges -= 1
-		if not _chain_marked_mines.has(index):
-			_chain_marked_mines.append(index)
-		_refresh_cell(index)
-		_cells[index].set_chain_marker(true)
-		_status_label.text = "这颗正确标记的雷已成为【标记雷】。"
+## 把棋盘刚记下的「新标出的雷」收进待配对队列。没有标记点 A 在等的时候直接丢掉：
+## 「下一个标出的雷」只算标记点落地之后发生的标记。
+func _collect_chain_partners() -> void:
+	var marked := _board.take_marked_mine_log()
+	if _chain_anchors.is_empty():
 		return
-	var anchor := _nearest_aligned_chain_marker(index)
-	if anchor < 0:
-		return
-	var targets := _line_between_targets(anchor, index)
-	if targets.is_empty():
-		return
-	_cells[anchor].play_border_flash(Color("74f3ff"), 5, 0.08)
-	_play_target_lock(anchor, [index], Color("74f3ff"), 1.0)
-	await _resolve_reveal_targets(targets, "连携翻开了两颗雷之间的所有格子。")
+	for index in marked:
+		if not _chain_anchors.has(index) and not _chain_pending_partners.has(index):
+			_chain_pending_partners.append(index)
 
 
-func _nearest_aligned_chain_marker(index: int) -> int:
+## 结算所有已经凑成一对的连携：标记点 A 是道具牌的位置，标记点 B 是它之后第一个
+## 被标出的雷（手动标记或道具效果标记都算）。`manage_lock` 为 false 表示调用方已经
+## 持有 `_resolving` 锁，翻牌不能中途把棋盘交还给玩家。
+func _flush_chain_links(manage_lock: bool = true) -> void:
+	if _chain_flush_active:
+		# 外层循环每翻完一批就会重新收集，嵌套调用交给它接着处理即可。
+		return
+	_chain_flush_active = true
+	_collect_chain_partners()
+	while not _chain_pending_partners.is_empty() and not _chain_anchors.is_empty():
+		var partner: int = _chain_pending_partners.pop_front()
+		if _board.state_at(partner) != MinesweeperBoard.CellState.FLAGGED:
+			continue
+		var anchor := _closest_chain_anchor(partner)
+		if anchor < 0:
+			continue
+		_chain_anchors.erase(anchor)
+		_refresh_cell(anchor)
+		var targets := _chain_path_targets(anchor, partner)
+		_cells[anchor].play_border_flash(Color("74f3ff"), 5, 0.08)
+		_cells[partner].play_border_flash(Color("74f3ff"), 5, 0.08)
+		if targets.is_empty():
+			_play_target_lock(anchor, [partner], Color("74f3ff"), 1.0)
+			_status_label.text = "连携的两个标记点紧挨着，中间没有可翻开的格子。"
+			continue
+		_play_target_lock(anchor, targets, Color("74f3ff"), 1.0)
+		# 锁一直握在手里：翻牌过程中翻出的新连携由本循环下一轮接手，而不是嵌套进去。
+		await _resolve_reveal_targets(
+			targets, "连携翻开了两个标记点之间的所有格子。", manage_lock
+		)
+		if _game_finish_started or _board.game_over:
+			_chain_flush_active = false
+			return
+		_collect_chain_partners()
+	_chain_flush_active = false
+
+
+func _closest_chain_anchor(index: int) -> int:
 	var best := -1
 	var best_distance := 1_000_000
 	var row: int = index / _board.width
 	var column := index % _board.width
-	for anchor in _chain_marked_mines:
-		if anchor == index or _board.state_at(anchor) != MinesweeperBoard.CellState.FLAGGED:
+	for anchor in _chain_anchors:
+		if anchor == index:
 			continue
-		var anchor_row: int = anchor / _board.width
-		var anchor_column := anchor % _board.width
-		if anchor_row != row and anchor_column != column:
-			continue
-		var distance := absi(anchor_row - row) + absi(anchor_column - column)
+		var distance := absi(anchor / _board.width - row) + absi(anchor % _board.width - column)
 		if distance < best_distance:
 			best = anchor
 			best_distance = distance
 	return best
+
+
+## 两个标记点之间的连线：同行同列就是一条直线，否则允许转一次弯走 L 形。两条 L 形
+## 都合法，取撞上的怪物更少的那条——连携是用来开路的，不该反过来替玩家踩雷。
+func _chain_path_targets(first: int, second: int) -> Array[int]:
+	var first_row: int = first / _board.width
+	var second_row: int = second / _board.width
+	var first_column := first % _board.width
+	var second_column := second % _board.width
+	if first_row == second_row or first_column == second_column:
+		return _line_between_targets(first, second)
+	var horizontal_first := _chain_corner_path(first, second, first_row * _board.width + second_column)
+	var vertical_first := _chain_corner_path(first, second, second_row * _board.width + first_column)
+	if _chain_path_monster_count(vertical_first) < _chain_path_monster_count(horizontal_first):
+		return vertical_first
+	return horizontal_first
+
+
+func _chain_corner_path(first: int, second: int, corner: int) -> Array[int]:
+	var targets := _line_between_targets(first, corner)
+	if corner != first and corner != second:
+		targets.append(corner)
+	for target in _line_between_targets(corner, second):
+		if not targets.has(target):
+			targets.append(target)
+	return targets
+
+
+func _chain_path_monster_count(path: Array[int]) -> int:
+	var total := 0
+	for target in path:
+		if (
+			_board.is_monster_core(target)
+			and _board.state_at(target) != MinesweeperBoard.CellState.REVEALED
+		):
+			total += 1
+	return total
 
 
 func _line_between_targets(first: int, second: int) -> Array[int]:
@@ -2080,10 +2395,15 @@ func _area_3x3_targets(center: int) -> Array[int]:
 	return targets
 
 
-func _resolve_reveal_targets(targets: Array[int], completion_text: String) -> void:
-	_resolving = true
-	_restart_button.disabled = true
-	_set_board_interactable(false)
+## `manage_lock` 为 false 时说明调用方已经握着 `_resolving` 锁并会自己收尾，这里就
+## 不许中途把棋盘交还给玩家——否则嵌套结算会在上层还没跑完时放开输入。
+func _resolve_reveal_targets(
+	targets: Array[int], completion_text: String, manage_lock: bool = true
+) -> void:
+	if manage_lock:
+		_resolving = true
+		_restart_button.disabled = true
+		_set_board_interactable(false)
 	var changed := PackedInt32Array()
 	var flagged := PackedInt32Array()
 	for target in targets:
@@ -2113,9 +2433,10 @@ func _resolve_reveal_targets(targets: Array[int], completion_text: String) -> vo
 		if _check_victory_now():
 			return
 		_status_label.text = "超级幸运模式：区域内的雷已标记，发现的道具将在模式结束后结算。"
-		_resolving = false
-		_restart_button.disabled = false
-		_set_board_interactable(true)
+		if manage_lock:
+			_resolving = false
+			_restart_button.disabled = false
+			_set_board_interactable(true)
 		return
 	if reveal_animation_duration > 0.0:
 		await get_tree().create_timer(reveal_animation_duration).timeout
@@ -2130,11 +2451,17 @@ func _resolve_reveal_targets(targets: Array[int], completion_text: String) -> vo
 	if _player_hp <= 0:
 		await _finish_game()
 		return
+	# 这一批里可能既翻出了新的连携道具，也顺手标出了雷（红尾水鸲、探测……），
+	# 在放开输入之前把凑成对的连携结清。
+	await _flush_chain_links(false)
+	if _game_finish_started:
+		return
 	_mine_label.text = "%03d" % maxi(_board.mine_count - _board.flag_count(), 0)
 	_status_label.text = completion_text
-	_resolving = false
-	_restart_button.disabled = false
-	_set_board_interactable(true)
+	if manage_lock:
+		_resolving = false
+		_restart_button.disabled = false
+		_set_board_interactable(true)
 
 
 func _on_cell_hover_started(index: int) -> void:
@@ -2252,7 +2579,7 @@ func _show_item_tooltip(item: MinesweeperBoard.ItemType) -> void:
 			_item_tooltip_body.text = "随机1个格子出现内容（不翻开）3s后消失"
 		MinesweeperBoard.ItemType.CHAIN:
 			_item_tooltip_title.text = "连携 · 翻出后自动使用"
-			_item_tooltip_body.text = "特殊标记，标记连线雷后中间全被翻开"
+			_item_tooltip_body.text = "这一格成为标记点，下一颗标出的雷是另一个标记点，两点之间的格子全被翻开（可转弯）"
 		MinesweeperBoard.ItemType.ENLARGE:
 			_item_tooltip_title.text = "变大 · 翻出后自动使用"
 			_item_tooltip_body.text = "无敌，下一步选中的格子周围会被一起翻开"
@@ -2278,7 +2605,6 @@ func _refresh_cell(index: int, animate_reveal: bool = false) -> void:
 			_cells[index].display_covered()
 		MinesweeperBoard.CellState.FLAGGED:
 			_cells[index].display_covered(FLAG_TEXTURE)
-			_cells[index].set_chain_marker(_chain_marked_mines.has(index))
 		MinesweeperBoard.CellState.REVEALED:
 			if _wrong_flagged_cells.has(index):
 				_cells[index].display_destroyed(WRONG_FLAG_TEXTURE, animate_reveal)
@@ -2304,6 +2630,8 @@ func _refresh_cell(index: int, animate_reveal: bool = false) -> void:
 			_cells[index].display_revealed(content, kind, animate_reveal, content_span, number_value)
 			if kind == MineCell.ContentKind.ITEM:
 				_cells[index].set_item_used_visual(_board.is_item_used(index))
+			# 连携的标记点 A 停在自己那张已翻开的道具牌上，翻牌会清掉角标，得补回来。
+			_cells[index].set_chain_anchor(_chain_anchors.has(index))
 			if _board.is_flagged(index):
 				_cells[index].set_flag_marker(FLAG_TEXTURE)
 			if _active_mines.has(index):
@@ -2345,6 +2673,10 @@ func _resolve_turn(index: int) -> void:
 	for big_index in revealed_big_monsters:
 		await _attack_big_with_small_mines(big_index, _flagged_small_monsters())
 	await _resolve_item_queue(item_queue, queued_items)
+	if _game_finish_started:
+		return
+	# 这一手可能刚翻出连携，也可能被道具顺手标出了雷，趁锁还在手上把连线结清。
+	await _flush_chain_links(false)
 	if _game_finish_started:
 		return
 	_update_round_completion()
@@ -2666,10 +2998,16 @@ func _resolve_xray(item_index: int) -> void:
 	await get_tree().create_timer(0.18).timeout
 
 
+## 连携的标记点 A 就是道具牌自己的位置，落地后只等它之后第一个被标出的雷当标记点 B。
 func _resolve_chain(item_index: int) -> void:
-	_chain_mark_charges += 1
+	# 先把之前攒下的标记吸收掉：这枚新的 A 只认它落地之后发生的标记。
+	_collect_chain_partners()
+	if not _chain_anchors.has(item_index):
+		_chain_anchors.append(item_index)
+	_refresh_cell(item_index)
+	_cells[item_index].play_border_flash(Color("74f3ff"), 3, 0.09)
 	_spawn_effect_ring(_cell_center(item_index), Color("6de8f2"), 16.0, 76.0, 0.3)
-	_status_label.text = "连携已准备：下一次正确标雷将成为标记雷。"
+	_status_label.text = "连携标记点已落在这里：下一颗标出的雷会与它连线翻开。"
 	await get_tree().create_timer(0.22).timeout
 
 
@@ -3807,6 +4145,10 @@ func _settle_super_luck_reveals() -> void:
 			item_queue.append(index)
 			_prelaunch_queued_bird(index, _board.item_at(index))
 	await _resolve_item_queue(item_queue, queued_items)
+	# 红隼模式里被直接标掉的雷也算连携的标记点 B，攒到这里一起结算。
+	await _flush_chain_links(false)
+	if _game_finish_started:
+		return
 	_update_round_completion()
 	if _player_hp <= 0 or _board.game_over:
 		await _finish_game()
@@ -4029,6 +4371,10 @@ func _finish_game() -> void:
 	else:
 		_status_label.text = "轰！挖到了地雷。\n再试一次吧。"
 		_status_label.add_theme_color_override("font_color", COLOR_DANGER)
+	if _is_duel():
+		# 对战不走单机的解锁演出／关卡账单／存档续关，直接进对战局的结算。
+		_finish_duel_round()
+		return
 	await get_tree().create_timer(0.55).timeout
 	if _player_hp <= 0 or not _board.won:
 		_game_over_overlay.present(_run_number)
@@ -4070,6 +4416,11 @@ func _finish_game() -> void:
 	_resume_level = _run_number + 1
 	_save_progress()
 	await _level_bill.present(_run_number, flagged_mines, _night_master_fish_count, _gold)
+	# 到点叫停：本关打满目标盘数就是通关，不再进商店、不再往下发盘，回世界地图
+	# （FEAT-002 共识 1）。没打满则照旧走商店 → 下一盘。
+	if _stage_complete():
+		_on_stage_cleared()
+		return
 	_show_shop()
 
 
@@ -4117,6 +4468,7 @@ func _show_shop() -> void:
 
 
 func _return_to_main_menu() -> void:
+	_leave_duel()
 	# This path is also available during an active normal level. Invalidate every
 	# non-blocking gameplay presentation before rebuilding the title screen, so
 	# a late flyover or queued bird callback cannot touch the discarded board.
@@ -4168,6 +4520,30 @@ func _return_to_main_menu() -> void:
 	_cells.clear()
 	# 回到标题页等于回到「第一关还没开始」，棋盘和信息 UI 要跟着一起收走。
 	_hide_board_interface()
+	_hide_world_map()
+	_reset_run_state()
+	# 成就是跨关卡的账，只在"回标题页"这条路上清空后重读——**不能**放进
+	# `_reset_run_state()`，否则每次进关都会把成就一起抹掉。
+	_unlocked_achievements.clear()
+	if _achievements_screen != null:
+		for entry in AchievementCatalogData.ENTRIES:
+			_achievements_screen.set_unlocked(str(entry["id"]), false)
+	_music_break_played = false
+	_load_saved_progress()
+	_apply_bird_unlock_visibility()
+	if _start_screen == null:
+		_build_start_screen()
+	else:
+		_refresh_title_save_state()
+		_refresh_achievement_banner()
+
+
+## 把一局的全部 run 级状态推回起点。回标题页与"进一个全新的关卡"共用这一段——
+## 关卡的定义就是"一整局从头开始的肉鸽"（FEAT-002 共识 1），两者要清的东西完全一样。
+##
+## 刻意**不动**的三样：成就（跨关卡）、`_cleared_stages`（推图战绩）、
+## `_music_break_played`（已落盘，清了就会每关重放插播）。
+func _reset_run_state() -> void:
 	_player_max_hp = PLAYER_START_MAX_HP
 	_player_hp = PLAYER_START_MAX_HP
 	_gold = 0
@@ -4180,7 +4556,10 @@ func _return_to_main_menu() -> void:
 	_kestrel_demo_index = -1
 	_run_number = 0
 	_resume_level = 1
-	_music_break_played = false
+	_stage_id = ""
+	_stage_target_round = 0
+	_stage_round = 0
+	_run_seed = 0
 	_blue_bird_unlocked = true
 	_red_bird_unlocked = false
 	_night_heron_unlocked = false
@@ -4200,10 +4579,6 @@ func _return_to_main_menu() -> void:
 	_xray_bonus = 0
 	_chain_bonus = 0
 	_enlarge_bonus = 0
-	_unlocked_achievements.clear()
-	if _achievements_screen != null:
-		for entry in AchievementCatalogData.ENTRIES:
-			_achievements_screen.set_unlocked(str(entry["id"]), false)
 	_enlarge_click_invincible = false
 	_game_finish_started = false
 	_started = false
@@ -4213,13 +4588,6 @@ func _return_to_main_menu() -> void:
 		bird.reset_to_idle()
 	_apply_bird_unlock_visibility()
 	_refresh_gold_display()
-	_load_saved_progress()
-	_apply_bird_unlock_visibility()
-	if _start_screen == null:
-		_build_start_screen()
-	else:
-		_refresh_title_save_state()
-		_refresh_achievement_banner()
 
 
 func _board_field_style() -> StyleBoxFlat:
@@ -4316,3 +4684,469 @@ func _button_style(color: Color) -> StyleBoxFlat:
 	style.set_corner_radius_all(12)
 	style.set_content_margin_all(10.0)
 	return style
+
+
+# --- 世界地图 / 关卡 (FEAT-002 · WorldMap) ---
+
+
+func _is_stage_run() -> bool:
+	return _stage_id != ""
+
+
+## 「到点叫停」的判据单独成一个谓词，好让测试直接在边界值上打它——胜利结算那条路径有
+## 一长串 await，靠真打完一整关来验证这一条既慢又脆。
+func _stage_complete() -> bool:
+	return _is_stage_run() and _stage_round >= _stage_target_round
+
+
+## 地图场景**懒加载**：标题页不该为 3D 内容付启动成本（项目约束「首屏避免加载整局
+## 内容」）。第一次真要看地图时才 instantiate，之后一直留着 show/hide。
+func _build_world_map() -> void:
+	if _world_map != null:
+		return
+	var scene := load("res://scenes/world_map.tscn") as PackedScene
+	if scene == null:
+		push_warning("世界地图场景缺失，无法选关")
+		return
+	_world_map = scene.instantiate() as WorldMap
+	add_child(_world_map)
+	_world_map.stage_selected.connect(_on_world_map_stage_selected)
+	_world_map.title_requested.connect(_on_world_map_title_requested)
+	_world_map.resume_requested.connect(_on_world_map_resume_requested)
+	_world_map.abandon_requested.connect(_on_world_map_abandon_requested)
+	_world_map.visible = false
+
+
+## 这一屏的 2D 布景（树、林叶、鸟架、棋盘台）。3D 先渲染、2D CanvasItem 盖在上面，
+## 所以地图开着时必须把这几层收走，否则整张地图被那棵大树严丝合缝地挡死。
+const SCENERY_NODES := [
+	"Backdrop", "Background", "SideFoliageLeft", "SideFoliageRight",
+	"CentralTreeBackground", "BoardPlatform", "Scenery",
+	"BlueBirdPerch", "RedBirdPerch", "BlackBirdPerch", "AttackerBirdPerch", "EgBirdPerch",
+]
+
+
+func _set_scenery_visible(value: bool) -> void:
+	for node_name in SCENERY_NODES:
+		var node := get_node_or_null(node_name) as CanvasItem
+		if node != null:
+			node.visible = value
+	if value:
+		# 鸟架有自己的解锁显隐规则，统一开完之后要交还给它。
+		_apply_bird_unlock_visibility()
+
+
+func _show_world_map() -> void:
+	_build_world_map()
+	if _world_map == null:
+		# 地图起不来时不能把玩家卡在空屏上，退回原来的直进第一关。
+		_enter_stage(String(StageTable.STAGES[0]["id"]), _resume_stage_id != "")
+		return
+	_hide_board_interface()
+	_set_scenery_visible(false)
+	_shop_layer.visible = false
+	_world_map.present(_cleared_stages, _resume_stage_id, _stage_round + 1)
+
+
+func _hide_world_map() -> void:
+	if _world_map != null:
+		_world_map.dismiss()
+	_set_scenery_visible(true)
+
+
+func _on_world_map_title_requested() -> void:
+	_return_to_main_menu()
+
+
+func _on_world_map_stage_selected(stage_id: String) -> void:
+	_enter_stage(stage_id, false)
+
+
+func _on_world_map_resume_requested() -> void:
+	if _resume_stage_id == "":
+		return
+	_enter_stage(_resume_stage_id, true)
+
+
+## 地图上确认了「放弃当前进度」。只清续局槽，推图战绩留着。
+func _on_world_map_abandon_requested() -> void:
+	_resume_stage_id = ""
+	_stage_round = 0
+	_reset_run_state()
+	_save_progress()
+	if _world_map != null:
+		_world_map.present(_cleared_stages, _resume_stage_id, 0)
+
+
+## 进入一个关卡。`resume` 为真时沿用已经读进内存的血量/金币/强化，从上次那一盘的开头
+## 接着打；为假时整局推回起点。
+func _enter_stage(stage_id: String, resume: bool) -> void:
+	var stage := StageTable.stage(stage_id)
+	if stage.is_empty():
+		push_warning("关卡表里没有 %s" % stage_id)
+		return
+	if not StageTable.is_stage_unlocked(stage_id, _cleared_stages):
+		return
+	_hide_world_map()
+	if not resume:
+		_reset_run_state()
+		_prepare_stage_run(stage)
+	else:
+		# 续局：`_load_saved_progress` 已经把 `_run_number` 与 `_stage_round` 退了一格，
+		# `_start_game` 会把两者加回去，于是重建的正是离开时那一盘的开头。
+		_stage_id = stage_id
+		_stage_target_round = int(stage["target_round"])
+	_resume_stage_id = stage_id
+	_start_game()
+
+
+## 关卡的起手状态。血量/金币走单机常量——每关起跑线完全相同，唯一变量是目标盘数
+## （FEAT-002 共识 1），所以这里没有任何按关卡取值的数值。
+##
+## 关键分歧在教程：只有第一关带那 4 盘教学（`teaches`），其余关卡从
+## `TUTORIAL_LEVEL_COUNT` 起跳过教学段。跳过就拿不到教学那 4 段解锁演出送的鸟和强化
+## （main.gd 的胜利分支里 `_run_number == 1..4` 各送一只鸟 + 1 点对应强化），所以必须
+## 在这里补发——不补的话整关只有蓝鸟可用。这一条沿用 `_prepare_duel_run()` 的先例。
+func _prepare_stage_run(stage: Dictionary) -> void:
+	_stage_id = String(stage["id"])
+	_stage_target_round = int(stage["target_round"])
+	_stage_round = 0
+	if bool(stage.get("teaches", false)):
+		_run_number = 0
+		return
+	_run_number = TUTORIAL_LEVEL_COUNT
+	_blue_bird_unlocked = true
+	_red_bird_unlocked = true
+	_night_heron_unlocked = true
+	_attacker_bird_unlocked = true
+	_lucky_bird_unlocked = true
+	_lantern_bonus = 1
+	_compass_bonus = 1
+	_orbital_strike_bonus = 1
+	_super_luck_bonus = 1
+	_apply_bird_unlock_visibility()
+	_refresh_health_bar()
+	_refresh_gold_display()
+
+
+## 打满目标盘数了。记账、清续局槽、回地图。
+func _on_stage_cleared() -> void:
+	if not _cleared_stages.has(_stage_id):
+		_cleared_stages.append(_stage_id)
+	_resume_stage_id = ""
+	_stage_round = 0
+	_stage_id = ""
+	_stage_target_round = 0
+	# 盘序也要回到 1。否则存档里留着"打到第 5 盘"，下次回标题时读取侧的兜底规则会据此
+	# 又推出一个续局槽，刚通关的那一关会诡异地变回「进行中」。
+	_run_number = 0
+	_resume_level = 1
+	_save_progress()
+	_return_to_world_map()
+
+
+## 从关卡里退回地图。棋盘和一切在飞的演出都要收干净，但 run 级数值先留着——
+## 死亡回地图时那一关仍然算"进行中"，玩家可以再续。
+func _return_to_world_map() -> void:
+	_hitstop_generation += 1
+	Engine.time_scale = 1.0
+	_cancel_board_shake()
+	_clear_inference_highlights()
+	_clear_inference_hover_preview()
+	_clear_effect_preview()
+	_super_luck_mode_generation += 1
+	_super_luck_mode_active = false
+	_super_luck_settling = false
+	_super_luck_clicks_remaining = 0
+	_clear_super_luck_pending_borders()
+	_super_luck_deferred_indices.clear()
+	_super_luck_deferred_lookup.clear()
+	_pending_bird_departures.clear()
+	_bird_departure_generation += 1
+	_bird_departure_dispatch_running = false
+	_queued_bird_event_counts.clear()
+	_prelaunched_item_indices.clear()
+	_item_queue_dispatching = false
+	_active_item_settlements = 0
+	if _effects_layer != null:
+		for effect in _effects_layer.get_children():
+			effect.queue_free()
+	_shop_layer.visible = false
+	if _wrong_flag_guide_banner != null:
+		_wrong_flag_guide_banner.hide_immediately()
+	if _night_master_fish_guide_banner != null:
+		_night_master_fish_guide_banner.hide_immediately()
+	if _tutorial_skip_button != null:
+		_tutorial_skip_button.set_available(false)
+	if _tutorial_guide != null:
+		_tutorial_guide.visible = false
+	if _regular_skip_control != null:
+		_regular_skip_control.set_available(false)
+	_victory_banner.visible = false
+	_level_bill.visible = false
+	_game_over_overlay.visible = false
+	_night_heron_unlock.visible = false
+	_redstart_unlock.visible = false
+	_attacker_unlock.visible = false
+	_kestrel_unlock.visible = false
+	for child in _grid.get_children():
+		child.queue_free()
+	_cells.clear()
+	_started = false
+	_resolving = false
+	_game_finish_started = false
+	_show_world_map()
+
+
+## 结算界面的「返回」：在关卡里就回地图，否则（对战/异常）回标题页。
+func _on_game_over_return() -> void:
+	if _is_stage_run():
+		_return_to_world_map()
+		return
+	_return_to_main_menu()
+
+
+# --- 对战局 (FEAT-001 · Netplay) ---
+
+
+func _is_duel() -> bool:
+	return _duel != null and _duel.is_active()
+
+
+func _build_duel() -> void:
+	_duel = DuelSessionScript.new()
+	_duel.name = "DuelSession"
+	add_child(_duel)
+	_duel.linked.connect(_on_duel_linked)
+	_duel.link_lost.connect(_on_duel_link_lost)
+	_duel.round_started.connect(_on_duel_round_started)
+	_duel.opponent_changed.connect(_refresh_duel_opponent)
+	_duel.damage_taken.connect(_on_duel_damage_taken)
+	_duel.round_frozen.connect(_on_duel_round_frozen)
+	_duel.duel_finished.connect(_on_duel_finished)
+	# 商店在 layer 100：对战 HUD 要压住棋盘、又不能盖住商店。
+	var duel_canvas := CanvasLayer.new()
+	duel_canvas.layer = 80
+	add_child(duel_canvas)
+	_duel_hud = DuelHudScript.new()
+	_duel_hud.name = "DuelHud"
+	duel_canvas.add_child(_duel_hud)
+
+
+## 这一关的棋盘种子。对战下由对局种子派生，双方算出同一个值，于是长出逐格一致的
+## 棋盘；单机下由本次运行的 run 种子派生，同一次运行里可复现。
+func _level_seed_for_current_round() -> int:
+	if _is_duel():
+		return _duel.level_seed_for(_duel.round_index)
+	if _run_seed == 0:
+		var picker := RandomNumberGenerator.new()
+		picker.randomize()
+		_run_seed = picker.randi()
+	var mixed := _run_seed ^ (_run_number * 0x9E3779B9)
+	# 0 是 BoardModel 的哨兵值（会退回去用系统时间），得躲开。
+	return mixed if mixed != 0 else 1
+
+
+func _on_duel_host_requested() -> void:
+	if _duel.host_duel() != OK:
+		return
+	_enter_duel_lobby("等待对手连入…")
+
+
+func _on_duel_join_requested() -> void:
+	if _duel.join_duel() != OK:
+		return
+	_enter_duel_lobby("正在连接对手…")
+
+
+## 收掉标题页、亮出对战 HUD，然后等握手。棋盘要等房主下发第一轮才搭。
+func _enter_duel_lobby(message: String) -> void:
+	if _start_screen != null:
+		var screen := _start_screen
+		_start_screen = null
+		if is_instance_valid(screen) and screen.get_parent() != null:
+			screen.get_parent().queue_free()
+	_duel_hud.show_duel(true)
+	_duel_hud.set_connection(false)
+	_duel_hud.set_frozen(true, message)
+
+
+func _on_duel_linked() -> void:
+	_duel_hud.set_connection(true)
+
+
+func _on_duel_link_lost() -> void:
+	_duel_hud.set_connection(false)
+	_duel_hud.set_frozen(true, "对手已断开 — 本局作废")
+	_set_board_interactable(false)
+	await get_tree().create_timer(2.0).timeout
+	_return_to_main_menu()
+
+
+func _on_duel_round_started(round_index: int) -> void:
+	if round_index <= 1:
+		_prepare_duel_run()
+	_duel_frozen = false
+	_duel_pending_damage = 0
+	_shop_layer.visible = false
+	_duel_hud.set_frozen(false, "")
+	_start_game()
+
+
+## 对战局的起手状态。血量/金币走 DuelConfig；五只鸟全部解锁，因为大全商店里 13 项
+## 强化都能买，买了却看不见对应的鸟就成了黑箱。关卡计数直接跳过整段教程。
+func _prepare_duel_run() -> void:
+	_player_max_hp = DuelConfig.START_HP
+	_player_hp = DuelConfig.START_HP
+	_gold = DuelConfig.START_GOLD
+	_blue_bird_unlocked = true
+	_red_bird_unlocked = true
+	_night_heron_unlocked = true
+	_attacker_bird_unlocked = true
+	_lucky_bird_unlocked = true
+	_run_number = TUTORIAL_LEVEL_COUNT
+	# 单机的换歌插播落在第 9 关，对战打到那一轮时不该被它打断。
+	_music_break_played = true
+	_apply_bird_unlock_visibility()
+	_refresh_health_bar()
+	_refresh_gold_display()
+
+
+func _tick_duel() -> void:
+	_settle_duel_marks()
+	_try_settle_duel_damage()
+	if _shop_layer != null and _shop_layer.visible:
+		_shop_layer.set_duel_countdown(_duel.intermission_seconds_left())
+
+
+## 结算棋盘刚记下的「已计分的雷」：每颗给自己 1 金、给对手 1 点伤害。
+##
+## 取的是 `take_scored_mine_log()` 而不是连携那条队列——两条互不相干，共用会互相
+## 偷事件。所有标雷入口（右键、灯笼、罗盘、夜鹭、连携、探测）都汇进这一条，所以
+## 这里不需要去 hook 任何单独的调用点。
+func _settle_duel_marks() -> void:
+	if _board == null:
+		return
+	var scored := _board.take_scored_mine_log()
+	if scored.is_empty() or _duel_frozen:
+		# 本轮已冻结，落后方剩下的雷不再结算（Q2 定的立即冻结）。
+		return
+	for _mine_index in scored:
+		_gold += DuelConfig.MARK_GOLD
+		_duel.report_mine_marked()
+	_refresh_gold_display()
+	_duel.report_state(_player_hp, _player_max_hp, _gold)
+
+
+func _on_duel_damage_taken(amount: int) -> void:
+	_duel_pending_damage += amount
+	# 迷雾罩整片闪一下。事件源就是这条既有的 MINE_MARKED，零协议成本；闪的是整片雾
+	# 而不是某一格，所以不泄漏对手在盘上的任何位置。
+	if _duel_hud != null:
+		_duel_hud.flash_opponent_board()
+
+
+## 只有棋盘真正空下来才让伤害落地。红隼模态和连携挂起都是「回合中间态」，在那个
+## 当口扣血会把在飞的结算搅乱。
+func _try_settle_duel_damage() -> void:
+	if _duel_pending_damage <= 0 or _duel_frozen or _game_finish_started:
+		return
+	if _resolving or _super_luck_mode_active or _super_luck_settling:
+		return
+	if not _chain_anchors.is_empty():
+		return
+	var amount := _duel_pending_damage
+	_duel_pending_damage = 0
+	# 分屏下自身 HUD 被整体缩放过，`size` 是未缩放的局部尺寸，算出来会偏。
+	var target := _health_bar.get_global_rect().get_center()
+	for _step in range(amount):
+		_duel_hud.play_incoming_damage(DuelConfig.MARK_DAMAGE, target)
+	# 对手的伤害不吃红隼的无敌盾：那面盾的说明写的是「踩中雷不掉血」，它挡的是雷，
+	# 不是对手。
+	_player_hp = maxi(0, _player_hp - amount)
+	_refresh_health_bar()
+	if _player_status != null:
+		_player_status.play_hit_feedback()
+	_duel.report_state(_player_hp, _player_max_hp, _gold)
+	if _player_hp <= 0 and not _game_finish_started:
+		_game_finish_started = true
+		_set_board_interactable(false)
+		_duel.report_defeat()
+
+
+func _refresh_duel_opponent() -> void:
+	if _duel_hud == null or _duel == null:
+		return
+	var total_mines := _board.mine_count if _board != null else 0
+	_duel_hud.refresh_opponent(_duel.opponent, total_mines)
+	if _shop_layer != null and _shop_layer.visible:
+		_shop_layer.set_duel_opponent(
+			int(_duel.opponent["hp"]),
+			int(_duel.opponent["max_hp"]),
+			int(_duel.opponent["gold"]),
+			_duel.opponent["upgrades"]
+		)
+		_shop_layer.set_duel_opponent_ready(_duel.opponent_ready)
+
+
+## 本轮打完了：血没了就报输，清盘了就报清盘（对面收到即冻结）。
+func _finish_duel_round() -> void:
+	if _player_hp <= 0:
+		_duel.report_defeat()
+		return
+	if _board.won:
+		_duel.report_round_cleared()
+
+
+func _on_duel_round_frozen(self_cleared: bool) -> void:
+	if _duel_frozen:
+		return
+	_duel_frozen = true
+	_duel_self_cleared = self_cleared
+	_set_board_interactable(false)
+	_duel_hud.set_frozen(
+		true,
+		"你率先清盘 — 本轮结束" if self_cleared else "对手已清盘 — 本轮结束"
+	)
+	await get_tree().create_timer(1.2).timeout
+	if not _is_duel():
+		return
+	_open_duel_intermission()
+
+
+func _open_duel_intermission() -> void:
+	_duel_hud.set_frozen(false, "")
+	_duel.enter_intermission()
+	_shop_layer.present_full(_gold, SHOP_ITEM_COST)
+	_shop_layer.set_duel_round_result(
+		"第 %d 轮 — %s" % [_duel.round_index, "你率先清盘" if _duel_self_cleared else "对手率先清盘"]
+	)
+	_refresh_duel_opponent()
+
+
+func _on_duel_ready_pressed() -> void:
+	if _is_duel():
+		_duel.mark_ready()
+
+
+func _on_duel_finished(self_won: bool) -> void:
+	_duel_frozen = true
+	_set_board_interactable(false)
+	_shop_layer.visible = false
+	_shop_layer.exit_duel_mode()
+	_duel_hud.set_frozen(true, "对战胜利！" if self_won else "对战失败")
+	await get_tree().create_timer(2.4).timeout
+	_return_to_main_menu()
+
+
+func _leave_duel() -> void:
+	if _duel == null:
+		return
+	_duel_pending_damage = 0
+	_duel_frozen = false
+	_duel_self_cleared = false
+	if _duel_hud != null:
+		_duel_hud.show_duel(false)
+	if _shop_layer != null:
+		_shop_layer.exit_duel_mode()
+	_duel.leave()

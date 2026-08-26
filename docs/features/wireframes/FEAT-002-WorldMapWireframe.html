@@ -1,0 +1,427 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
+<title>FEAT-002 · WorldMap 线框</title>
+<style>
+  body{margin:0;font-family:system-ui,"Microsoft YaHei",sans-serif;background:#0f172a;color:#e2e8f0}
+  .workspace{display:flex;gap:12px;padding:12px;height:100vh;box-sizing:border-box}
+  .svg-panel{flex:0 0 auto;background:#1e293b;border-radius:8px;padding:8px}
+  .svg-panel svg{width:min(58vw,1180px);height:auto;background:#0b1220;border-radius:4px}
+  .right-col{flex:1;display:flex;flex-direction:column;gap:12px;min-width:360px;overflow:hidden}
+  .panel{background:#1e293b;border-radius:8px;padding:12px;overflow:auto}
+  .inspector{flex:1 1 auto}
+  .tree-panel{flex:0 0 30%}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin:10px 0 6px}
+  h2:first-child{margin-top:0}
+  g.node{cursor:pointer}
+  g.node>.hit{fill:transparent;stroke:transparent;transition:all .12s;pointer-events:all}
+  g.node:hover>.hit{fill:rgba(252,211,77,.10);stroke:#fbbf24;stroke-width:2}
+  g.node.selected>.hit{fill:rgba(239,68,68,.18);stroke:#ef4444;stroke-width:3}
+  .b,.ins-b{display:inline-block;padding:1px 6px;margin-left:3px;border-radius:7px;font-size:10.5px;font-weight:700;color:#fff;cursor:help}
+  .b-assign{background:#2563eb}.b-click{background:#f59e0b}.b-hover{background:#7c3aed}.b-state{background:#f43f5e}.b-copy{background:#10b981}
+  .d{display:inline-block;padding:2px 8px;margin-left:4px;border-radius:6px;font-size:12px;font-weight:800;color:#fff;border:2px solid rgba(255,255,255,.55)}
+  .d-new{background:#16a34a}.d-changed{background:#ea580c}.d-moved{background:#0284c7}.d-removed{background:#dc2626}
+  #changes{border:2px solid #334155;flex:0 0 auto}
+  #changes .chg{cursor:pointer;padding:4px 6px;border-radius:5px;margin:2px 0}
+  #changes .chg:hover{background:rgba(234,88,12,.15)}
+  #breadcrumb{font-size:12px;color:#cbd5e1;line-height:1.7}
+  #breadcrumb .crumb{cursor:pointer;color:#7dd3fc}
+  #breadcrumb .crumb:hover{text-decoration:underline}
+  .row{font-size:12.5px;line-height:1.65;margin:2px 0}
+  .row b{color:#f1f5f9}
+  .k{color:#94a3b8;display:inline-block;min-width:64px}
+  .beh{border-left:3px solid #475569;padding:4px 8px;margin:5px 0;background:rgba(15,23,42,.6);border-radius:0 5px 5px 0}
+  .beh .bn{font-weight:700;font-size:12px}
+  .beh .bw{font-size:11.5px;color:#cbd5e1;margin-top:3px;line-height:1.55}
+  .child{cursor:pointer;padding:3px 6px;border-radius:5px;font-size:12px}
+  .child:hover{background:rgba(125,211,252,.14)}
+  #tree{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;line-height:1.62}
+  #tree .tr{cursor:pointer;padding:1px 4px;border-radius:4px;white-space:pre}
+  #tree .tr:hover{background:rgba(125,211,252,.14)}
+  #tree .tr.selected{background:rgba(239,68,68,.24)}
+  .ctrl3d{fill:#1e2a3d;stroke:#475569;stroke-dasharray:6 4}
+  .lbl{font-family:system-ui,sans-serif;fill:#e2e8f0}
+  .dim{fill:#94a3b8}
+  .note{font-size:11px;color:#94a3b8;line-height:1.6}
+</style></head><body>
+<div class="workspace">
+  <div class="svg-panel panel">
+    <svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+      <g class="node" data-node-id="root">
+        <rect class="hit" x="0" y="0" width="1920" height="1080"/>
+        <rect x="0" y="0" width="1920" height="1080" fill="#0b1220" stroke="#64748b" stroke-width="2"/>
+
+        <!-- ============ 3D 层 ============ -->
+        <g class="node" data-node-id="hex-terrain">
+          <rect class="hit" x="8" y="8" width="1904" height="1064"/>
+          <rect x="8" y="8" width="1904" height="1064" class="ctrl3d" fill="#16241c"/>
+          <text class="lbl dim" x="26" y="1052" font-size="20">HexTerrain (Node3D) · 手摆 ~150 地格 + 装饰，美术资产</text>
+          <!-- 示意六边形网格 -->
+          <g opacity="0.5" fill="none" stroke="#3f6b4f" stroke-width="2">
+            <polygon points="520,420 580,385 640,420 640,490 580,525 520,490"/>
+            <polygon points="640,350 700,315 760,350 760,420 700,455 640,420"/>
+            <polygon points="640,490 700,455 760,490 760,560 700,595 640,560"/>
+            <polygon points="760,420 820,385 880,420 880,490 820,525 760,490"/>
+            <polygon points="880,350 940,315 1000,350 1000,420 940,455 880,420"/>
+            <polygon points="880,490 940,455 1000,490 1000,560 940,595 880,560"/>
+            <polygon points="1000,420 1060,385 1120,420 1120,490 1060,525 1000,490"/>
+            <polygon points="1120,350 1180,315 1240,350 1240,420 1180,455 1120,420"/>
+            <polygon points="1120,490 1180,455 1240,490 1240,560 1180,595 1120,560"/>
+            <polygon points="1240,420 1300,385 1360,420 1360,490 1300,525 1240,490"/>
+            <polygon points="760,560 820,525 880,560 880,630 820,665 760,630"/>
+            <polygon points="1000,560 1060,525 1120,560 1120,630 1060,665 1000,630"/>
+          </g>
+        </g>
+
+        <g class="node" data-node-id="stage-markers">
+          <rect class="hit" x="470" y="290" width="920" height="400"/>
+          <text class="lbl dim" x="480" y="712" font-size="18">StageMarkers (Node3D) · 每个子节点只挂 stage_id</text>
+          <g class="node" data-node-id="stage-marker">
+            <rect class="hit" x="790" y="380" width="120" height="120"/>
+            <polygon points="820,420 850,403 880,420 880,455 850,472 820,455" fill="#f59e0b" opacity="0.45" stroke="#fbbf24" stroke-width="3"/>
+          </g>
+        </g>
+
+        <g class="node" data-node-id="map-camera">
+          <rect class="hit" x="1660" y="900" width="230" height="70"/>
+          <rect x="1660" y="900" width="230" height="70" class="ctrl3d" rx="8"/>
+          <text class="lbl" x="1676" y="932" font-size="17">MapCamera</text>
+          <text class="lbl dim" x="1676" y="956" font-size="14">拖拽平移 + 滚轮缩放</text>
+        </g>
+        <g class="node" data-node-id="map-sun">
+          <rect class="hit" x="1660" y="820" width="230" height="60"/>
+          <rect x="1660" y="820" width="230" height="60" class="ctrl3d" rx="8"/>
+          <text class="lbl" x="1676" y="857" font-size="17">MapSun (Light3D)</text>
+        </g>
+
+        <!-- ============ CanvasLayer UI ============ -->
+        <g class="node" data-node-id="ui">
+          <rect class="hit" x="0" y="0" width="1920" height="260"/>
+
+          <!-- 顶栏 -->
+          <g class="node" data-node-id="top-bar">
+            <rect class="hit" x="0" y="0" width="1920" height="96"/>
+            <rect x="0" y="0" width="1920" height="96" fill="#111c2e" opacity="0.92"/>
+            <line x1="0" y1="96" x2="1920" y2="96" stroke="#334155" stroke-width="2"/>
+
+            <g class="node" data-node-id="back-btn">
+              <rect class="hit" x="32" y="20" width="188" height="56"/>
+              <rect x="32" y="20" width="188" height="56" rx="10" fill="#334155" stroke="#7dd3fc" stroke-width="2"/>
+              <text class="lbl" x="126" y="56" font-size="24" text-anchor="middle">‹ 返回标题</text>
+            </g>
+
+            <g class="node" data-node-id="region-name">
+              <rect class="hit" x="256" y="14" width="420" height="36"/>
+              <text class="lbl" x="256" y="44" font-size="28" font-weight="700">青草区</text>
+            </g>
+            <g class="node" data-node-id="region-progress">
+              <rect class="hit" x="256" y="52" width="620" height="34"/>
+              <text class="lbl dim" x="256" y="79" font-size="20">已通关 3 / 6 · 再通 1 关开启「河谷区」</text>
+            </g>
+
+            <g class="node" data-node-id="meta-box">
+              <rect class="hit" x="1596" y="18" width="292" height="60"/>
+              <rect x="1596" y="18" width="292" height="60" rx="10" fill="#1c2a44" stroke="#475569" stroke-width="2" stroke-dasharray="6 4"/>
+              <g class="node" data-node-id="meta-icon">
+                <rect class="hit" x="1612" y="30" width="36" height="36"/>
+                <circle cx="1630" cy="48" r="17" fill="#475569"/>
+              </g>
+              <g class="node" data-node-id="meta-value">
+                <rect class="hit" x="1656" y="28" width="120" height="40"/>
+                <text class="lbl dim" x="1660" y="59" font-size="24">— —</text>
+              </g>
+              <text class="lbl dim" x="1790" y="54" font-size="14">占位</text>
+            </g>
+          </g>
+
+          <!-- 续局提示条 -->
+          <g class="node" data-node-id="resume-banner">
+            <rect class="hit" x="536" y="120" width="848" height="112"/>
+            <rect x="536" y="120" width="848" height="112" rx="14" fill="#3b2a12" stroke="#f59e0b" stroke-width="3"/>
+            <g class="node" data-node-id="resume-text">
+              <rect class="hit" x="560" y="140" width="470" height="72"/>
+              <text class="lbl" x="560" y="172" font-size="24">「青草坡」进行中 · 第 3 / 5 盘</text>
+              <text class="lbl dim" x="560" y="202" font-size="18">点其他关卡会放弃这份进度</text>
+            </g>
+            <g class="node" data-node-id="resume-btn">
+              <rect class="hit" x="1056" y="146" width="150" height="60"/>
+              <rect x="1056" y="146" width="150" height="60" rx="10" fill="#4b7c2e" stroke="#86efac" stroke-width="2"/>
+              <text class="lbl" x="1131" y="184" font-size="24" text-anchor="middle">续上</text>
+            </g>
+            <g class="node" data-node-id="abandon-btn">
+              <rect class="hit" x="1218" y="146" width="150" height="60"/>
+              <rect x="1218" y="146" width="150" height="60" rx="10" fill="#4a2530" stroke="#fca5a5" stroke-width="2"/>
+              <text class="lbl" x="1293" y="184" font-size="24" text-anchor="middle">放弃</text>
+            </g>
+          </g>
+
+          <!-- 悬浮牌层 -->
+          <g class="node" data-node-id="badge-layer">
+            <rect class="hit" x="440" y="250" width="1000" height="420"/>
+
+            <!-- 模板：完整展开 -->
+            <g class="node" data-node-id="stage-badge">
+              <rect class="hit" x="748" y="256" width="248" height="150"/>
+              <g class="node" data-node-id="badge-panel">
+                <rect class="hit" x="748" y="256" width="248" height="124"/>
+                <rect x="748" y="256" width="248" height="124" rx="16" fill="#f8f5ec" stroke="#c8b89a" stroke-width="4"/>
+                <polygon points="856,380 872,406 888,380" fill="#f8f5ec" stroke="#c8b89a" stroke-width="4"/>
+              </g>
+              <g class="node" data-node-id="badge-state-icon">
+                <rect class="hit" x="764" y="272" width="48" height="48"/>
+                <circle cx="788" cy="296" r="22" fill="#4b7c2e"/>
+                <path d="M777,296 l8,9 l14,-17" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+              </g>
+              <g class="node" data-node-id="badge-name">
+                <rect class="hit" x="822" y="268" width="160" height="40"/>
+                <text x="822" y="300" font-size="27" font-weight="700" fill="#2f2a20">3 · 青草坡</text>
+              </g>
+              <g class="node" data-node-id="badge-round">
+                <rect class="hit" x="764" y="326" width="218" height="42"/>
+                <rect x="764" y="328" width="112" height="38" rx="9" fill="#e5dcc6"/>
+                <text x="776" y="357" font-size="24" font-weight="700" fill="#4a4132">5 盘</text>
+                <text x="890" y="357" font-size="19" fill="#7a6d59">已通关</text>
+              </g>
+              <g class="node" data-node-id="badge-lock">
+                <rect class="hit" x="748" y="256" width="248" height="124"/>
+                <rect x="748" y="256" width="248" height="124" rx="16" fill="#0b1220" opacity="0.62"/>
+                <rect x="852" y="292" width="34" height="26" rx="4" fill="none" stroke="#cbd5e1" stroke-width="4"/>
+                <path d="M858,292 v-10 a11,11 0 0 1 22,0 v10" fill="none" stroke="#cbd5e1" stroke-width="4"/>
+                <text class="lbl dim" x="1006" y="300" font-size="15">[State:Locked]</text>
+              </g>
+            </g>
+
+            <!-- 其余实例只画外壳 -->
+            <g class="node" data-node-id="badge-copy-a">
+              <rect class="hit" x="470" y="300" width="200" height="104"/>
+              <rect x="470" y="300" width="200" height="86" rx="14" fill="#f8f5ec" opacity="0.42" stroke="#c8b89a" stroke-width="3"/>
+              <polygon points="552,386 566,406 580,386" fill="#f8f5ec" opacity="0.42"/>
+              <text class="lbl dim" x="486" y="352" font-size="17">实例 2</text>
+            </g>
+            <g class="node" data-node-id="badge-copy-b">
+              <rect class="hit" x="1064" y="290" width="200" height="104"/>
+              <rect x="1064" y="290" width="200" height="86" rx="14" fill="#f8f5ec" opacity="0.42" stroke="#c8b89a" stroke-width="3"/>
+              <polygon points="1146,376 1160,396 1174,376" fill="#f8f5ec" opacity="0.42"/>
+              <text class="lbl dim" x="1080" y="342" font-size="17">实例 3 … N</text>
+            </g>
+          </g>
+
+          <!-- 放弃确认弹窗 -->
+          <g class="node" data-node-id="abandon-confirm">
+            <rect class="hit" x="1420" y="740" width="470" height="300"/>
+            <rect x="1420" y="740" width="470" height="300" rx="12" fill="#0b1220" opacity="0.5" stroke="#f43f5e" stroke-width="3" stroke-dasharray="8 5"/>
+            <text class="lbl dim" x="1436" y="768" font-size="15">[State:Hidden] 全屏遮罩 + 居中卡片（此处缩略示意）</text>
+            <g class="node" data-node-id="confirm-dim">
+              <rect class="hit" x="1432" y="778" width="446" height="30"/>
+              <rect x="1432" y="778" width="446" height="30" fill="#000" opacity="0.55"/>
+              <text class="lbl dim" x="1442" y="799" font-size="14">ConfirmDim (ColorRect) 全屏</text>
+            </g>
+            <g class="node" data-node-id="confirm-panel">
+              <rect class="hit" x="1432" y="816" width="446" height="212"/>
+              <rect x="1432" y="816" width="446" height="212" rx="12" fill="#f8f5ec" stroke="#c8b89a" stroke-width="3"/>
+              <g class="node" data-node-id="confirm-text">
+                <rect class="hit" x="1450" y="832" width="410" height="92"/>
+                <text x="1450" y="862" font-size="23" font-weight="700" fill="#2f2a20">放弃「青草坡」的进度？</text>
+                <text x="1450" y="896" font-size="17" fill="#6b6152">已打到第 3 盘的血量、金币与</text>
+                <text x="1450" y="918" font-size="17" fill="#6b6152">强化会全部清空。</text>
+              </g>
+              <g class="node" data-node-id="confirm-no">
+                <rect class="hit" x="1450" y="948" width="190" height="60"/>
+                <rect x="1450" y="948" width="190" height="60" rx="10" fill="#d8cfb8" stroke="#a8917d" stroke-width="2"/>
+                <text x="1545" y="986" font-size="22" fill="#2f2a20" text-anchor="middle">继续那一关</text>
+              </g>
+              <g class="node" data-node-id="confirm-yes">
+                <rect class="hit" x="1660" y="948" width="200" height="60"/>
+                <rect x="1660" y="948" width="200" height="60" rx="10" fill="#8c3a44" stroke="#fca5a5" stroke-width="2"/>
+                <text x="1760" y="986" font-size="22" fill="#fff" text-anchor="middle">放弃并开新的</text>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <div class="right-col">
+    <div class="panel" id="changes"><h2>本次改动 (vs 模块归档线框)</h2><div id="changes-base" class="note"></div><div id="changes-list"></div></div>
+    <div class="panel inspector">
+      <h2>层级链</h2><div id="breadcrumb"></div>
+      <h2>节点</h2><div id="details"></div>
+      <h2>改动</h2><div id="diffbox"></div>
+      <h2>行为</h2><div id="behaviors"></div>
+      <h2>直接子节点</h2><div id="children"></div>
+    </div>
+    <div class="panel tree-panel"><h2>完整层级树</h2><div id="tree"></div></div>
+  </div>
+</div>
+
+<script>
+const BASELINE = null; // 全新界面：WorldMap 模块尚无归档线框
+
+const NODES = {
+  'root': {name:'WorldMapScreen', ctrl:'Node3D', module:'WorldMap', term:'世界地图', size:'—（3D 场景根）', desc:'世界地图根节点。作为 main.tscn 的子节点存在，像 start_screen 一样 show/hide，不切换根场景（共识 4）。',
+    state:true, stateWhat:'main.gd 的 _show_world_map() / _hide_world_map() 切 visible。进标题页时隐藏、点「开始/继续」时显示、_enter_stage() 后隐藏。⚠️ 同时必须把 main.tscn 的 2D 布景（Backdrop / Background / 两侧林叶 / CentralTreeBackground / BoardPlatform / Scenery / 五个鸟架）一起 visible=false——3D 先渲染、2D CanvasItem 盖在上面，不收走的话整张地图被那棵大树严丝合缝地挡死。见 main.gd 的 _set_scenery_visible()。'},
+
+  'hex-terrain': {name:'HexTerrain', ctrl:'Node3D', module:'WorldMap', term:'地格', size:'~150 个子节点', desc:'手工摆放的地格与装饰，纯美术资产，不受控（共识 3）。子节点是 KayKit gltf 实例：tiles/base·coast·rivers·roads + decoration/nature·props。', parent:'root'},
+
+  'stage-markers': {name:'StageMarkers', ctrl:'Node3D', module:'WorldMap', term:'关卡', size:'15-20 个子节点', desc:'关卡节点容器。每个子节点只挂一个 stage_id 去 StageTable 查表，不在场景里存任何数值（共识 3）。', parent:'root',
+    assign:true, assignWhat:'WorldMap._ready() 遍历子节点，读各自导出的 stage_id → StageTable.stage(id) 取名字/目标盘数/所属区 → 为每个节点生成一张 StageBadge。⚠️ 需新增 StageTable'},
+  'stage-marker': {name:'StageMarker', ctrl:'Node3D', module:'WorldMap', term:'关卡', size:'一块地格大小', desc:'单个关卡节点（模板）。导出属性只有 stage_id: StringName。悬浮牌靠它的 global_position 做屏幕投影定位。', parent:'stage-markers',
+    copy:true, copyWhat:'15-20 个实例在 world_map.tscn 里手工摆放，各自填不同的 stage_id。运行时不实例化。',
+    hover:true, hoverWhat:'鼠标射线命中时（Camera3D.project_ray_origin + 一个 Area3D）让对应 StageBadge 抬升+放大。⚠️ 需新增：3D 拾取，全项目现无 3D 代码'},
+
+  'map-camera': {name:'MapCamera', ctrl:'Camera3D', module:'WorldMap', size:'—', desc:'斜俯视相机。拖拽平移 + 滚轮缩放（共识 4），须有边界限位与缩放区间。', parent:'root',
+    click:true, clickWhat:'_unhandled_input：按下记起点 → 移动时改 position（平移）→ 抬起时若总位移 < DRAG_SLOP(8px) 才当作点击关卡，否则吞掉（共识 4 的误触判定）。滚轮改与地面的距离，clamp 在 [ZOOM_MIN, ZOOM_MAX]。⚠️ 全新'},
+  'map-sun': {name:'MapSun', ctrl:'DirectionalLight3D', module:'WorldMap', size:'—', desc:'唯一光源。KayKit 素材是无光照贴图风格，一盏平行光 + 环境光即可。不受控。', parent:'root'},
+
+  'ui': {name:'WorldMapUi', ctrl:'CanvasLayer', module:'WorldMap', size:'1920×1080', desc:'地图屏的全部 2D UI。独立 CanvasLayer，layer 取 60（低于商店 100 与光标特效 400）。**整棵 UI 子树由 world_map.gd 在运行时搭建，不存在于 .tscn 里**——与项目现有 main.gd 的 _build_* 一套做法一致，这样手改场景不会一保存就把节点抹掉，也让那张 .tscn 保持为纯美术资产。', parent:'root'},
+
+  'top-bar': {name:'TopBar', ctrl:'HBoxContainer', module:'WorldMap', size:'1920×96', desc:'常驻顶栏。锚 PRESET_TOP_WIDE。', parent:'ui'},
+  'back-btn': {name:'BackToTitleButton', ctrl:'Button', module:'GameFlow', size:'188×56', desc:'返回标题页（共识 5 的四件常驻之一）。', parent:'top-bar',
+    click:true, clickWhat:'pressed → WorldMap.title_requested 信号 → main.gd 隐藏地图并 _build_start_screen()。复用现有 _build_start_screen()（main.gd:614）与 _refresh_title_save_state()（main.gd:633），均已 grep 确认存在。'},
+  'region-name': {name:'RegionNameLabel', ctrl:'Label', module:'WorldMap', term:'地形区', size:'420×36', desc:'当前地形区名。', parent:'top-bar',
+    assign:true, assignWhat:'present() 时与相机平移后刷新。text = StageTable.region(current_region_id).name。当前区 = 相机中心最近的那个区。⚠️ 需新增 StageTable.region()'},
+  'region-progress': {name:'RegionProgressLabel', ctrl:'Label', module:'WorldMap', term:'地形区', size:'620×34', desc:'本区进度 + 下一区解锁门槛（共识 2 的成组解锁）。', parent:'top-bar',
+    assign:true, assignWhat:'present() 与每次通关回地图时刷新。text = "已通关 %d / %d · 再通 %d 关开启「%s」"，数据来自 GameSave 的 cleared_stages ∩ 本区关卡 与 StageTable 的 unlock_threshold。⚠️ cleared_stages 是 GameSave v2 新字段'},
+  'meta-box': {name:'MetaCurrencyBox', ctrl:'HBoxContainer', module:'ShopEconomy', size:'292×60', desc:'局外持久数值位。共识 5 明确本期**只占位不填数**，局外成长本身不做。虚线边框即表示占位。', parent:'top-bar'},
+  'meta-icon': {name:'MetaIcon', ctrl:'TextureRect', module:'ShopEconomy', size:'36×36', desc:'占位图标，静态，不受控。', parent:'meta-box'},
+  'meta-value': {name:'MetaValueLabel', ctrl:'Label', module:'ShopEconomy', size:'120×40', desc:'占位数值。本期硬写 "— —"，不接任何数据源。', parent:'meta-box',
+    assign:true, assignWhat:'⚠️ 本期不赋值。标 assign 是为了让下一个 FEAT 知道这里是预留的写入点；届时接局外货币字段。'},
+
+  'resume-banner': {name:'ResumeBanner', ctrl:'Control', module:'Persistence', size:'848×112', desc:'续局提示条（共识 5 四件之一）。有未完成的 run 时才出现，避免玩家在 18 个悬浮牌里找那个「进行中」。**贴屏幕底部**，不贴顶——顶部是悬浮牌最密的地带。', parent:'ui',
+    state:true, stateWhat:'visible = GameSave 里 resume_stage_id 非空。无续局时整条收起。⚠️ resume_stage_id 是 GameSave v2 新字段'},
+  'resume-text': {name:'ResumeTextLabel', ctrl:'Label', module:'Persistence', term:'盘', size:'470×72', desc:'说明续的是哪一关、打到第几盘。', parent:'resume-banner',
+    assign:true, assignWhat:'present() 时刷新。text = "「%s」进行中 · 第 %d / %d 盘"，依次取 StageTable.stage(resume_stage_id).name、现有存档的 current_level（= 已到第几盘）、该关的 target_round。current_level 已 grep 确认存在（main.gd:495）。'},
+  'resume-btn': {name:'ResumeStageButton', ctrl:'Button', module:'GameFlow', size:'150×60', desc:'续上未完成的那一关。', parent:'resume-banner',
+    click:true, clickWhat:'pressed → WorldMap.resume_requested 信号 → main.gd._enter_stage(resume_stage_id, resume=true)：跳过重置，直接沿用已读盘的 _run_number 与全套 bonus 字段调 _start_game()。_start_game() 已确认存在。⚠️ _enter_stage 需新增'},
+  'abandon-btn': {name:'AbandonStageButton', ctrl:'Button', module:'Persistence', size:'150×60', desc:'主动放弃当前续局槽。', parent:'resume-banner',
+    click:true, clickWhat:'pressed → 弹 AbandonConfirm（复用同一张确认卡）→ 确认后清掉续局槽。复用现有 _on_abandon_run_requested() 的写法（main.gd:631：写一份只剩成就的存档），但改为只清 run 字段、保留 cleared_stages。'},
+
+  'badge-layer': {name:'BadgeLayer', ctrl:'Control', module:'WorldMap', term:'悬浮牌', size:'1920×1080', desc:'悬浮牌容器，铺满全屏，mouse_filter=PASS 让拖拽能穿到相机。每帧把各 StageMarker 的 3D 坐标投影成屏幕坐标去摆牌。', parent:'ui',
+    assign:true, assignWhat:'_process 每帧：where = BadgeLayer.get_canvas_transform().affine_inverse() * MapCamera.unproject_position(marker.global_position + UP*1.6)，再减去半宽与全高把尖角对准地格。⚠️ 必须过一遍 canvas_transform 的逆——unproject_position 给的是视口真实像素，Control 坐标在 canvas_items 拉伸后的 1920×1080 空间，窗口尺寸不同时两者差一个缩放系数。先用 is_position_behind 挡掉相机背后的点；牌子矩形与屏幕矩形不相交时 visible=false。'},
+
+  'stage-badge': {name:'StageBadge', ctrl:'Button', module:'WorldMap', term:'悬浮牌', size:'184×103', desc:'单张悬浮牌（模板，完整展开）。根节点直接用 Button：点击进关、悬停高亮都由 Button 原生给，不用自己写 gui_input。参考图里那些 1+ / 3+ / ✓ 牌子就是这个。', parent:'badge-layer',
+    copy:true, copyWhat:'WorldMap._ready() 按 StageMarkers 的子节点数实例化 15-20 份，每份 bind 一个 stage_id。',
+    click:true, clickWhat:'pressed → WorldMap.stage_selected(stage_id) → main.gd._enter_stage(stage_id)。若已有续局槽且不是同一关 → 先弹 AbandonConfirm（共识 6 的单槽语义）。未解锁态 disabled=true。⚠️ _enter_stage 需新增',
+    hover:true, hoverWhat:'mouse_entered/exited → 抬升 6px + scale 1.06，并让对应 StageMarker 的地格微微上浮。沿用现有 ButtonMotion.bind()（scripts/ui/button_motion.gd，已确认存在，start_screen.gd:122 在用）。'},
+  'badge-panel': {name:'BadgePanel', ctrl:'NinePatchRect', module:'WorldMap', size:'248×124', desc:'牌子底板 + 指向地格的小尖角。9-slice 以适配不同关卡名长度。静态，不受控。', parent:'stage-badge'},
+  'badge-state-icon': {name:'BadgeStateIcon', ctrl:'Control', module:'WorldMap', size:'34×34', desc:'状态图标：已通关 ✓ / 可挑战 ▶ / 未解锁 🔒 / 进行中 ⏱。四态是**四个不同几何形状**（对勾两笔 / 实心三角 / 锁体+半环 / 圆环+两针），颜色只作加强——灰度下也分得清，兑现项目约束「不得仅依赖颜色传达」。', parent:'stage-badge',
+    assign:true, assignWhat:'set_stage_state(state) → StateIcon.set_shape(shape, accent) → queue_redraw()。状态由 _cleared / _resume_stage_id / StageTable.is_stage_unlocked() 三者算出。',
+    diff:'changed', diffWhat:'实现期改动：从 TextureRect + 四张纹理，改为 Control 的 _draw() 程序化绘制。原因是四张状态图标的美术资产并不存在，而 _draw 画几何形状既不依赖素材、任意缩放都清晰，也让"形状差异"成为真实的几何差异而不是靠美术自觉。'},
+  'badge-name': {name:'BadgeNameLabel', ctrl:'Label', module:'WorldMap', term:'关卡', size:'160×40', desc:'关卡序号 + 名字（共识 5 选定的内容之一）。', parent:'stage-badge',
+    assign:true, assignWhat:'bind 时一次性写入。text = "%d · %s" % [stage.order, stage.name]，取自 StageTable。⚠️ 需新增 StageTable'},
+  'badge-round': {name:'BadgeRoundLabel', ctrl:'Label', module:'WorldMap', term:'目标盘数', size:'218×42', desc:'目标盘数 + 状态文字。共识 1 定下「每关只有两个变量」，其中目标盘数是牌子上唯一真正有信息量的数字；共识 5 明确**不显示最佳成绩**。', parent:'stage-badge',
+    assign:true, assignWhat:'bind 时写入。text = "%d 盘" % stage.target_round，右侧附状态词（已通关/可挑战/未解锁/第 N 盘）。⚠️ target_round 是 StageTable 新字段'},
+  'badge-lock': {name:'BadgeLockOverlay', ctrl:'ColorRect', module:'WorldMap', size:'248×124', anno:'[State:Locked]', desc:'未解锁遮罩 + 锁形。默认隐藏。', parent:'stage-badge',
+    state:true, stateWhat:'visible = not StageTable.is_unlocked(stage_id, cleared_stages)。同时把 StageBadge.disabled 设 true，让 Button 自己吃掉点击。⚠️ is_unlocked 需新增'},
+  'badge-copy-a': {name:'StageBadge (实例 2)', ctrl:'Button', module:'WorldMap', size:'—', desc:'同模板的其余实例，只画外壳示意。结构与 StageBadge 完全一致。', parent:'badge-layer'},
+  'badge-copy-b': {name:'StageBadge (实例 3…N)', ctrl:'Button', module:'WorldMap', size:'—', desc:'同上。共 15-20 个实例。', parent:'badge-layer'},
+
+  'abandon-confirm': {name:'AbandonConfirm', ctrl:'Control', module:'Persistence', size:'1920×1080', anno:'[State:Hidden]', desc:'「会放弃当前进度」确认弹窗（共识 6）。默认隐藏。两个入口共用：点续局条的「放弃」、或在有续局槽时点了别的关卡。', parent:'ui',
+    state:true, stateWhat:'visible 由 _open_abandon_confirm(next_stage_id) 打开、两颗按钮任一按下后关闭。结构与动画整套照抄 start_screen.gd 的 clear_confirmation（同一套 dim + 卡片缩放 tween，start_screen.gd:294-341），不另写一套。'},
+  'confirm-dim': {name:'ConfirmDim', ctrl:'ColorRect', module:'Persistence', size:'1920×1080', desc:'半透明遮罩，吃掉底下所有点击。', parent:'abandon-confirm',
+    assign:true, assignWhat:'开合时 tween modulate:a 0↔1，抄 start_screen.gd 的 clear_dimmer 写法。'},
+  'confirm-panel': {name:'ConfirmPanel', ctrl:'NinePatchRect', module:'Persistence', size:'446×212', desc:'确认卡底板。', parent:'abandon-confirm'},
+  'confirm-text': {name:'ConfirmTextLabel', ctrl:'Label', module:'Persistence', size:'410×92', desc:'说明会丢失什么。', parent:'confirm-panel',
+    assign:true, assignWhat:'打开时按当前续局槽写：text = "放弃「%s」的进度？已打到第 %d 盘的血量、金币与强化会全部清空。" 文案风格对齐现有 CONFIRM_COPY（start_screen.gd:84）。'},
+  'confirm-no': {name:'ConfirmNoButton', ctrl:'Button', module:'Persistence', size:'190×60', desc:'取消，回到地图。', parent:'confirm-panel',
+    click:true, clickWhat:'pressed → 关闭弹窗，什么都不做。'},
+  'confirm-yes': {name:'ConfirmYesButton', ctrl:'Button', module:'Persistence', size:'200×60', desc:'确认放弃并进入新点的那一关。', parent:'confirm-panel',
+    click:true, clickWhat:'pressed → 清续局槽（保留 cleared_stages）→ main.gd._enter_stage(pending_stage_id, resume=false)。⚠️ 需新增'}
+};
+
+const TAG_META = {
+  state:  { label:'状态', cls:'b-state',  name:'显隐切换 (visible)', defWhy:'脚本通过 visible 控显隐' },
+  hover:  { label:'悬停', cls:'b-hover',  name:'悬停逻辑 (Hover)',   defWhy:'连 mouse_entered/exited' },
+  click:  { label:'点击', cls:'b-click',  name:'点击逻辑 (Click)',   defWhy:'连 pressed / gui_input' },
+  assign: { label:'赋值', cls:'b-assign', name:'赋值逻辑 (Assign)',  defWhy:'运行时写入内容' },
+  copy:   { label:'拷贝', cls:'b-copy',   name:'实例化模板 (Copy)',  defWhy:'作为模板被实例化多份' }
+};
+const DIFF_META = {
+  new:     { label:'🆕 新增', cls:'d-new' },
+  changed: { label:'✏️ 改动', cls:'d-changed' },
+  moved:   { label:'↔️ 移位', cls:'d-moved' },
+  removed: { label:'🗑️ 删除', cls:'d-removed' }
+};
+function getNodeTags(node){
+  const t=[];
+  if(node.copy)  t.push({key:'copy', ...TAG_META.copy,  why:node.copyWhat  ||TAG_META.copy.defWhy});
+  if(node.state) t.push({key:'state',...TAG_META.state, why:node.stateWhat ||TAG_META.state.defWhy});
+  if(node.hover) t.push({key:'hover',...TAG_META.hover, why:node.hoverWhat ||TAG_META.hover.defWhy});
+  if(node.click) t.push({key:'click',...TAG_META.click, why:node.clickWhat ||TAG_META.click.defWhy});
+  if(node.assign)t.push({key:'assign',...TAG_META.assign,why:node.assignWhat||TAG_META.assign.defWhy});
+  return t;
+}
+function getNodeDiff(node){ return node.diff ? {...DIFF_META[node.diff], why:node.diffWhat||''} : null; }
+
+function buildPath(id){const p=[];let c=id;while(c&&NODES[c]){p.unshift({id:c,...NODES[c]});c=NODES[c].parent}return p}
+function getChildren(id){return Object.entries(NODES).filter(([_,n])=>n.parent===id).map(([cid,n])=>({id:cid,...n}))}
+function tagChips(n){return getNodeTags(n).map(t=>`<span class="b ${t.cls}" title="${t.why.replace(/"/g,'&quot;')}">${t.label}</span>`).join('')}
+
+function buildTree(){
+  const out=[];
+  (function walk(id,depth){
+    const n=NODES[id]; if(!n) return;
+    out.push(`<div class="tr" data-node-id="${id}">${'  '.repeat(depth)}${depth?'└ ':''}<b>${n.name}</b> <span class="dim" style="color:#94a3b8">[${n.ctrl}]</span> ${tagChips(n)}${n.anno?` <span style="color:#f43f5e">${n.anno}</span>`:''}</div>`);
+    getChildren(id).forEach(c=>walk(c.id,depth+1));
+  })('root',0);
+  const tree=document.getElementById('tree');
+  tree.innerHTML=out.join('');
+  tree.querySelectorAll('.tr').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-node-id'))));
+}
+
+function selectNode(id){
+  const n=NODES[id]; if(!n) return;
+  document.querySelectorAll('.selected').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll(`svg [data-node-id="${id}"]`).forEach(el=>el.classList.add('selected'));
+  const row=document.querySelector(`#tree [data-node-id="${id}"]`);
+  if(row){row.classList.add('selected');row.scrollIntoView({block:'nearest',behavior:'smooth'})}
+
+  document.getElementById('breadcrumb').innerHTML=buildPath(id)
+    .map(p=>`<span class="crumb" data-jump="${p.id}">${p.name}</span>`).join(' <span style="color:#475569">›</span> ');
+  document.querySelectorAll('#breadcrumb .crumb').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-jump'))));
+
+  document.getElementById('details').innerHTML=
+    `<div class="row"><span class="k">节点名</span><b>${n.name}</b>${n.anno?` <span style="color:#f43f5e">${n.anno}</span>`:''}</div>`+
+    `<div class="row"><span class="k">控件</span><b>${n.ctrl}</b></div>`+
+    `<div class="row"><span class="k">模块</span>${n.module||'—'}</div>`+
+    (n.term?`<div class="row"><span class="k">术语</span>${n.term}</div>`:'')+
+    `<div class="row"><span class="k">尺寸</span>${n.size||'—'}</div>`+
+    `<div class="row" style="margin-top:6px;color:#cbd5e1">${n.desc||''}</div>`;
+
+  const d=getNodeDiff(n);
+  document.getElementById('diffbox').innerHTML = d
+    ? `<div class="row"><span class="d ${d.cls}">${d.label}</span> ${d.why}</div>`
+    : `<div class="row" style="color:#64748b">${BASELINE?'相对归档线框无变化':'全新界面，无归档基线可比'}</div>`;
+
+  const tags=getNodeTags(n);
+  document.getElementById('behaviors').innerHTML = tags.length
+    ? tags.map(t=>`<div class="beh"><div class="bn"><span class="b ${t.cls}">${t.label}</span> ${t.name}</div><div class="bw">${t.why}</div></div>`).join('')
+    : `<div class="row" style="color:#64748b">静态节点，脚本不访问</div>`;
+
+  const kids=getChildren(id);
+  document.getElementById('children').innerHTML = kids.length
+    ? kids.map(c=>`<div class="child" data-jump="${c.id}"><b>${c.name}</b> <span style="color:#94a3b8">[${c.ctrl}]</span> ${tagChips(c)}</div>`).join('')
+    : `<div class="row" style="color:#64748b">无子节点</div>`;
+  document.querySelectorAll('#children .child').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-jump'))));
+}
+
+function bindSVG(){
+  document.querySelectorAll('svg g.node').forEach(g=>g.addEventListener('click',e=>{
+    e.stopPropagation(); selectNode(g.getAttribute('data-node-id'));
+  }));
+}
+
+function buildChanges(){
+  const box=document.getElementById('changes');
+  document.getElementById('changes-base').textContent = BASELINE ? ('基线: '+BASELINE)
+    : '全新界面（WorldMap 模块尚无归档线框，本 FEAT 为首张）。that-is-all 时新建 docs/modules/WorldMap/WorldMapWireframe.html。';
+  const diffs=Object.entries(NODES).filter(([_,n])=>n.diff);
+  if(!BASELINE || !diffs.length){ box.querySelector('h2').textContent = BASELINE?'本次改动: 无结构变化':'全新界面'; return; }
+  const list=document.getElementById('changes-list');
+  list.innerHTML = diffs.map(([id,n])=>{const d=getNodeDiff(n);
+    return `<div class="chg" data-jump="${id}"><span class="d ${d.cls}">${d.label}</span> <b>${n.name}</b> — ${n.diffWhat||''}</div>`}).join('');
+  list.querySelectorAll('.chg').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-jump'))));
+}
+
+buildTree(); bindSVG(); buildChanges(); selectNode('root');
+</script>
+</body></html>

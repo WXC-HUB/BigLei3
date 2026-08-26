@@ -6,6 +6,8 @@ signal achievements_requested
 signal credits_requested
 signal clear_save_requested
 signal abandon_run_requested
+signal duel_host_requested
+signal duel_join_requested
 
 const ButtonMotion := preload("res://scripts/ui/button_motion.gd")
 const TextCoaster := preload("res://scripts/ui/text_coaster.gd")
@@ -66,6 +68,8 @@ const BANNER_PULSE_SPEED := 2.4
 ## 编辑器一保存就会把外部改过的节点抹掉。按钮的样式全部从「清除存档」身上抄，
 ## 所以改那颗按钮的皮，这颗跟着变。
 var abandon_run_button: Button
+var duel_host_button: Button
+var duel_join_button: Button
 
 ## 有存档时开始按钮整颗换成绿色：金色=开新局，绿色=接着上次。两套只差底色和描边，
 ## 形状／圆角／投影都是从场景那套复制出来的。
@@ -114,11 +118,14 @@ func _ready() -> void:
 	clear_cancel_button.pressed.connect(_cancel_clear_save)
 	abandon_run_button = _build_abandon_run_button()
 	abandon_run_button.pressed.connect(_open_abandon_confirmation)
+	_build_duel_slot()
 	ButtonMotion.bind(start_button, start_button, -1.0)
 	ButtonMotion.bind(achievements_button, achievements_button, -1.0)
 	ButtonMotion.bind(credits_button, credits_button, -1.0)
 	ButtonMotion.bind(clear_save_button, clear_save_button, 0.8)
 	ButtonMotion.bind(abandon_run_button, abandon_run_button, 0.8)
+	ButtonMotion.bind(duel_host_button, duel_host_button, -1.0)
+	ButtonMotion.bind(duel_join_button, duel_join_button, 0.9)
 	ButtonMotion.bind(clear_confirm_button, clear_confirm_button, 0.8)
 	ButtonMotion.bind(clear_cancel_button, clear_cancel_button, -0.8)
 	_build_start_button_palettes()
@@ -185,6 +192,46 @@ func _build_abandon_run_button() -> Button:
 	)
 	button.add_theme_font_size_override("font_size", 26)
 	$Menu/StartSlot.add_child(button)
+	return button
+
+
+## 在菜单列末尾接一排对战入口。样式整套抄「制作人员」那颗按钮，免得手写一份主题
+## 又和标题页跑偏。Menu 是 VBoxContainer，往里加一个槽位是安全操作。
+func _build_duel_slot() -> void:
+	var credits_slot := $Menu/CreditsSlot as Control
+	var slot := Control.new()
+	slot.name = "DuelSlot"
+	slot.custom_minimum_size = credits_slot.custom_minimum_size
+	$Menu.add_child(slot)
+
+	var row := HBoxContainer.new()
+	row.name = "DuelRow"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 18)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	slot.add_child(row)
+
+	duel_host_button = _build_duel_button("DuelHostButton", "创建对战", "在本机开一个对战房间，等对手连入")
+	duel_join_button = _build_duel_button("DuelJoinButton", "加入对战", "连上本机已经开好的对战房间")
+	row.add_child(duel_host_button)
+	row.add_child(duel_join_button)
+	duel_host_button.pressed.connect(func() -> void: duel_host_requested.emit())
+	duel_join_button.pressed.connect(func() -> void: duel_join_requested.emit())
+
+
+func _build_duel_button(node_name: String, text: String, tip: String) -> Button:
+	var button := Button.new()
+	button.name = node_name
+	button.text = text
+	button.tooltip_text = tip
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.custom_minimum_size = Vector2(240, 62)
+	for state in ["normal", "hover", "pressed"]:
+		button.add_theme_stylebox_override(state, credits_button.get_theme_stylebox(state))
+	for color_name in ["font_color", "font_hover_color", "font_outline_color"]:
+		button.add_theme_color_override(color_name, credits_button.get_theme_color(color_name))
+	button.add_theme_constant_override("outline_size", credits_button.get_theme_constant("outline_size"))
+	button.add_theme_font_size_override("font_size", 28)
 	return button
 
 

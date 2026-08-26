@@ -1,0 +1,308 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
+<title>FEAT-001 · DuelHud 线框</title>
+<style>
+  body{margin:0;font-family:system-ui,"Microsoft YaHei",sans-serif;background:#0f172a;color:#e2e8f0}
+  .workspace{display:flex;gap:12px;padding:12px;height:100vh;box-sizing:border-box}
+  .svg-panel{flex:0 0 auto;background:#1e293b;border-radius:8px;padding:8px}
+  .svg-panel svg{height:calc(100vh - 40px);width:auto;background:#0b1220;border-radius:4px}
+  .right-col{flex:1;display:flex;flex-direction:column;gap:12px;min-width:360px}
+  .panel{background:#1e293b;border-radius:8px;padding:12px;overflow:auto}
+  .panel h2{font-size:13px;margin:0 0 6px;color:#94a3b8;letter-spacing:.5px}
+  g.node{cursor:pointer}
+  g.node>.hit{fill:transparent;stroke:transparent;transition:all .12s;pointer-events:all}
+  g.node:hover>.hit{fill:rgba(252,211,77,.10);stroke:#fbbf24;stroke-width:2}
+  g.node.selected>.hit{fill:rgba(239,68,68,.18);stroke:#ef4444;stroke-width:3}
+  .b,.ins-b{display:inline-block;padding:1px 6px;margin-left:3px;border-radius:7px;font-size:10.5px;font-weight:700;color:#fff;cursor:help}
+  .b-assign{background:#2563eb}.b-click{background:#f59e0b}.b-hover{background:#7c3aed}.b-state{background:#f43f5e}.b-copy{background:#10b981}
+  .d{display:inline-block;padding:2px 8px;margin-left:4px;border-radius:6px;font-size:12px;font-weight:800;color:#fff;border:2px solid rgba(255,255,255,.55)}
+  .d-new{background:#16a34a}.d-changed{background:#ea580c}.d-moved{background:#0284c7}.d-removed{background:#dc2626}
+  g.node>.hit.diff-new{stroke:#16a34a;stroke-width:3;stroke-dasharray:7 4;fill:rgba(22,163,74,.08)}
+  g.node>.hit.diff-changed{stroke:#ea580c;stroke-width:3;stroke-dasharray:7 4;fill:rgba(234,88,12,.10)}
+  #changes{border:2px solid #ea580c}
+  #changes .chg{cursor:pointer;padding:4px 6px;border-radius:5px;margin:2px 0;font-size:12px}
+  #changes .chg:hover{background:rgba(234,88,12,.15)}
+  #tree div{font-size:12px;padding:1px 0;cursor:pointer;white-space:pre;font-family:ui-monospace,Consolas,monospace}
+  #tree div:hover{background:rgba(148,163,184,.15)}
+  #tree div.selected{background:rgba(239,68,68,.25)}
+  #breadcrumb{font-size:12px;color:#7dd3fc;margin-bottom:6px}
+  #details{font-size:12.5px;line-height:1.7}
+  #details .k{color:#94a3b8;display:inline-block;width:64px}
+  .beh{background:#0b1220;border-radius:6px;padding:6px 8px;margin:4px 0;font-size:12px;line-height:1.6}
+  .child{font-size:12px;padding:2px 0;cursor:pointer;color:#cbd5e1}
+  .child:hover{color:#fbbf24}
+  svg text{font-family:system-ui,"Microsoft YaHei",sans-serif}
+  .lbl{fill:#94a3b8;font-size:15px}
+  .lbl-s{fill:#64748b;font-size:12px}
+  .box{fill:none;stroke:#475569;stroke-width:1.5}
+  .box-f{fill:#1e293b;stroke:#475569;stroke-width:1.5}
+</style></head><body>
+<div class="workspace">
+  <div class="svg-panel panel"><svg viewBox="0 0 1920 1080">
+    <g class="node" data-node-id="root">
+      <rect class="hit" x="0" y="0" width="1920" height="1080"/>
+      <rect x="2" y="2" width="1916" height="1076" fill="#0d1526" stroke="#334155" stroke-width="2"/>
+      <text class="lbl-s" x="14" y="1068">DuelHud · 1920×1080 · 叠加在既有棋盘场景上</text>
+
+      <g class="node" data-node-id="self-status">
+        <rect class="hit" x="24" y="18" width="560" height="130"/>
+        <rect class="box-f" x="24" y="18" width="560" height="130" rx="8"/>
+        <circle cx="80" cy="83" r="38" fill="#334155" stroke="#64748b"/>
+        <text class="lbl-s" x="62" y="88">头像</text>
+        <g class="node" data-node-id="self-hearts">
+          <rect class="hit" x="130" y="38" width="440" height="52"/>
+          <rect class="box" x="130" y="38" width="440" height="52" rx="6"/>
+          <text class="lbl" x="142" y="70">♥♥♥♥♥♥♥♡♡♡  ← 10 颗心 (原 3)</text>
+        </g>
+        <g class="node" data-node-id="self-gold">
+          <rect class="hit" x="130" y="98" width="200" height="40"/>
+          <rect class="box" x="130" y="98" width="200" height="40" rx="6"/>
+          <text class="lbl" x="142" y="126">12G</text>
+        </g>
+      </g>
+
+      <g class="node" data-node-id="round-label">
+        <rect class="hit" x="836" y="24" width="248" height="56"/>
+        <rect class="box-f" x="836" y="24" width="248" height="56" rx="8"/>
+        <text class="lbl" x="884" y="60">第 2 轮 · 7×7</text>
+      </g>
+
+      <g class="node" data-node-id="opp-panel">
+        <rect class="hit" x="1336" y="18" width="560" height="404"/>
+        <rect class="box-f" x="1336" y="18" width="560" height="404" rx="8"/>
+        <g class="node" data-node-id="opp-header">
+          <rect class="hit" x="1352" y="30" width="528" height="40"/>
+          <rect class="box" x="1352" y="30" width="528" height="40" rx="6"/>
+          <g class="node" data-node-id="opp-name">
+            <rect class="hit" x="1360" y="34" width="200" height="32"/>
+            <text class="lbl" x="1368" y="58">对手</text>
+          </g>
+          <g class="node" data-node-id="conn-label">
+            <rect class="hit" x="1660" y="34" width="212" height="32"/>
+            <text class="lbl" x="1690" y="58" fill="#4ade80">● 已连接</text>
+          </g>
+        </g>
+        <g class="node" data-node-id="opp-health-bar">
+          <rect class="hit" x="1352" y="80" width="528" height="40"/>
+          <rect class="box" x="1352" y="80" width="528" height="40" rx="6"/>
+          <rect x="1356" y="84" width="330" height="32" fill="#dc2626" opacity=".55"/>
+          <text class="lbl" x="1368" y="108">对手血量条</text>
+        </g>
+        <g class="node" data-node-id="opp-health-label">
+          <rect class="hit" x="1352" y="128" width="240" height="34"/>
+          <text class="lbl" x="1360" y="153">7 / 10</text>
+        </g>
+        <g class="node" data-node-id="opp-progress-row">
+          <rect class="hit" x="1352" y="170" width="528" height="44"/>
+          <rect class="box" x="1352" y="170" width="528" height="44" rx="6"/>
+          <g class="node" data-node-id="opp-mine-icon">
+            <rect class="hit" x="1360" y="176" width="34" height="32"/>
+            <rect x="1360" y="176" width="34" height="32" fill="#475569"/>
+          </g>
+          <g class="node" data-node-id="opp-mine-label">
+            <rect class="hit" x="1404" y="176" width="240" height="32"/>
+            <text class="lbl" x="1410" y="199">已标 3 / 8</text>
+          </g>
+          <g class="node" data-node-id="opp-gold-label">
+            <rect class="hit" x="1720" y="176" width="152" height="32"/>
+            <text class="lbl" x="1780" y="199">9G</text>
+          </g>
+        </g>
+        <g class="node" data-node-id="opp-upgrade-grid">
+          <rect class="hit" x="1352" y="222" width="528" height="188"/>
+          <rect class="box" x="1352" y="222" width="528" height="188" rx="6"/>
+          <text class="lbl-s" x="1360" y="242">已购强化（全公开）</text>
+          <g class="node" data-node-id="opp-upgrade-icon">
+            <rect class="hit" x="1360" y="252" width="76" height="76"/>
+            <rect class="box-f" x="1360" y="252" width="76" height="76" rx="6"/>
+            <g class="node" data-node-id="opp-upgrade-count">
+              <rect class="hit" x="1404" y="296" width="34" height="30"/>
+              <text class="lbl-s" x="1408" y="322">×2</text>
+            </g>
+          </g>
+          <rect class="box" x="1448" y="252" width="76" height="76" rx="6" opacity=".5"/>
+          <rect class="box" x="1536" y="252" width="76" height="76" rx="6" opacity=".5"/>
+          <rect class="box" x="1624" y="252" width="76" height="76" rx="6" opacity=".35"/>
+          <text class="lbl-s" x="1360" y="360">↑ 首个为模板, 其余实例化</text>
+        </g>
+      </g>
+
+      <rect class="box" x="660" y="216" width="600" height="600" rx="10" stroke-dasharray="6 5"/>
+      <text class="lbl-s" x="856" y="520">既有棋盘 (不属本线框)</text>
+
+      <g class="node" data-node-id="damage-feed">
+        <rect class="hit" x="596" y="120" width="740" height="240"/>
+        <rect class="box" x="596" y="120" width="740" height="240" rx="8" stroke-dasharray="4 4"/>
+        <text class="lbl-s" x="608" y="142">DamageFeedLayer · 飘字从对手面板飞向自己血条</text>
+        <g class="node" data-node-id="incoming-damage">
+          <rect class="hit" x="900" y="180" width="120" height="60"/>
+          <rect class="box-f" x="900" y="180" width="120" height="60" rx="6"/>
+          <text class="lbl" x="936" y="220" fill="#f87171">-1</text>
+        </g>
+      </g>
+
+      <g class="node" data-node-id="freeze-dimmer">
+        <rect class="hit" x="60" y="880" width="1800" height="150"/>
+        <rect class="box" x="60" y="880" width="1800" height="150" rx="8" stroke="#f43f5e" stroke-dasharray="8 5"/>
+        <text class="lbl-s" x="72" y="904">FreezeDimmer [State:默认隐藏] · 实际为全屏遮罩, 此处缩略示意</text>
+        <g class="node" data-node-id="freeze-label">
+          <rect class="hit" x="700" y="930" width="520" height="60"/>
+          <rect class="box-f" x="700" y="930" width="520" height="60" rx="6"/>
+          <text class="lbl" x="730" y="968">对手已清盘 — 本轮结束</text>
+        </g>
+      </g>
+    </g>
+  </svg></div>
+  <div class="right-col">
+    <div class="panel" id="changes"><h2>本次改动 (vs 模块归档线框)</h2><div id="changes-base"></div><div id="changes-list"></div></div>
+    <div class="panel inspector">
+      <h2>层级链</h2><div id="breadcrumb"></div>
+      <div id="details"></div>
+      <h2>改动</h2><div id="diffbox"></div>
+      <h2>行为</h2><div id="behaviors"></div>
+      <h2>直接子节点</h2><div id="children"></div>
+    </div>
+    <div class="panel tree-panel"><h2>完整层级树</h2><div id="tree"></div></div>
+  </div>
+</div>
+<script>
+const BASELINE = null;
+const NODES = {
+  'root': { name:'DuelHud', ctrl:'Control', module:'Netplay', term:'对战局', size:'1920×1080',
+    desc:'对战 HUD 根节点。单机时整棵树 visible=false，只有进入对战局才显示。', parent:null,
+    state:true, stateWhat:'进入对战局时(DuelSession.duel_started) visible=true；返回主菜单/对局结束后 visible=false。单机路径完全不实例化。' },
+
+  'self-status': { name:'PlayerStatus', ctrl:'Control', module:'GameFlow', size:'560×130',
+    desc:'既有的自身状态 HUD（头像 + 心 + 金币），复用不新建。', parent:'root' },
+  'self-hearts': { name:'HealthHearts', ctrl:'HBoxContainer', module:'GameFlow', size:'440×52',
+    desc:'心形血量条。对战下最大血量 10，会重建 10 个 48px 心。', parent:'self-status',
+    assign:true, assignWhat:'每次血量变化时刷新。调 PlayerStatus.set_health(_player_hp, _player_max_hp)（已 grep 确认 player_status.gd:28 存在）。对战下 _player_max_hp 初值来自 DuelConfig.START_HP=10（⚠️ 需新增常量）。' },
+  'self-gold': { name:'GoldLabel', ctrl:'Label', module:'ShopEconomy', size:'200×40',
+    desc:'自身金币读数。', parent:'self-status',
+    assign:true, assignWhat:'金币变化时刷新。调 PlayerStatus.set_gold(_gold)（已 grep 确认 player_status.gd:44 存在）。对战下每标 1 个雷 +DuelConfig.MARK_GOLD=1。' },
+
+  'round-label': { name:'RoundLabel', ctrl:'Label', module:'Netplay', term:'对战轮', size:'248×56',
+    desc:'当前对战轮序号与盘面尺寸。', parent:'root',
+    assign:true, assignWhat:'每轮开局时(DuelSession.round_started)写入。Text = "第 %d 轮 · %d×%d" % [duel.round_index, board_width, board_height]（⚠️ DuelSession.round_index 需新增；board_width/height 沿用 main.gd:_start_game 现有算法）。' },
+
+  'opp-panel': { name:'OpponentPanel', ctrl:'PanelContainer', module:'Netplay', size:'560×404',
+    desc:'对手状态面板，右上角镜像自身 HUD 的位置。全公开信息的载体。', parent:'root' },
+  'opp-header': { name:'OpponentHeader', ctrl:'HBoxContainer', module:'Netplay', size:'528×40',
+    desc:'标题行：对手标识 + 连接状态。', parent:'opp-panel' },
+  'opp-name': { name:'OpponentNameLabel', ctrl:'Label', module:'Netplay', size:'200×32',
+    desc:'静态文案「对手」。本 FEAT 不做昵称。', parent:'opp-header' },
+  'conn-label': { name:'ConnectionLabel', ctrl:'Label', module:'Netplay', size:'212×32',
+    desc:'连接状态指示：已连接 / 已断开。', parent:'opp-header',
+    assign:true, assignWhat:'DuelClient 的 peer_connected / peer_disconnected 回调时刷新。已连接为绿点，断开为红点 + 「对手已断开」（⚠️ DuelClient 需新增，基于 WebSocketMultiplayerPeer）。',
+    state:true, stateWhat:'断开时同时把整个 opp-panel 的 modulate 压暗，并弹出本局作废提示。' },
+  'opp-health-bar': { name:'OpponentHealthBar', ctrl:'TextureProgressBar', module:'Netplay', size:'528×40',
+    desc:'对手血量条。不用 10 颗心而用进度条，避免右上角被 480px 的心排挤爆。', parent:'opp-panel',
+    assign:true, assignWhat:'收到对手 state_sync 消息时刷新。value = opponent.hp, max_value = opponent.max_hp（⚠️ DuelSession.opponent 快照需新增）。' },
+  'opp-health-label': { name:'OpponentHealthLabel', ctrl:'Label', module:'Netplay', size:'240×34',
+    desc:'血量数值，补足进度条读不准的问题。', parent:'opp-panel',
+    assign:true, assignWhat:'与 opp-health-bar 同一时机。Text = "%d / %d" % [opponent.hp, opponent.max_hp]。' },
+  'opp-progress-row': { name:'OpponentProgressRow', ctrl:'HBoxContainer', module:'Netplay', size:'528×44',
+    desc:'对手本轮进度行：标雷数 + 金币。', parent:'opp-panel' },
+  'opp-mine-icon': { name:'OpponentMineIcon', ctrl:'TextureRect', module:'Netplay', size:'34×32',
+    desc:'静态雷图标，复用 MONSTER_SMALL_TEXTURE。', parent:'opp-progress-row' },
+  'opp-mine-label': { name:'OpponentMineLabel', ctrl:'Label', module:'Netplay', term:'标雷伤害', size:'240×32',
+    desc:'对手本轮标雷进度 —— 「他还能打我多少」的预警。', parent:'opp-progress-row',
+    assign:true, assignWhat:'收到对手 mine_marked 消息时 +1，每轮开局归零。Text = "已标 %d / %d" % [opponent.marked_mines, board.mine_count]（board.mine_count 已 grep 确认 minesweeper_board.gd:20 存在，双方同盘故雷数相同）。' },
+  'opp-gold-label': { name:'OpponentGoldLabel', ctrl:'Label', module:'ShopEconomy', size:'152×32',
+    desc:'对手金币。全公开决策的一部分。', parent:'opp-progress-row',
+    assign:true, assignWhat:'随对手 state_sync 刷新。Text = "%dG" % opponent.gold。' },
+  'opp-upgrade-grid': { name:'OpponentUpgradeGrid', ctrl:'GridContainer', module:'ShopEconomy', term:'大全商店', size:'528×188',
+    desc:'对手已购强化图标墙。Q7 选了全公开，这块是全公开的主要成本。', parent:'opp-panel',
+    assign:true, assignWhat:'对手每次购买后收到 upgrade_bought 消息时重建。数据来源 opponent.upgrades: Dictionary[offer_index -> count]，图标取 ShopOverlay.OFFER_ICONS[offer_index]（已 grep 确认 shop_overlay.gd:13 存在且为 13 项）。' },
+  'opp-upgrade-icon': { name:'OpponentUpgradeIcon', ctrl:'TextureRect', module:'ShopEconomy', size:'76×76',
+    desc:'单个强化图标。首个受控作模板，其余实例化。', parent:'opp-upgrade-grid',
+    copy:true, copyWhat:'按 opponent.upgrades 的条目数实例化 N 份（最多 13）。首个在场景里，其余 duplicate()。参照 shop_overlay.gd:157 _build_offer_items 的同款做法。' },
+  'opp-upgrade-count': { name:'OpponentUpgradeCountLabel', ctrl:'Label', module:'ShopEconomy', size:'34×30',
+    desc:'叠加层数，如「×2」。层数为 1 时隐藏。', parent:'opp-upgrade-icon',
+    assign:true, assignWhat:'与父图标同批写入。Text = "×%d" % count。',
+    state:true, stateWhat:'count <= 1 时 visible=false，避免每个图标都挂个「×1」。' },
+
+  'damage-feed': { name:'DamageFeedLayer', ctrl:'Control', module:'Netplay', term:'标雷伤害', size:'740×240',
+    desc:'受击飘字层。实际为全屏 mouse_filter=IGNORE 的容器，图上缩略示意。', parent:'root' },
+  'incoming-damage': { name:'IncomingDamageLabel', ctrl:'Label', module:'Netplay', size:'120×60',
+    desc:'单条受击飘字「-1」，从对手面板飞向自己血条。', parent:'damage-feed',
+    copy:true, copyWhat:'每收到一条 mine_marked 消息实例化一个（Q10 定的逐个结算，一次收 N 条就飘 N 个）。动画复用 main.gd:3127 _spawn_damage_number / 3142 _animate_floating_label（已 grep 确认存在）。',
+    assign:true, assignWhat:'实例化时写入。Text = "-%d" % DuelConfig.MARK_DAMAGE，颜色用既有的 Color("ff7864")（main.gd:3248 同款）。' },
+
+  'freeze-dimmer': { name:'FreezeDimmer', ctrl:'ColorRect', module:'Netplay', term:'对战轮', size:'1920×1080',
+    desc:'回合冻结遮罩。一方清盘时全屏压暗并吃掉输入，直到进入中场休息。', parent:'root',
+    anno:'[State:默认隐藏]',
+    state:true, stateWhat:'收到 round_over 消息、或本地 board.won 成立时 visible=true 并 mouse_filter=STOP；进入 DuelShop 后 visible=false。这是 Q2「立即冻结」的落点。' },
+  'freeze-label': { name:'FreezeLabel', ctrl:'Label', module:'Netplay', size:'520×60',
+    desc:'冻结原因文案。', parent:'freeze-dimmer',
+    assign:true, assignWhat:'冻结时写入。本方先清盘 = "你率先清盘 — 本轮结束"，对手先清盘 = "对手已清盘 — 本轮结束"。来源为 round_over 消息里的 winner 字段。' }
+};
+const TAG_META = {
+  state:  { label:'状态', cls:'b-state',  name:'显隐切换 (Visible)', defWhy:'Controller 通过 Visible 控显隐' },
+  hover:  { label:'悬停', cls:'b-hover',  name:'悬停逻辑 (Hover)',   defWhy:'连 mouse_entered/exited' },
+  click:  { label:'点击', cls:'b-click',  name:'点击逻辑 (Click)',   defWhy:'连 Pressed / gui_input' },
+  assign: { label:'赋值', cls:'b-assign', name:'赋值逻辑 (Assign)',  defWhy:'运行时写入内容' },
+  copy:   { label:'拷贝', cls:'b-copy',   name:'实例化模板 (Copy)',  defWhy:'作为模板被实例化多份' }
+};
+const DIFF_META = {
+  new:     { label:'🆕 新增', cls:'d-new' },
+  changed: { label:'✏️ 改动', cls:'d-changed' },
+  moved:   { label:'↔️ 移位', cls:'d-moved' },
+  removed: { label:'🗑️ 删除', cls:'d-removed' }
+};
+function getNodeTags(node){
+  const t=[];
+  if(node.copy)  t.push({key:'copy', ...TAG_META.copy,  why:node.copyWhat  ||TAG_META.copy.defWhy});
+  if(node.state) t.push({key:'state',...TAG_META.state, why:node.stateWhat ||TAG_META.state.defWhy});
+  if(node.hover) t.push({key:'hover',...TAG_META.hover, why:node.hoverWhat ||TAG_META.hover.defWhy});
+  if(node.click) t.push({key:'click',...TAG_META.click, why:node.clickWhat ||TAG_META.click.defWhy});
+  if(node.assign)t.push({key:'assign',...TAG_META.assign,why:node.assignWhat||TAG_META.assign.defWhy});
+  return t;
+}
+function getNodeDiff(node){ return node.diff ? {...DIFF_META[node.diff], why:node.diffWhat||''} : null; }
+function buildPath(id){const p=[];let c=id;while(c&&NODES[c]){p.unshift({id:c,...NODES[c]});c=NODES[c].parent}return p}
+function getChildren(id){return Object.entries(NODES).filter(([_,n])=>n.parent===id).map(([cid,n])=>({id:cid,...n}))}
+function tagHtml(n){return getNodeTags(n).map(t=>`<span class="b ${t.cls}" title="${t.why.replace(/"/g,'&quot;')}">${t.label}</span>`).join('')}
+function buildTree(){
+  const box=document.getElementById('tree'); let html='';
+  (function walk(id,depth){
+    const n=NODES[id]; if(!n) return;
+    html+=`<div data-node-id="${id}">${'  '.repeat(depth)}${depth?'└ ':''}[${n.ctrl}] ${n.name}${tagHtml(n)}</div>`;
+    getChildren(id).forEach(c=>walk(c.id,depth+1));
+  })('root',0);
+  box.innerHTML=html;
+  box.querySelectorAll('div').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-node-id'))));
+}
+function selectNode(id){
+  const n=NODES[id]; if(!n) return;
+  document.querySelectorAll('.selected').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll(`[data-node-id="${id}"]`).forEach(el=>el.classList.add('selected'));
+  document.querySelector(`#tree [data-node-id="${id}"]`)?.scrollIntoView({block:'nearest',behavior:'smooth'});
+  document.getElementById('breadcrumb').textContent=buildPath(id).map(p=>p.name).join('  ›  ');
+  document.getElementById('details').innerHTML=
+    `<div><span class="k">控件</span>${n.ctrl}</div>`+
+    `<div><span class="k">模块</span>${n.module||'—'}</div>`+
+    (n.term?`<div><span class="k">术语</span>${n.term}</div>`:'')+
+    `<div><span class="k">尺寸</span>${n.size||'—'}</div>`+
+    (n.anno?`<div><span class="k">标注</span>${n.anno}</div>`:'')+
+    `<div><span class="k">说明</span>${n.desc||'—'}</div>`;
+  const d=getNodeDiff(n);
+  document.getElementById('diffbox').innerHTML = d?`<span class="d ${d.cls}">${d.label}</span> ${d.why}`:'<span style="color:#64748b;font-size:12px">无（全新界面，无归档基线）</span>';
+  const tags=getNodeTags(n);
+  document.getElementById('behaviors').innerHTML = tags.length? tags.map(t=>`<div class="beh"><span class="ins-b ${t.cls}">${t.label}</span> <b>${t.name}</b><br>${t.why}</div>`).join('') : '<span style="color:#64748b;font-size:12px">无行为标签（静态节点）</span>';
+  const ch=getChildren(id);
+  document.getElementById('children').innerHTML = ch.length? ch.map(c=>`<div class="child" data-jump="${c.id}">[${c.ctrl}] ${c.name}</div>`).join('') : '<span style="color:#64748b;font-size:12px">无子节点</span>';
+  document.querySelectorAll('#children .child').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-jump'))));
+}
+function bindSVG(){document.querySelectorAll('svg g.node').forEach(g=>g.addEventListener('click',e=>{e.stopPropagation();selectNode(g.getAttribute('data-node-id'))}))}
+function buildChanges(){
+  const box=document.getElementById('changes');
+  document.getElementById('changes-base').textContent = BASELINE? ('基线: '+BASELINE) : '全新界面（无归档基线）— ShopEconomy/GameFlow 尚无模块归档线框，本 FEAT 为首张';
+  const diffs=Object.entries(NODES).filter(([_,n])=>n.diff);
+  const list=document.getElementById('changes-list');
+  if(!BASELINE || !diffs.length){ box.querySelector('h2').textContent = BASELINE?'本次改动: 无结构变化':'全新界面'; return; }
+  list.innerHTML = diffs.map(([id,n])=>{const d=getNodeDiff(n);return `<div class="chg" data-jump="${id}"><span class="d ${d.cls}">${d.label}</span> <b>${n.name}</b> — ${n.diffWhat||''}</div>`}).join('');
+  list.querySelectorAll('.chg').forEach(el=>el.addEventListener('click',()=>selectNode(el.getAttribute('data-jump'))));
+}
+buildTree(); bindSVG(); buildChanges(); selectNode('root');
+</script>
+</body></html>

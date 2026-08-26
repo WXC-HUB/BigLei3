@@ -1,5 +1,8 @@
 extends SceneTree
 
+const CHAIN_MARKER := preload("res://assets/sprites/generated/marker_chain_special.png")
+const TUTORIAL_LEVEL_COUNT := 4
+
 
 func _init() -> void:
 	_run.call_deferred()
@@ -10,25 +13,22 @@ func _run() -> void:
 		push_error("New tactical item test timed out")
 		quit(2)
 	)
+	# 换到临时存档位并清空：否则本机的续关存档会把测试丢到随机的关卡进度上。
+	GameSave.save_path = "user://test_new_tactical_items_save.json"
+	GameSave.clear()
 	var game := (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
 	await process_frame
-	game.set("_xray_bonus", 1)
 	game.set("_chain_bonus", 1)
 	game.set("_enlarge_bonus", 1)
-	var pair := PackedInt32Array()
-	var board: MinesweeperBoard
-	for _attempt in range(7):
+	# 教学关不发战术道具，所以先把关卡推到第一个普通关。透视普通关本来就有一张，
+	# 不再额外加成，好让下面的「每种恰好一张」断言成立。
+	for _level in range(TUTORIAL_LEVEL_COUNT + 1):
 		game.call("_start_game")
-		board = game.get("_board")
-		var center := int(board.height / 2) * board.width + int(board.width / 2)
-		board.ensure_mines_placed(center)
-		if board.mine_count < 5:
-			continue
-		pair = _find_clear_aligned_mine_pair(board)
-		if pair.size() == 2:
-			break
-	assert(pair.size() == 2, "Could not find aligned mines for chain test")
+	var board: MinesweeperBoard = game.get("_board")
+	var center := int(board.height / 2) * board.width + int(board.width / 2)
+	board.ensure_mines_placed(center)
+	assert(board.mine_count >= 5, "Could not build a board with enough mines for the chain test")
 	var detect_slot := _find_empty_safe_cell(board)
 	assert(detect_slot >= 0 and board.force_item_at(detect_slot, MinesweeperBoard.ItemType.DETECT, false), "Could not prepare detect item")
 	for item_type in [
@@ -39,20 +39,27 @@ func _run() -> void:
 	]:
 		assert(board.item_count(item_type) == 1, "New tactical item was not generated exactly once")
 
+	var chain_index := _find_item_index(board, MinesweeperBoard.ItemType.CHAIN)
 	await _activate_item(game, board, MinesweeperBoard.ItemType.CHAIN)
-	game.call("_on_cell_flagged", pair[0])
-	await process_frame
-	var chain_markers: Array[int] = game.get("_chain_marked_mines")
-	assert(chain_markers.has(pair[0]), "Chain did not create a marked mine")
-	game.call("_on_cell_flagged", pair[1])
+	var chain_anchors: Array[int] = game.get("_chain_anchors")
+	assert(chain_anchors.has(chain_index), "Chain did not turn its own cell into marker point A")
+	var cells: Array[MineCell] = game.get("_cells")
+	var anchor_marker := cells[chain_index].get("_marker") as TextureRect
+	assert(anchor_marker.visible and anchor_marker.texture == CHAIN_MARKER, "Marker point A was not shown on the chain card")
+	var partner := _find_chain_partner_mine(game, board, chain_index)
+	assert(partner >= 0, "Could not find a mine with a clear chain path")
+	var chain_path: Array[int] = game.call("_chain_path_targets", chain_index, partner)
+	assert(not chain_path.is_empty(), "Chain path came back empty")
+	game.call("_on_cell_flagged", partner)
 	await _wait_until_not_resolving(game)
-	for target in game.call("_line_between_targets", pair[0], pair[1]):
-		assert(board.state_at(target) == MinesweeperBoard.CellState.REVEALED, "Chain did not reveal an intermediate cell")
+	for target in chain_path:
+		assert(board.state_at(target) == MinesweeperBoard.CellState.REVEALED, "Chain did not reveal a cell between its two markers")
+	assert((game.get("_chain_anchors") as Array[int]).is_empty(), "Chain marker point A was not consumed")
+	assert(not anchor_marker.visible, "Consumed marker point A stayed on the board")
 
 	await _activate_item(game, board, MinesweeperBoard.ItemType.XRAY)
 	var xray_target: int = game.get("_last_xray_target")
 	assert(xray_target >= 0, "X-ray did not choose a target")
-	var cells: Array[MineCell] = game.get("_cells")
 	var hint := cells[xray_target].get("_xray_hint") as TextureRect
 	var hint_number := cells[xray_target].get("_xray_number") as Label
 	assert((hint != null and hint.visible) or (hint_number != null and hint_number.visible), "X-ray content was not shown")
@@ -80,12 +87,16 @@ func _run() -> void:
 	for preview_target in enlarge_preview_targets:
 		var cleared_overlay := cells[preview_target].get("_preview_overlay") as Panel
 		assert(not cleared_overlay.visible, "Enlarge hover outline remained after mouse exit")
+	# 右键仍然只是普通标记，不该花掉「变大」的那一次左键。用一颗真雷来测：标错安全格
+	# 现在会直接揭示格子并扣血，那是另一条规则，会盖掉这里想检查的东西。
+	var flag_probe := board.random_hidden_mine_cell()
+	assert(flag_probe >= 0, "Could not find a covered mine for the right-click check")
+	game.call("_on_cell_flagged", flag_probe)
+	await _wait_until_not_resolving(game)
+	assert(int(game.get("_enlarge_mark_charges")) == enlarge_charges_before, "Right-click incorrectly consumed enlarge")
+	assert(board.state_at(flag_probe) == MinesweeperBoard.CellState.FLAGGED, "Right-click stopped behaving as a normal flag")
 	game.call("_on_cell_hover_started", enlarge_target)
 	await create_timer(0.12).timeout
-	game.call("_on_cell_flagged", enlarge_target)
-	await process_frame
-	assert(int(game.get("_enlarge_mark_charges")) == enlarge_charges_before, "Right-click incorrectly consumed enlarge")
-	assert(board.state_at(enlarge_target) == MinesweeperBoard.CellState.FLAGGED, "Right-click stopped behaving as a normal flag")
 	game.call("_on_cell_revealed", enlarge_target)
 	await _wait_until_not_resolving(game)
 	assert(int(game.get("_enlarge_mark_charges")) == enlarge_charges_before - 1, "Enlarge did not consume exactly one left-click charge")
@@ -93,32 +104,42 @@ func _run() -> void:
 	for preview_target in enlarge_preview_targets:
 		var remaining_overlay := cells[preview_target].get("_preview_overlay") as Panel
 		assert(not remaining_overlay.visible, "Enlarge hover outline remained after consumption")
+	GameSave.clear()
 	print("New tactical items: x-ray, chain, enlarge, and detect passed")
 	quit()
 
 
-func _find_clear_aligned_mine_pair(board: MinesweeperBoard) -> PackedInt32Array:
-	var mines: Array[int] = []
+func _find_item_index(board: MinesweeperBoard, type: MinesweeperBoard.ItemType) -> int:
 	for index in range(board.width * board.height):
-		if board.is_monster_core(index) and board.state_at(index) == MinesweeperBoard.CellState.COVERED:
-			mines.append(index)
-	for first in mines:
-		for second in mines:
-			if second <= first:
-				continue
-			var same_row := first / board.width == second / board.width
-			var same_column := first % board.width == second % board.width
-			if not same_row and not same_column:
-				continue
-			var step := 1 if same_row else board.width
-			var clear := true
-			for target in range(first + step, second, step):
-				if board.is_monster_core(target):
-					clear = false
-					break
-			if clear and absi(second - first) > step:
-				return PackedInt32Array([first, second])
-	return PackedInt32Array()
+		if board.item_at(index) == type:
+			return index
+	return -1
+
+
+## Marker point B for the chain test: a still-covered mine whose path back to the
+## anchor is monster-free, so the reveal cannot cost the test run a heart. Cells
+## that need the L-shaped detour are preferred — that is the case worth covering.
+func _find_chain_partner_mine(game: Node, board: MinesweeperBoard, anchor: int) -> int:
+	var straight_fallback := -1
+	for index in range(board.width * board.height):
+		if not board.is_monster_core(index) or board.state_at(index) != MinesweeperBoard.CellState.COVERED:
+			continue
+		var path: Array[int] = game.call("_chain_path_targets", anchor, index)
+		if path.is_empty():
+			continue
+		var clear := true
+		for target in path:
+			if board.is_monster_core(target):
+				clear = false
+				break
+		if not clear:
+			continue
+		var turns := anchor / board.width != index / board.width and anchor % board.width != index % board.width
+		if turns:
+			return index
+		if straight_fallback < 0:
+			straight_fallback = index
+	return straight_fallback
 
 
 func _activate_item(game: Node, board: MinesweeperBoard, type: MinesweeperBoard.ItemType) -> void:

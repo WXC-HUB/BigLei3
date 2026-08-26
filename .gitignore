@@ -5,3 +5,6 @@ build/
 tmp/
 *.tmp
 *.log
+
+# 素材包的源压缩包：解出来的资源在 assets/ 里，34MB 的原始 zip 不进版本库
+KayKit_Medieval_Hexagon_Pack_1.0_FREE.zip

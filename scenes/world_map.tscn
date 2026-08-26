@@ -1,0 +1,827 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/world_map.gd" id="1_c5up0"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/tiles/base/hex_grass.gltf" id="2_oj5pu"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/hills_A_trees.gltf" id="3_4gnoo"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/trees_A_large.gltf" id="4_ksv32"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/tree_single_A.gltf" id="5_7xmex"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/trees_A_medium.gltf" id="6_62d7k"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/rock_single_A.gltf" id="7_ef0lx"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/tree_single_B.gltf" id="8_y360i"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/trees_B_large.gltf" id="9_074pg"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/trees_A_small.gltf" id="10_5d3s6"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/trees_B_small.gltf" id="11_kkqtg"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_home_A_green.gltf" id="12_ijmin"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_windmill_green.gltf" id="13_hglhk"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_well_green.gltf" id="14_c12k4"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_home_B_green.gltf" id="15_vaewu"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_church_green.gltf" id="16_hswgs"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_tower_A_green.gltf" id="17_jmy5t"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/tiles/base/hex_water.gltf" id="18_ktbr8"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/waterlily_B.gltf" id="19_hrwdy"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/trees_B_medium.gltf" id="20_6f8wg"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/hill_single_A.gltf" id="21_3d1ul"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/waterplant_A.gltf" id="22_onckp"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_watermill_green.gltf" id="23_aulxf"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/neutral/building_bridge_A.gltf" id="24_x5om6"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_lumbermill_green.gltf" id="25_d03j4"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/neutral/building_bridge_B.gltf" id="26_i2chw"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_market_green.gltf" id="27_gfrpi"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_tavern_green.gltf" id="28_0kgxu"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/waterlily_A.gltf" id="29_m4233"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/waterplant_C.gltf" id="30_qlplm"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/decoration/nature/rock_single_C.gltf" id="31_ws1lj"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_tower_B_green.gltf" id="32_10135"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_barracks_green.gltf" id="33_8x0n6"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_blacksmith_green.gltf" id="34_6f7ja"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_mine_green.gltf" id="35_yuq1i"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_tower_catapult_green.gltf" id="36_cx0re"]
+[ext_resource type="PackedScene" path="res://assets/hexmap/buildings/green/building_castle_green.gltf" id="37_22wx2"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_k0hjd"]
+sky_top_color = Color(0.714, 0.78, 0.855, 1)
+sky_horizon_color = Color(0.925, 0.878, 0.855, 1)
+ground_bottom_color = Color(0.847, 0.792, 0.788, 1)
+ground_horizon_color = Color(0.902, 0.851, 0.831, 1)
+sun_angle_max = 1.0
+
+[sub_resource type="Sky" id="Sky_5mw78"]
+sky_material = SubResource("ProceduralSkyMaterial_k0hjd")
+
+[sub_resource type="Environment" id="Environment_b8ao8"]
+background_mode = 2
+sky = SubResource("Sky_5mw78")
+ambient_light_source = 2
+ambient_light_color = Color(0.616, 0.678, 0.804, 1)
+ambient_light_sky_contribution = 0.0
+ambient_light_energy = 0.15
+reflected_light_source = 1
+
+[node name="WorldMap" type="Node3D" unique_id=1130004698]
+script = ExtResource("1_c5up0")
+
+[node name="MapEnv" type="WorldEnvironment" parent="." unique_id=2116207648]
+environment = SubResource("Environment_b8ao8")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="." unique_id=203474216]
+transform = Transform3D(0.7431448, 0.48133227, -0.4648172, 0, 0.6946584, 0.7193398, 0.6691306, -0.5345736, 0.5162318, 0, 0, 0)
+light_color = Color(1, 0.965, 0.906, 1)
+light_energy = 0.38
+shadow_enabled = true
+shadow_bias = 0.02
+shadow_normal_bias = 0.5
+shadow_blur = 1.6
+directional_shadow_mode = 0
+directional_shadow_split_1 = 0.12
+directional_shadow_max_distance = 70.0
+
+[node name="FillLight" type="DirectionalLight3D" parent="." unique_id=2095886538]
+transform = Transform3D(-0.7431448, -0.20677274, 0.63638103, 0, 0.95105654, 0.309017, -0.6691306, 0.22964439, -0.70677274, 0, 0, 0)
+light_color = Color(0.729, 0.808, 0.925, 1)
+light_energy = 0.1
+
+[node name="BounceLight" type="DirectionalLight3D" parent="." unique_id=147071029]
+transform = Transform3D(0.88294756, 0.41451877, 0.22040357, 0, 0.4694716, -0.88294756, -0.46947157, 0.7795964, 0.4145188, 0, 0, 0)
+light_color = Color(0.98, 0.898, 0.796, 1)
+light_energy = 0.045
+
+[node name="MapCamera" type="Camera3D" parent="." unique_id=214441781]
+transform = Transform3D(1, 0, 0, 0, 0.83867055, 0.54463905, 0, -0.54463905, 0.83867055, 0, 12, 18.5)
+fov = 60.0
+far = 400.0
+
+[node name="HexTerrain" type="Node3D" parent="." unique_id=675340037]
+
+[node name="Region_grass" type="Node3D" parent="HexTerrain" unique_id=802404164]
+
+[node name="hex_grass_-4_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=750876185 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 3.4641016)
+
+[node name="hills_A_trees_-4_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1808479895 instance=ExtResource("3_4gnoo")]
+transform = Transform3D(-0.2707299, 0, -0.95816356, 0, 0.9956767, 0, 0.95816356, 0, -0.2707299, -6.287762, 0, 3.7836866)
+
+[node name="hex_grass_-4_4" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1218554072 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, -4, 0, 6.928203)
+
+[node name="hex_grass_-3_-1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=896690708 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, -7, 0, -1.7320508)
+
+[node name="hex_grass_-3_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=746680867 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, -6, 0, 0)
+
+[node name="trees_A_large_-3_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1963493317 instance=ExtResource("4_ksv32")]
+transform = Transform3D(1.0445065, 0, 0.31909242, 0, 1.0921602, 0, -0.31909242, 0, 1.0445065, -5.910454, 0, -0.2636341)
+
+[node name="hex_grass_-3_1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=2143974547 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, -5, 0, 1.7320508)
+
+[node name="hex_grass_-3_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=910683883 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, -4, 0, 3.4641016)
+
+[node name="tree_single_A_-3_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1105864372 instance=ExtResource("5_7xmex")]
+transform = Transform3D(-0.76468986, 0, -0.6901029, 0, 1.0300449, 0, 0.6901029, 0, -0.76468986, -4.022702, 0, 3.5858018)
+
+[node name="hex_grass_-3_3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1743893856 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, -3, 0, 5.196152)
+
+[node name="hex_grass_-3_4" type="Node3D" parent="HexTerrain/Region_grass" unique_id=308081318 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, -2, 0, 6.928203)
+
+[node name="hex_grass_-2_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=2147354391 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, -6, 0, -3.4641016)
+
+[node name="hex_grass_-2_-1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=703688822 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0, -1.7320508)
+
+[node name="hex_grass_-2_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1410748104 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, -4, 0, 0)
+
+[node name="hex_grass_-2_1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1230892141 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, -3, 0, 1.7320508)
+
+[node name="trees_A_medium_-2_1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1124020178 instance=ExtResource("6_62d7k")]
+transform = Transform3D(-1.0567583, 0, -0.1082585, 0, 1.062289, 0, 0.1082585, 0, -1.0567583, -2.7287219, 0, 1.8455667)
+
+[node name="hex_grass_-2_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1601113597 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, -2, 0, 3.4641016)
+
+[node name="hex_grass_-2_3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=583147361 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, -1, 0, 5.196152)
+
+[node name="hex_grass_-1_-3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1458895152 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, -5, 0, -5.196152)
+
+[node name="hills_A_trees_-1_-3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1995135739 instance=ExtResource("3_4gnoo")]
+transform = Transform3D(1.0155294, 0, -0.34288594, 0, 1.0718539, 0, 0.34288594, 0, 1.0155294, -4.7615323, 0, -5.0722413)
+
+[node name="hex_grass_-1_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1841525438 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, -4, 0, -3.4641016)
+
+[node name="trees_A_medium_-1_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1178692872 instance=ExtResource("6_62d7k")]
+transform = Transform3D(0.54664433, 0, 0.7052694, 0, 0.8923144, 0, -0.7052694, 0, 0.54664433, -4.158597, 0, -3.1943521)
+
+[node name="hex_grass_-1_-1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1178931831 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, -1.7320508)
+
+[node name="hills_A_trees_-1_-1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=53843140 instance=ExtResource("3_4gnoo")]
+transform = Transform3D(0.6373458, 0, -0.7620539, 0, 0.99344647, 0, 0.7620539, 0, 0.6373458, -3.0351067, 0, -1.9632381)
+
+[node name="hex_grass_-1_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=501832330 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, -2, 0, 0)
+
+[node name="rock_single_A_-1_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1131660037 instance=ExtResource("7_ef0lx")]
+transform = Transform3D(0.7020556, 0, -0.759065, 0, 1.0339544, 0, 0.759065, 0, 0.7020556, -2.0199642, 0, 0.16496554)
+
+[node name="hex_grass_-1_1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1351577119 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, -1, 0, 1.7320508)
+
+[node name="hex_grass_-1_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1045267266 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 0, 0, 3.4641016)
+
+[node name="trees_A_medium_-1_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1736498758 instance=ExtResource("6_62d7k")]
+transform = Transform3D(-0.19771987, 0, 0.8373632, 0, 0.8603896, 0, -0.8373632, 0, -0.19771987, -0.02832982, 0, 3.4789515)
+
+[node name="hex_grass_-1_3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=2142004557 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 1, 0, 5.196152)
+
+[node name="hex_grass_0_-3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=462315715 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0, -5.196152)
+
+[node name="hex_grass_0_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=625292201 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, -2, 0, -3.4641016)
+
+[node name="hex_grass_0_-1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=202464887 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, -1, 0, -1.7320508)
+
+[node name="trees_A_large_0_-1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=641272054 instance=ExtResource("4_ksv32")]
+transform = Transform3D(0.13120672, 0, 0.8629687, 0, 0.8728861, 0, -0.8629687, 0, 0.13120672, -0.90398395, 0, -1.5686439)
+
+[node name="hex_grass_0_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=225705030 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
+
+[node name="rock_single_A_0_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1297584946 instance=ExtResource("7_ef0lx")]
+transform = Transform3D(0.62117857, 0, -0.6418428, 0, 0.8932105, 0, 0.6418428, 0, 0.62117857, -0.11769676, 0, 0.1489731)
+
+[node name="hex_grass_0_1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1273270358 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 1, 0, 1.7320508)
+
+[node name="hex_grass_0_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=886932793 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 3.4641016)
+
+[node name="hex_grass_0_3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1337012012 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 3, 0, 5.196152)
+
+[node name="hex_grass_1_-4" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1929494617 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -6.928203)
+
+[node name="tree_single_B_1_-4" type="Node3D" parent="HexTerrain/Region_grass" unique_id=2051625443 instance=ExtResource("8_y360i")]
+transform = Transform3D(0.89715385, 0, 0.18315107, 0, 0.9156579, 0, -0.18315107, 0, 0.89715385, -1.9493527, 0, -7.1486316)
+
+[node name="hex_grass_1_-3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=2098152187 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, -1, 0, -5.196152)
+
+[node name="hills_A_trees_1_-3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1864786690 instance=ExtResource("3_4gnoo")]
+transform = Transform3D(-0.28256166, 0, -0.8160488, 0, 0.8635836, 0, 0.8160488, 0, -0.28256166, -1.1514397, 0, -5.2195215)
+
+[node name="hex_grass_1_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1832454166 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 0, 0, -3.4641016)
+
+[node name="hex_grass_1_-1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1947064226 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 1, 0, -1.7320508)
+
+[node name="trees_B_large_1_-1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=942193205 instance=ExtResource("9_074pg")]
+transform = Transform3D(0.14197943, 0, -0.9115484, 0, 0.9225392, 0, 0.9115484, 0, 0.14197943, 0.93073356, 0, -1.4109887)
+
+[node name="hex_grass_1_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1444057646 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 2, 0, 0)
+
+[node name="hex_grass_1_1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1291080848 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 3, 0, 1.7320508)
+
+[node name="trees_A_small_1_1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1313585317 instance=ExtResource("10_5d3s6")]
+transform = Transform3D(-0.86697173, 0, -0.2610719, 0, 0.9054273, 0, 0.2610719, 0, -0.86697173, 2.6668787, 0, 1.8319228)
+
+[node name="hex_grass_1_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=235566132 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 4, 0, 3.4641016)
+
+[node name="hex_grass_2_-3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1889194114 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, -5.196152)
+
+[node name="hex_grass_2_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=499301878 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 2, 0, -3.4641016)
+
+[node name="hex_grass_2_-1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1132526055 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 3, 0, -1.7320508)
+
+[node name="hex_grass_2_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=235570997 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 4, 0, 0)
+
+[node name="hex_grass_2_1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=753344469 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 5, 0, 1.7320508)
+
+[node name="hex_grass_3_-4" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1700070955 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -6.928203)
+
+[node name="hex_grass_3_-3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=71564480 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 3, 0, -5.196152)
+
+[node name="trees_A_large_3_-3" type="Node3D" parent="HexTerrain/Region_grass" unique_id=2035008909 instance=ExtResource("4_ksv32")]
+transform = Transform3D(-0.9715244, 0, 0.38770625, 0, 1.0460286, 0, -0.38770625, 0, -0.9715244, 2.9972134, 0, -5.2328944)
+
+[node name="hex_grass_3_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1790028344 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 4, 0, -3.4641016)
+
+[node name="trees_A_small_3_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1501797858 instance=ExtResource("10_5d3s6")]
+transform = Transform3D(-0.5741852, 0, -0.7915305, 0, 0.9778595, 0, 0.7915305, 0, -0.5741852, 4.060583, 0, -3.1659386)
+
+[node name="hex_grass_3_-1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1070147505 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 5, 0, -1.7320508)
+
+[node name="hex_grass_3_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1373135757 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 0)
+
+[node name="hex_grass_3_1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=50928436 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 7, 0, 1.7320508)
+
+[node name="trees_B_small_3_1" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1509211729 instance=ExtResource("11_kkqtg")]
+transform = Transform3D(0.87830794, 0, -0.2218345, 0, 0.9058893, 0, 0.2218345, 0, 0.87830794, 6.7061095, 0, 1.7210989)
+
+[node name="hex_grass_4_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=864470108 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 6, 0, -3.4641016)
+
+[node name="trees_B_small_4_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=396633211 instance=ExtResource("11_kkqtg")]
+transform = Transform3D(0.76800543, 0, 0.7166408, 0, 1.0504315, 0, -0.7166408, 0, 0.76800543, 5.707468, 0, -3.5057292)
+
+[node name="building_home_A_green_2_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=103369350 instance=ExtResource("12_ijmin")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 0)
+
+[node name="building_windmill_green_2_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1472120635 instance=ExtResource("13_hglhk")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 2, 0, -3.4641016)
+
+[node name="building_well_green_0_-2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=1223417317 instance=ExtResource("14_c12k4")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, -2, 0, -3.4641016)
+
+[node name="building_home_B_green_-2_0" type="Node3D" parent="HexTerrain/Region_grass" unique_id=652049276 instance=ExtResource("15_vaewu")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, -4, 0, 0)
+
+[node name="building_church_green_-2_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=867818097 instance=ExtResource("16_hswgs")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, -2, 0, 3.4641016)
+
+[node name="building_tower_A_green_0_2" type="Node3D" parent="HexTerrain/Region_grass" unique_id=90646730 instance=ExtResource("17_jmy5t")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 2, 0, 3.4641016)
+
+[node name="Region_river" type="Node3D" parent="HexTerrain" unique_id=1799633203]
+
+[node name="hex_grass_5_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=1319939444 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 10, 0, 0)
+
+[node name="hex_grass_6_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=1533316817 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 10, 0, -3.4641016)
+
+[node name="hex_water_6_-1" type="Node3D" parent="HexTerrain/Region_river" unique_id=1989024670 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 11, -0.18, -1.7320508)
+
+[node name="waterlily_B_6_-1" type="Node3D" parent="HexTerrain/Region_river" unique_id=384111299 instance=ExtResource("19_hrwdy")]
+transform = Transform3D(0.8795298, 0, 0.24326299, 0, 0.9125511, 0, -0.24326299, 0, 0.8795298, 10.780742, -0.18, -1.9901744)
+
+[node name="hex_grass_6_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=1126096876 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 12, 0, 0)
+
+[node name="hex_grass_6_1" type="Node3D" parent="HexTerrain/Region_river" unique_id=787137750 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 13, 0, 1.7320508)
+
+[node name="hex_grass_6_2" type="Node3D" parent="HexTerrain/Region_river" unique_id=1711103072 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 14, 0, 3.4641016)
+
+[node name="hex_grass_7_-4" type="Node3D" parent="HexTerrain/Region_river" unique_id=224671545 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 10, 0, -6.928203)
+
+[node name="trees_B_large_7_-4" type="Node3D" parent="HexTerrain/Region_river" unique_id=727705081 instance=ExtResource("9_074pg")]
+transform = Transform3D(-1.010837, 0, 0.03529554, 0, 1.011453, 0, -0.03529554, 0, -1.010837, 10.100255, 0, -7.237654)
+
+[node name="hex_grass_7_-3" type="Node3D" parent="HexTerrain/Region_river" unique_id=991385440 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 11, 0, -5.196152)
+
+[node name="trees_B_large_7_-3" type="Node3D" parent="HexTerrain/Region_river" unique_id=885819183 instance=ExtResource("9_074pg")]
+transform = Transform3D(0.44267854, 0, 0.81725925, 0, 0.92944986, 0, -0.81725925, 0, 0.44267854, 10.6917515, 0, -5.527833)
+
+[node name="hex_grass_7_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=1118316291 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 12, 0, -3.4641016)
+
+[node name="hex_water_7_-1" type="Node3D" parent="HexTerrain/Region_river" unique_id=1172101582 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 13, -0.18, -1.7320508)
+
+[node name="hex_grass_7_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=442745875 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 14, 0, 0)
+
+[node name="hex_grass_7_1" type="Node3D" parent="HexTerrain/Region_river" unique_id=945341848 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 15, 0, 1.7320508)
+
+[node name="hex_grass_8_-4" type="Node3D" parent="HexTerrain/Region_river" unique_id=175253752 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 12, 0, -6.928203)
+
+[node name="trees_B_medium_8_-4" type="Node3D" parent="HexTerrain/Region_river" unique_id=1955956665 instance=ExtResource("20_6f8wg")]
+transform = Transform3D(-0.651179, 0, -0.89357877, 0, 1.105675, 0, 0.89357877, 0, -0.651179, 12.193715, 0, -6.5823627)
+
+[node name="hex_grass_8_-3" type="Node3D" parent="HexTerrain/Region_river" unique_id=2062983717 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 13, 0, -5.196152)
+
+[node name="hex_grass_8_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=1977312631 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 14, 0, -3.4641016)
+
+[node name="hex_water_8_-1" type="Node3D" parent="HexTerrain/Region_river" unique_id=1628486212 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 15, -0.18, -1.7320508)
+
+[node name="hex_grass_8_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=166798123 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 16, 0, 0)
+
+[node name="tree_single_A_8_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=2088715776 instance=ExtResource("5_7xmex")]
+transform = Transform3D(-0.89452225, 0, -0.5302954, 0, 1.0398958, 0, 0.5302954, 0, -0.89452225, 15.836748, 0, 0.14131412)
+
+[node name="hex_grass_8_1" type="Node3D" parent="HexTerrain/Region_river" unique_id=148276662 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 17, 0, 1.7320508)
+
+[node name="hills_A_trees_8_1" type="Node3D" parent="HexTerrain/Region_river" unique_id=190651353 instance=ExtResource("3_4gnoo")]
+transform = Transform3D(1.1125878, 0, 0.11963219, 0, 1.1190012, 0, -0.11963219, 0, 1.1125878, 17.02488, 0, 1.6279936)
+
+[node name="hex_grass_9_-6" type="Node3D" parent="HexTerrain/Region_river" unique_id=203532739 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 12, 0, -10.392304)
+
+[node name="tree_single_B_9_-6" type="Node3D" parent="HexTerrain/Region_river" unique_id=1714103030 instance=ExtResource("8_y360i")]
+transform = Transform3D(-0.28005946, 0, 1.0349936, 0, 1.0722151, 0, -1.0349936, 0, -0.28005946, 12.140685, 0, -10.676017)
+
+[node name="hex_grass_9_-5" type="Node3D" parent="HexTerrain/Region_river" unique_id=1559477193 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 13, 0, -8.660254)
+
+[node name="hex_grass_9_-4" type="Node3D" parent="HexTerrain/Region_river" unique_id=1223117390 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, -6.928203)
+
+[node name="hex_grass_9_-3" type="Node3D" parent="HexTerrain/Region_river" unique_id=2004054280 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 0, -5.196152)
+
+[node name="trees_A_small_9_-3" type="Node3D" parent="HexTerrain/Region_river" unique_id=1939923705 instance=ExtResource("10_5d3s6")]
+transform = Transform3D(1.0333393, 0, -0.25370803, 0, 1.064029, 0, 0.25370803, 0, 1.0333393, 15.129457, 0, -5.419435)
+
+[node name="hex_grass_9_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=799556866 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 16, 0, -3.4641016)
+
+[node name="hills_A_trees_9_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=325331297 instance=ExtResource("3_4gnoo")]
+transform = Transform3D(-0.64575666, 0, 0.7646196, 0, 1.0008221, 0, -0.7646196, 0, -0.64575666, 15.661309, 0, -3.1609833)
+
+[node name="hex_water_9_-1" type="Node3D" parent="HexTerrain/Region_river" unique_id=1299681028 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 17, -0.18, -1.7320508)
+
+[node name="hex_grass_9_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=1354941121 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 18, 0, 0)
+
+[node name="hex_grass_9_1" type="Node3D" parent="HexTerrain/Region_river" unique_id=528097766 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 19, 0, 1.7320508)
+
+[node name="hex_grass_9_2" type="Node3D" parent="HexTerrain/Region_river" unique_id=101044452 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 20, 0, 3.4641016)
+
+[node name="trees_B_large_9_2" type="Node3D" parent="HexTerrain/Region_river" unique_id=952599041 instance=ExtResource("9_074pg")]
+transform = Transform3D(0.56688523, 0, 0.65729076, 0, 0.8679804, 0, -0.65729076, 0, 0.56688523, 19.843285, 0, 3.691784)
+
+[node name="hex_grass_10_-6" type="Node3D" parent="HexTerrain/Region_river" unique_id=581059124 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 14, 0, -10.392304)
+
+[node name="hill_single_A_10_-6" type="Node3D" parent="HexTerrain/Region_river" unique_id=464329389 instance=ExtResource("21_3d1ul")]
+transform = Transform3D(0.6516249, 0, -0.6581229, 0, 0.92614293, 0, 0.6581229, 0, 0.6516249, 13.699874, 0, -10.245077)
+
+[node name="hex_grass_10_-5" type="Node3D" parent="HexTerrain/Region_river" unique_id=1642396300 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 0, -8.660254)
+
+[node name="hex_grass_10_-4" type="Node3D" parent="HexTerrain/Region_river" unique_id=1025784066 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 16, 0, -6.928203)
+
+[node name="hex_grass_10_-3" type="Node3D" parent="HexTerrain/Region_river" unique_id=637184538 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17, 0, -5.196152)
+
+[node name="hills_A_trees_10_-3" type="Node3D" parent="HexTerrain/Region_river" unique_id=406284373 instance=ExtResource("3_4gnoo")]
+transform = Transform3D(0.8304259, 0, -0.18689059, 0, 0.85119635, 0, 0.18689059, 0, 0.8304259, 16.85979, 0, -5.3076406)
+
+[node name="hex_grass_10_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=193779843 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 18, 0, -3.4641016)
+
+[node name="trees_A_small_10_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=995722886 instance=ExtResource("10_5d3s6")]
+transform = Transform3D(0.92032456, 0, 0.58531255, 0, 1.0906824, 0, -0.58531255, 0, 0.92032456, 17.747156, 0, -3.4211302)
+
+[node name="hex_water_10_-1" type="Node3D" parent="HexTerrain/Region_river" unique_id=686308725 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 19, -0.18, -1.7320508)
+
+[node name="hex_grass_10_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=1142031564 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 20, 0, 0)
+
+[node name="tree_single_A_10_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=257790378 instance=ExtResource("5_7xmex")]
+transform = Transform3D(-0.10908503, 0, 1.0281581, 0, 1.0339288, 0, -1.0281581, 0, -0.10908503, 19.848, 0, 0.30798993)
+
+[node name="hex_grass_10_1" type="Node3D" parent="HexTerrain/Region_river" unique_id=1020724862 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 21, 0, 1.7320508)
+
+[node name="hex_grass_11_-5" type="Node3D" parent="HexTerrain/Region_river" unique_id=2024533018 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 17, 0, -8.660254)
+
+[node name="hill_single_A_11_-5" type="Node3D" parent="HexTerrain/Region_river" unique_id=1090502368 instance=ExtResource("21_3d1ul")]
+transform = Transform3D(-0.46025476, 0, 0.71895957, 0, 0.8536611, 0, -0.71895957, 0, -0.46025476, 16.732456, 0, -8.992552)
+
+[node name="hex_grass_11_-4" type="Node3D" parent="HexTerrain/Region_river" unique_id=653068626 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 18, 0, -6.928203)
+
+[node name="hex_grass_11_-3" type="Node3D" parent="HexTerrain/Region_river" unique_id=1802747356 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 19, 0, -5.196152)
+
+[node name="hex_grass_11_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=1702420490 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 20, 0, -3.4641016)
+
+[node name="hex_water_11_-1" type="Node3D" parent="HexTerrain/Region_river" unique_id=1654444137 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 21, -0.18, -1.7320508)
+
+[node name="waterplant_A_11_-1" type="Node3D" parent="HexTerrain/Region_river" unique_id=364568639 instance=ExtResource("22_onckp")]
+transform = Transform3D(-0.7375102, 0, 0.5728957, 0, 0.9338794, 0, -0.5728957, 0, -0.7375102, 20.95978, -0.18, -1.6887497)
+
+[node name="hex_grass_11_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=1252937202 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 22, 0, 0)
+
+[node name="hex_grass_12_-6" type="Node3D" parent="HexTerrain/Region_river" unique_id=1851326274 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 18, 0, -10.392304)
+
+[node name="trees_B_medium_12_-6" type="Node3D" parent="HexTerrain/Region_river" unique_id=1613876091 instance=ExtResource("20_6f8wg")]
+transform = Transform3D(0.36416298, 0, 0.99187464, 0, 1.0566125, 0, -0.99187464, 0, 0.36416298, 18.052164, 0, -10.223031)
+
+[node name="hex_grass_12_-5" type="Node3D" parent="HexTerrain/Region_river" unique_id=1001126953 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 19, 0, -8.660254)
+
+[node name="hex_grass_12_-4" type="Node3D" parent="HexTerrain/Region_river" unique_id=767850066 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, -6.928203)
+
+[node name="hex_grass_12_-3" type="Node3D" parent="HexTerrain/Region_river" unique_id=1817148317 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 21, 0, -5.196152)
+
+[node name="hex_grass_12_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=700072538 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, -3.4641016)
+
+[node name="hex_grass_13_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=2116215025 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 24, 0, -3.4641016)
+
+[node name="building_watermill_green_11_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=1144094820 instance=ExtResource("23_aulxf")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, -3.4641016)
+
+[node name="building_bridge_A_11_-4" type="Node3D" parent="HexTerrain/Region_river" unique_id=889232920 instance=ExtResource("24_x5om6")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 18, 0, -6.928203)
+
+[node name="building_lumbermill_green_9_-4" type="Node3D" parent="HexTerrain/Region_river" unique_id=767802611 instance=ExtResource("25_d03j4")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 14, 0, -6.928203)
+
+[node name="building_bridge_B_7_-2" type="Node3D" parent="HexTerrain/Region_river" unique_id=232149435 instance=ExtResource("26_i2chw")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 12, 0, -3.4641016)
+
+[node name="building_market_green_7_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=68250991 instance=ExtResource("27_gfrpi")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 14, 0, 0)
+
+[node name="building_tavern_green_9_0" type="Node3D" parent="HexTerrain/Region_river" unique_id=1020237603 instance=ExtResource("28_0kgxu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 18, 0, 0)
+
+[node name="Region_coast" type="Node3D" parent="HexTerrain" unique_id=105794886]
+
+[node name="hex_water_14_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=901267335 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 25, -0.18, -5.196152)
+
+[node name="waterlily_A_14_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1593944072 instance=ExtResource("29_m4233")]
+transform = Transform3D(-0.2941786, 0, 1.0730257, 0, 1.1126208, 0, -1.0730257, 0, -0.2941786, 24.965485, -0.18, -5.023531)
+
+[node name="hex_water_14_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=745798023 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 26, -0.18, -3.4641016)
+
+[node name="waterplant_A_14_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=2144409184 instance=ExtResource("22_onckp")]
+transform = Transform3D(1.0160949, 0, 0.25155875, 0, 1.0467715, 0, -0.25155875, 0, 1.0160949, 25.826593, -0.18, -3.7799063)
+
+[node name="hex_water_15_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1038921996 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 27, -0.18, -5.196152)
+
+[node name="waterplant_A_15_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1610713179 instance=ExtResource("22_onckp")]
+transform = Transform3D(-0.9162377, 0, -0.17685585, 0, 0.93315035, 0, 0.17685585, 0, -0.9162377, 26.761131, -0.18, -5.0762897)
+
+[node name="hex_water_15_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1610630440 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 28, -0.18, -3.4641016)
+
+[node name="waterlily_B_15_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=2090263843 instance=ExtResource("19_hrwdy")]
+transform = Transform3D(-0.29309598, 0, 1.0564071, 0, 1.0963125, 0, -1.0564071, 0, -0.29309598, 28.348398, -0.18, -3.4822185)
+
+[node name="hex_water_15_-1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=878653266 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 29, -0.18, -1.7320508)
+
+[node name="waterlily_A_15_-1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=772300659 instance=ExtResource("29_m4233")]
+transform = Transform3D(-0.24513309, 0, 0.86904854, 0, 0.90295935, 0, -0.86904854, 0, -0.24513309, 29.27269, -0.18, -1.6354065)
+
+[node name="hex_water_15_0" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1501608123 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 30, -0.18, 0)
+
+[node name="hex_water_16_-5" type="Node3D" parent="HexTerrain/Region_coast" unique_id=269171230 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27, -0.18, -8.660254)
+
+[node name="hex_water_16_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1676118976 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 28, -0.18, -6.928203)
+
+[node name="waterplant_C_16_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=374138654 instance=ExtResource("30_qlplm")]
+transform = Transform3D(-1.086777, 0, 0.13501221, 0, 1.0951313, 0, -0.13501221, 0, -1.086777, 27.821981, -0.18, -6.7343445)
+
+[node name="hex_grass_16_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1825755815 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 29, 0, -5.196152)
+
+[node name="hex_grass_16_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=740830561 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 30, 0, -3.4641016)
+
+[node name="rock_single_C_16_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1989730689 instance=ExtResource("31_ws1lj")]
+transform = Transform3D(0.13990138, 0, -0.9062041, 0, 0.9169396, 0, 0.9062041, 0, 0.13990138, 30.03887, 0, -3.5410678)
+
+[node name="hex_grass_16_-1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1361299931 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 31, 0, -1.7320508)
+
+[node name="hex_water_16_0" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1923080260 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 32, -0.18, 0)
+
+[node name="waterlily_A_16_0" type="Node3D" parent="HexTerrain/Region_coast" unique_id=7075066 instance=ExtResource("29_m4233")]
+transform = Transform3D(-0.32605958, 0, 0.85743445, 0, 0.9173378, 0, -0.85743445, 0, -0.32605958, 32.27553, -0.18, 0.027549624)
+
+[node name="hex_water_16_1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=2010500258 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 33, -0.18, 1.7320508)
+
+[node name="waterplant_A_16_1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=504034476 instance=ExtResource("22_onckp")]
+transform = Transform3D(0.7206514, 0, -0.6932976, 0, 1, 0, 0.6932976, 0, 0.7206514, 32.754875, -0.18, 1.7113781)
+
+[node name="hex_water_17_-5" type="Node3D" parent="HexTerrain/Region_coast" unique_id=20031303 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 29, -0.18, -8.660254)
+
+[node name="hex_grass_17_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1087146592 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 30, 0, -6.928203)
+
+[node name="hills_A_trees_17_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1291380515 instance=ExtResource("3_4gnoo")]
+transform = Transform3D(0.2596327, 0, 0.85283166, 0, 0.89147687, 0, -0.85283166, 0, 0.2596327, 30.076553, 0, -7.2450523)
+
+[node name="hex_grass_17_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1761144946 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 31, 0, -5.196152)
+
+[node name="hex_grass_17_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1674449132 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 32, 0, -3.4641016)
+
+[node name="hill_single_A_17_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1706847227 instance=ExtResource("21_3d1ul")]
+transform = Transform3D(0.93700045, 0, -0.014467367, 0, 0.9371121, 0, 0.014467367, 0, 0.93700045, 32.344727, 0, -3.1404912)
+
+[node name="hex_grass_17_-1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=798203723 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 33, 0, -1.7320508)
+
+[node name="rock_single_C_17_-1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1987878591 instance=ExtResource("31_ws1lj")]
+transform = Transform3D(1.1041884, 0, 0.08960447, 0, 1.1078181, 0, -0.08960447, 0, 1.1041884, 33.239822, 0, -1.5603429)
+
+[node name="hex_water_17_0" type="Node3D" parent="HexTerrain/Region_coast" unique_id=249774345 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 34, -0.18, 0)
+
+[node name="waterlily_A_17_0" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1557555617 instance=ExtResource("29_m4233")]
+transform = Transform3D(0.073751226, 0, -1.0851129, 0, 1.0876163, 0, 1.0851129, 0, 0.073751226, 34.166607, -0.18, 0.16140643)
+
+[node name="hex_water_17_1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=56272492 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 35, -0.18, 1.7320508)
+
+[node name="waterplant_A_17_1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1511269264 instance=ExtResource("22_onckp")]
+transform = Transform3D(0.7290862, 0, 0.80991185, 0, 1.0897357, 0, -0.80991185, 0, 0.7290862, 35.259243, -0.18, 1.8786983)
+
+[node name="hex_water_18_-6" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1227045386 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 30, -0.18, -10.392304)
+
+[node name="hex_grass_18_-5" type="Node3D" parent="HexTerrain/Region_coast" unique_id=830817993 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 31, 0, -8.660254)
+
+[node name="hex_grass_18_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=999742873 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 32, 0, -6.928203)
+
+[node name="trees_A_large_18_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1826911778 instance=ExtResource("4_ksv32")]
+transform = Transform3D(1.0092012, 0, 0.2816145, 0, 1.0477566, 0, -0.2816145, 0, 1.0092012, 31.907734, 0, -7.22239)
+
+[node name="hex_grass_18_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=222706641 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 0, -5.196152)
+
+[node name="trees_A_medium_18_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=384175865 instance=ExtResource("6_62d7k")]
+transform = Transform3D(-0.9349531, 0, -0.5907492, 0, 1.1059484, 0, 0.5907492, 0, -0.9349531, 32.69858, 0, -4.861242)
+
+[node name="hex_grass_18_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1720159679 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 34, 0, -3.4641016)
+
+[node name="trees_A_small_18_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1787121851 instance=ExtResource("10_5d3s6")]
+transform = Transform3D(0.11059211, 0, -0.9335256, 0, 0.9400536, 0, 0.9335256, 0, 0.11059211, 34.09747, 0, -3.3925629)
+
+[node name="hex_grass_18_-1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1754193290 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 35, 0, -1.7320508)
+
+[node name="hex_water_18_0" type="Node3D" parent="HexTerrain/Region_coast" unique_id=81772463 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 36, -0.18, 0)
+
+[node name="waterlily_B_18_0" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1542527970 instance=ExtResource("19_hrwdy")]
+transform = Transform3D(0.7572075, 0, 0.45918772, 0, 0.88556004, 0, -0.45918772, 0, 0.7572075, 35.949562, -0.18, -0.09944224)
+
+[node name="hex_water_18_1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1450972850 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 37, -0.18, 1.7320508)
+
+[node name="hex_water_19_-6" type="Node3D" parent="HexTerrain/Region_coast" unique_id=2140606347 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 32, -0.18, -10.392304)
+
+[node name="hex_grass_19_-5" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1557938832 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 33, 0, -8.660254)
+
+[node name="hex_grass_19_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1856594256 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 34, 0, -6.928203)
+
+[node name="hex_grass_19_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=187115579 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 35, 0, -5.196152)
+
+[node name="trees_B_large_19_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=824115967 instance=ExtResource("9_074pg")]
+transform = Transform3D(-0.42364997, 0, -0.7981563, 0, 0.90362203, 0, 0.7981563, 0, -0.42364997, 34.873604, 0, -5.030487)
+
+[node name="hex_grass_19_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=732377699 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 36, 0, -3.4641016)
+
+[node name="hex_water_19_-1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1379140280 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37, -0.18, -1.7320508)
+
+[node name="waterplant_C_19_-1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1643282562 instance=ExtResource("30_qlplm")]
+transform = Transform3D(0.79548484, 0, 0.7588461, 0, 1.0993832, 0, -0.7588461, 0, 0.79548484, 36.860027, -0.18, -1.9819157)
+
+[node name="hex_water_20_-6" type="Node3D" parent="HexTerrain/Region_coast" unique_id=733406919 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 34, -0.18, -10.392304)
+
+[node name="waterlily_A_20_-6" type="Node3D" parent="HexTerrain/Region_coast" unique_id=2034551496 instance=ExtResource("29_m4233")]
+transform = Transform3D(0.99460864, 0, -0.18881954, 0, 1.0123731, 0, 0.18881954, 0, 0.99460864, 34.128452, -0.18, -10.373199)
+
+[node name="hex_grass_20_-5" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1058398808 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 0, -8.660254)
+
+[node name="hex_grass_20_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=151156077 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 36, 0, -6.928203)
+
+[node name="trees_B_medium_20_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1569069342 instance=ExtResource("20_6f8wg")]
+transform = Transform3D(-1.0921595, 0, -0.14039643, 0, 1.1011465, 0, 0.14039643, 0, -1.0921595, 35.85423, 0, -6.8184934)
+
+[node name="hex_grass_20_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=714877378 instance=ExtResource("2_oj5pu")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 37, 0, -5.196152)
+
+[node name="hex_water_20_-2" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1798633971 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 38, -0.18, -3.4641016)
+
+[node name="hex_water_21_-6" type="Node3D" parent="HexTerrain/Region_coast" unique_id=326449927 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 36, -0.18, -10.392304)
+
+[node name="hex_water_21_-5" type="Node3D" parent="HexTerrain/Region_coast" unique_id=940582000 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 37, -0.18, -8.660254)
+
+[node name="waterplant_A_21_-5" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1668593 instance=ExtResource("22_onckp")]
+transform = Transform3D(-0.89701337, 0, 0.54886323, 0, 1.0516101, 0, -0.54886323, 0, -0.89701337, 37.056072, -0.18, -8.476605)
+
+[node name="hex_water_21_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=2068269396 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 38, -0.18, -6.928203)
+
+[node name="hex_water_21_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=938551816 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 39, -0.18, -5.196152)
+
+[node name="waterplant_C_21_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=231827816 instance=ExtResource("30_qlplm")]
+transform = Transform3D(-0.7137223, 0, 0.7442403, 0, 1.0311611, 0, -0.7442403, 0, -0.7137223, 39.16182, -0.18, -5.3993278)
+
+[node name="hex_water_22_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1893726757 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 40, -0.18, -6.928203)
+
+[node name="waterplant_C_22_-4" type="Node3D" parent="HexTerrain/Region_coast" unique_id=945276115 instance=ExtResource("30_qlplm")]
+transform = Transform3D(0.7221429, 0, -0.71585596, 0, 1.0168284, 0, 0.71585596, 0, 0.7221429, 40.034885, -0.18, -7.235818)
+
+[node name="hex_water_22_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=2045110276 instance=ExtResource("18_ktbr8")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 41, -0.18, -5.196152)
+
+[node name="building_tower_B_green_20_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=710288675 instance=ExtResource("32_10135")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37, 0, -5.196152)
+
+[node name="building_barracks_green_20_-5" type="Node3D" parent="HexTerrain/Region_coast" unique_id=128852257 instance=ExtResource("33_8x0n6")]
+transform = Transform3D(0.49999997, 0, 0.86602545, 0, 1, 0, -0.86602545, 0, 0.49999997, 35, 0, -8.660254)
+
+[node name="building_blacksmith_green_18_-5" type="Node3D" parent="HexTerrain/Region_coast" unique_id=1190663124 instance=ExtResource("34_6f7ja")]
+transform = Transform3D(-0.50000006, 0, 0.8660254, 0, 1, 0, -0.8660254, 0, -0.50000006, 31, 0, -8.660254)
+
+[node name="building_mine_green_16_-3" type="Node3D" parent="HexTerrain/Region_coast" unique_id=83937322 instance=ExtResource("35_yuq1i")]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 29, 0, -5.196152)
+
+[node name="building_tower_catapult_green_16_-1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=599707583 instance=ExtResource("36_cx0re")]
+transform = Transform3D(-0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, -0.4999999, 31, 0, -1.7320508)
+
+[node name="building_castle_green_18_-1" type="Node3D" parent="HexTerrain/Region_coast" unique_id=90535946 instance=ExtResource("37_22wx2")]
+transform = Transform3D(0.4999999, 0, -0.86602545, 0, 1, 0, 0.86602545, 0, 0.4999999, 35, 0, -1.7320508)
+
+[node name="StageMarkers" type="Node3D" parent="." unique_id=1607395802]
+
+[node name="grass_1" type="Node3D" parent="StageMarkers" unique_id=773137974]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 0)
+metadata/stage_id = "grass_1"
+
+[node name="grass_2" type="Node3D" parent="StageMarkers" unique_id=888470259]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -3.4641016)
+metadata/stage_id = "grass_2"
+
+[node name="grass_3" type="Node3D" parent="StageMarkers" unique_id=79262260]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -3.4641016)
+metadata/stage_id = "grass_3"
+
+[node name="grass_4" type="Node3D" parent="StageMarkers" unique_id=776174107]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 0)
+metadata/stage_id = "grass_4"
+
+[node name="grass_5" type="Node3D" parent="StageMarkers" unique_id=2094397702]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 3.4641016)
+metadata/stage_id = "grass_5"
+
+[node name="grass_6" type="Node3D" parent="StageMarkers" unique_id=1595421314]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 3.4641016)
+metadata/stage_id = "grass_6"
+
+[node name="river_1" type="Node3D" parent="StageMarkers" unique_id=1851515265]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, -3.4641016)
+metadata/stage_id = "river_1"
+
+[node name="river_2" type="Node3D" parent="StageMarkers" unique_id=493665455]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, -6.928203)
+metadata/stage_id = "river_2"
+
+[node name="river_3" type="Node3D" parent="StageMarkers" unique_id=1020031871]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, -6.928203)
+metadata/stage_id = "river_3"
+
+[node name="river_4" type="Node3D" parent="StageMarkers" unique_id=522945569]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -3.4641016)
+metadata/stage_id = "river_4"
+
+[node name="river_5" type="Node3D" parent="StageMarkers" unique_id=318085525]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 0)
+metadata/stage_id = "river_5"
+
+[node name="river_6" type="Node3D" parent="StageMarkers" unique_id=640565400]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 0)
+metadata/stage_id = "river_6"
+
+[node name="coast_1" type="Node3D" parent="StageMarkers" unique_id=509294980]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37, 0, -5.196152)
+metadata/stage_id = "coast_1"
+
+[node name="coast_2" type="Node3D" parent="StageMarkers" unique_id=1417202967]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 0, -8.660254)
+metadata/stage_id = "coast_2"
+
+[node name="coast_3" type="Node3D" parent="StageMarkers" unique_id=845303376]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31, 0, -8.660254)
+metadata/stage_id = "coast_3"
+
+[node name="coast_4" type="Node3D" parent="StageMarkers" unique_id=2020649610]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29, 0, -5.196152)
+metadata/stage_id = "coast_4"
+
+[node name="coast_5" type="Node3D" parent="StageMarkers" unique_id=1266571019]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31, 0, -1.7320508)
+metadata/stage_id = "coast_5"
+
+[node name="coast_6" type="Node3D" parent="StageMarkers" unique_id=1463907697]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 0, -1.7320508)
+metadata/stage_id = "coast_6"
