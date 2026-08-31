@@ -211,8 +211,8 @@ func _build_duel_slot() -> void:
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(row)
 
-	duel_host_button = _build_duel_button("DuelHostButton", "创建对战", "在本机开一个对战房间，等对手连入")
-	duel_join_button = _build_duel_button("DuelJoinButton", "加入对战", "连上本机已经开好的对战房间")
+	duel_host_button = _build_duel_button("DuelHostButton", "创建对战", "生成房间码并等待对手输入同一串码连入")
+	duel_join_button = _build_duel_button("DuelJoinButton", "加入对战", "输入房主的房间码，对上了才能连")
 	row.add_child(duel_host_button)
 	row.add_child(duel_join_button)
 	duel_host_button.pressed.connect(func() -> void: duel_host_requested.emit())

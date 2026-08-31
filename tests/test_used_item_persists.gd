@@ -43,18 +43,26 @@ func _run() -> void:
 		board.reveal_exact_forced_safe(item_index)
 		game.call("_refresh_cell", item_index)
 		var content := cells[item_index].get("_content") as TextureRect
+		var number_label := cells[item_index].get("_number_label") as Label
 		assert(content.material == null, "Unused item type %d was already grayed out" % item_type)
+		assert(content.visible and content.texture != null, "Unused item type %d is missing its icon" % item_type)
 		board.consume_item(item_index)
 		game.call("_refresh_cell", item_index)
-		var expected := game.call("_item_texture", item_type) as Texture2D
-		assert(content.visible, "Used item type %d disappeared" % item_type)
-		assert(content.texture == expected, "Used item type %d changed its texture" % item_type)
-		assert(content.material is ShaderMaterial, "Used item type %d was not grayed out" % item_type)
+		var expected_number := board.adjacent_mines(item_index)
+		assert(content.texture == null, "Used item type %d kept its icon instead of reverting" % item_type)
+		assert(content.material == null, "Used item type %d stayed grayed out" % item_type)
+		if expected_number > 0:
+			assert(
+				number_label.visible and number_label.text == str(expected_number),
+				"Used item type %d did not revert to its adjacent number" % item_type
+			)
+		else:
+			assert(not number_label.visible, "Used item type %d showed a number on a zero cell" % item_type)
 		var queue: Array[int] = []
 		var queued: Dictionary = {}
 		game.call("_present_revealed", PackedInt32Array([item_index]), queue, queued)
 		assert(queue.is_empty(), "Used item type %d was queued for a second activation" % item_type)
-	print("Used item display: all item icons persist without reactivation passed")
+	print("Used item display: consumed items revert to numbers without reactivation passed")
 	quit()
 
 

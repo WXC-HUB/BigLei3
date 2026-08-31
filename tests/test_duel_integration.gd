@@ -26,7 +26,8 @@ func _run() -> void:
 	await process_frame
 
 	_host_game.call("_on_duel_host_requested")
-	_guest_game.call("_on_duel_join_requested")
+	var room_code: String = _host_game.get("_duel").room_code
+	_guest_game.call("_start_duel_join", room_code, "127.0.0.1")
 	assert(await _wait(func() -> bool:
 		return _host_game.get("_board") != null and _guest_game.get("_board") != null
 	))
@@ -65,6 +66,7 @@ func _check_boards_are_identical() -> void:
 ## 验收 3 + 4：标 1 个雷 → 对手掉 1 血、自己 +1 金。
 func _check_mark_damages_opponent() -> void:
 	assert(await _wait_idle(_host_game))
+	assert(await _wait_idle(_guest_game))
 	var mine := _first_covered_mine(_host_game.get("_board"))
 	assert(mine >= 0)
 	var guest_hp_before := int(_guest_game.get("_player_hp"))
@@ -111,12 +113,15 @@ func _check_clearing_freezes_and_opens_full_shop() -> void:
 
 	var host_shop = _host_game.get("_shop_layer")
 	assert(await _wait(func() -> bool: return host_shop.visible))
-	# 大全商店：13 项全部可见，且不给刷新。
+	# 大全商店：13 项全部可见，每行 3 个可滑，且不给刷新。
 	var visible_offers := 0
-	for offer_index in range(OfferCatalog.OFFER_NAMES.size()):
-		if host_shop.get_node("Center/ShopCard/ItemGrid/ItemSlot_%d" % offer_index).visible:
+	var slots: Array = host_shop.get("_item_slots")
+	for slot in slots:
+		if slot.visible:
 			visible_offers += 1
 	assert(visible_offers == OfferCatalog.OFFER_NAMES.size())
+	assert(host_shop.item_grid.columns == 3)
+	assert((host_shop.get("_item_scroll") as ScrollContainer).is_ancestor_of(host_shop.item_grid))
 	assert(not host_shop.refresh_button.visible)
 	# 落后方剩下的雷不再结算：冻结之后对手的血不能再掉。
 	var guest_hp := int(_guest_game.get("_player_hp"))
@@ -131,9 +136,11 @@ func _check_single_player_path_untouched() -> void:
 	await process_frame
 	await process_frame
 	solo.call("_start_game")
-	await process_frame
+	assert(await _wait(func() -> bool:
+		var board = solo.get("_board")
+		return board != null and board.width == 2 and board.height == 1
+	))
 	var board = solo.get("_board")
-	assert(board.width == 2 and board.height == 1)
 	assert(not bool(solo.call("_is_duel")))
 	var solo_shop = solo.get("_shop_layer")
 	solo_shop.call("present", "", "", 20, 5)

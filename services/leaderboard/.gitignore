@@ -1,0 +1,9 @@
+node_modules/
+.wrangler/
+data/
+.deploy_code.js
+.deploy_payload.json
+.upload_b64.txt
+.b64a.txt
+.b64b.txt
+build_deploy_code.mjs

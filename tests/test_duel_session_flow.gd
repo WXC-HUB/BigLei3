@@ -30,6 +30,10 @@ func _init() -> void:
 	_host.duel_finished.connect(func(self_won: bool) -> void: _host_finished.append(self_won))
 	_guest.duel_finished.connect(func(self_won: bool) -> void: _guest_finished.append(self_won))
 
+	_test_join_requires_room_code()
+	_test_matching_room_code_starts_round()
+	_test_wrong_room_code_is_rejected()
+	_test_leave_cancels_while_linking()
 	_test_handshake_agrees_on_seed()
 	_test_marks_deal_damage_one_by_one()
 	_test_purchases_are_public()
@@ -44,6 +48,51 @@ func _init() -> void:
 	_guest.free()
 	print("DuelSessionFlow: all tests passed")
 	quit()
+
+
+func _test_join_requires_room_code() -> void:
+	assert(_guest.join_duel("127.0.0.1") == ERR_INVALID_PARAMETER)
+	assert(_guest.state == SessionScript.State.IDLE)
+
+
+func _test_matching_room_code_starts_round() -> void:
+	assert(_host.host_duel(8975, "7K2M") == OK)
+	assert(_guest.join_duel("127.0.0.1", 8975, "7k2m") == OK)
+	assert(_pump(func() -> bool: return _host.round_index == 1 and _guest.round_index == 1))
+	assert(_host.room_code == "7K2M")
+	assert(_guest.room_code == "7K2M")
+	assert(_host.duel_seed != 0 and _host.duel_seed == _guest.duel_seed)
+	_host.leave()
+	_guest.leave()
+
+
+func _test_wrong_room_code_is_rejected() -> void:
+	var failed: Array = []
+	var lost := 0
+	_guest.link_failed.connect(func(reason: String) -> void: failed.append(reason), CONNECT_ONE_SHOT)
+	_host.link_lost.connect(func() -> void: lost += 1)
+	assert(_host.host_duel(8976, "7K2M") == OK)
+	assert(_guest.join_duel("127.0.0.1", 8976, "WXYZ") == OK)
+	assert(_pump(func() -> bool: return not failed.is_empty()))
+	assert(_host.state == SessionScript.State.LINKING)
+	assert(_host.round_index == 0)
+	assert(lost == 0)
+	_host.leave()
+	_guest.leave()
+
+
+func _test_leave_cancels_while_linking() -> void:
+	var failed := 0
+	var lost := 0
+	_guest.link_failed.connect(func(_reason: String) -> void: failed += 1)
+	_guest.link_lost.connect(func() -> void: lost += 1)
+	assert(_guest.join_duel("127.0.0.1", 8999, "7K2M") == OK)
+	assert(_guest.state == SessionScript.State.LINKING)
+	_guest.leave()
+	assert(_guest.state == SessionScript.State.IDLE)
+	_guest.poll(0.05)
+	assert(failed == 0)
+	assert(lost == 0)
 
 
 func _test_handshake_agrees_on_seed() -> void:

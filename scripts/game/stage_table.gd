@@ -1,59 +1,122 @@
 class_name StageTable
 extends RefCounted
-## 关卡表（Stage Table）——与场景摆放分离的关卡数据。
-##
-## `world_map.tscn` 里的每个 StageMarker 只挂一个 `stage_id`，名字、目标盘数、所属
-## 地形区、解锁关系全部到这里查。这样"地格摆在哪"是美术资产、"这一关多长"是可以
-## headless 测试的数据，两件事互不牵连。
-##
-## 本表只有两个可调变量（FEAT-002 共识 1）：**目标盘数**与**地形主题**。棋盘尺寸、
-## 雷密度、起始血金一律不进这张表——每关起跑线完全相同，长度是唯一的难度旋钮。
+## 关卡表。单片连续地图上的 6 关；第 1 关含教程，其后每关手写盘列表。
+## 解锁按关卡序号链式推进（打通上一关才开下一关）。
+## 每关只用一族形状讲一种地形，不再从总阶梯切片。
 
-## 地形区：一个区一个视觉主题，成组解锁。
-## `unlock_after` 为空 = 开局即可进；否则要求先在指定区通关 `count` 关。
 const REGIONS := [
-	{
-		"id": "grass",
-		"name": "青草区",
-		"theme": "grass",
-		"unlock_after": {},
-	},
-	{
-		"id": "river",
-		"name": "河谷区",
-		"theme": "river",
-		"unlock_after": {"region": "grass", "count": 4},
-	},
-	{
-		"id": "coast",
-		"name": "海岸区",
-		"theme": "coast",
-		"unlock_after": {"region": "river", "count": 4},
-	},
+	{"id": "habitat", "name": "栖息地", "theme": "grass", "unlock_after": {}},
 ]
 
-## 关卡：`order` 是给玩家看的序号，`target_round` 是[[目标盘数]]。
-## `teaches` 只有第一关是 true——那 4 盘硬编码教程盘连着 4 段解锁演出，只在这里出现
-## 一次；其余关卡跳过教程段，改由 `main.gd` 直接补发教程的产出。
+## 非教程关：第 2 关起 10 盘，之后每关 +1。
+const NON_TUTORIAL_BOARD_BASE := 10
+
+## 每关允许的形状前缀。测试用它锁主题，避免再混进下一关才该出现的伤。
+const THEME_SHAPE_PREFIXES := {
+	"grass_1": ["rect_"],
+	"grass_2": ["notch_bite_", "notch_corner_", "notch_l_", "notch_u_", "notch_furrow_", "notch_ridge_"],
+	"grass_3": ["hole_center_", "hole_lagoon_"],
+	"river_1": ["notch_gate_", "notch_bridge_", "notch_bend_"],
+	"river_2": ["hole_lagoon_", "holes_twin_"],
+	"coast_1": ["notch_c_", "notch_u_", "notch_bite_", "hole_lagoon_", "holes_scatter_", "holes_reef_"],
+}
+
 const STAGES := [
-	{"id": "grass_1", "order": 1, "name": "青草坡", "region": "grass", "target_round": 5, "teaches": true},
-	{"id": "grass_2", "order": 2, "name": "麦垄", "region": "grass", "target_round": 6},
-	{"id": "grass_3", "order": 3, "name": "风车丘", "region": "grass", "target_round": 6},
-	{"id": "grass_4", "order": 4, "name": "石篱地", "region": "grass", "target_round": 7},
-	{"id": "grass_5", "order": 5, "name": "老井村", "region": "grass", "target_round": 7},
-	{"id": "grass_6", "order": 6, "name": "草原关隘", "region": "grass", "target_round": 8},
-	{"id": "river_1", "order": 7, "name": "浅滩", "region": "river", "target_round": 8},
-	{"id": "river_2", "order": 8, "name": "双桥", "region": "river", "target_round": 9},
-	{"id": "river_3", "order": 9, "name": "磨坊湾", "region": "river", "target_round": 9},
-	{"id": "river_4", "order": 10, "name": "河曲", "region": "river", "target_round": 10},
-	{"id": "river_5", "order": 11, "name": "深潭", "region": "river", "target_round": 10},
-	{"id": "river_6", "order": 12, "name": "谷口渡", "region": "river", "target_round": 11},
-	{"id": "coast_1", "order": 13, "name": "白沙岸", "region": "coast", "target_round": 11},
-	{"id": "coast_2", "order": 14, "name": "礁石滩", "region": "coast", "target_round": 12},
-	{"id": "coast_3", "order": 15, "name": "灯塔角", "region": "coast", "target_round": 12},
-	{"id": "coast_4", "order": 16, "name": "潮汐洼", "region": "coast", "target_round": 13},
-	{"id": "coast_5", "order": 17, "name": "断崖", "region": "coast", "target_round": 14},
-	{"id": "coast_6", "order": 18, "name": "尽头港", "region": "coast", "target_round": 15},
+	{
+		"id": "grass_1", "order": 1, "name": "青草坡", "region": "habitat", "teaches": true,
+		"boards": [
+			{"shape": "rect_2x1", "mines": 1},
+			{"shape": "rect_4", "mines": 3},
+			{"shape": "rect_5", "mines": 4},
+			{"shape": "rect_5", "mines": 4},
+			{"shape": "rect_6", "mines": 6},
+		],
+	},
+	{
+		"id": "grass_2", "order": 2, "name": "麦垄", "region": "habitat",
+		"boards": [
+			{"shape": "notch_bite_7", "mines": 7},
+			{"shape": "notch_corner_7", "mines": 8},
+			{"shape": "notch_furrow_7", "mines": 8},
+			{"shape": "notch_l_7", "mines": 8},
+			{"shape": "notch_u_7", "mines": 9},
+			{"shape": "notch_ridge_8", "mines": 10},
+			{"shape": "notch_furrow_8", "mines": 10},
+			{"shape": "notch_bite_8", "mines": 11},
+			{"shape": "notch_l_8", "mines": 12},
+			{"shape": "notch_furrow_8", "mines": 13},
+		],
+	},
+	{
+		"id": "grass_3", "order": 3, "name": "老井村", "region": "habitat",
+		"boards": [
+			{"shape": "hole_center_7", "mines": 8},
+			{"shape": "hole_center_7", "mines": 9},
+			{"shape": "hole_center_7", "mines": 9},
+			{"shape": "hole_center_8", "mines": 10},
+			{"shape": "hole_center_8", "mines": 11},
+			{"shape": "hole_lagoon_8", "mines": 11},
+			{"shape": "hole_lagoon_8", "mines": 12},
+			{"shape": "hole_center_9", "mines": 12},
+			{"shape": "hole_lagoon_9", "mines": 13},
+			{"shape": "hole_lagoon_9", "mines": 14},
+			{"shape": "hole_lagoon_9", "mines": 15},
+		],
+	},
+	{
+		"id": "river_1", "order": 4, "name": "双桥", "region": "habitat",
+		"boards": [
+			{"shape": "notch_gate_7", "mines": 8},
+			{"shape": "notch_gate_7", "mines": 9},
+			{"shape": "notch_bridge_8", "mines": 10},
+			{"shape": "notch_gate_8", "mines": 10},
+			{"shape": "notch_bend_8", "mines": 11},
+			{"shape": "notch_bridge_8", "mines": 11},
+			{"shape": "notch_bend_8", "mines": 12},
+			{"shape": "notch_bridge_9", "mines": 12},
+			{"shape": "notch_bend_9", "mines": 13},
+			{"shape": "notch_gate_9", "mines": 14},
+			{"shape": "notch_bridge_9", "mines": 15},
+			{"shape": "notch_bridge_10", "mines": 16},
+		],
+	},
+	{
+		"id": "river_2", "order": 5, "name": "深潭", "region": "habitat",
+		"boards": [
+			{"shape": "hole_lagoon_8", "mines": 11},
+			{"shape": "hole_lagoon_8", "mines": 12},
+			{"shape": "hole_lagoon_8", "mines": 12},
+			{"shape": "hole_lagoon_9", "mines": 13},
+			{"shape": "hole_lagoon_9", "mines": 14},
+			{"shape": "hole_lagoon_9", "mines": 14},
+			{"shape": "holes_twin_9", "mines": 14},
+			{"shape": "holes_twin_9", "mines": 15},
+			{"shape": "holes_twin_9", "mines": 15},
+			{"shape": "holes_twin_10", "mines": 16},
+			{"shape": "holes_twin_10", "mines": 17},
+			{"shape": "holes_twin_10", "mines": 17},
+			{"shape": "holes_twin_10", "mines": 18},
+		],
+	},
+	{
+		"id": "coast_1", "order": 6, "name": "尽头港", "region": "habitat",
+		"boards": [
+			{"shape": "notch_c_9", "mines": 13},
+			{"shape": "notch_u_9", "mines": 13},
+			{"shape": "notch_bite_9", "mines": 14},
+			{"shape": "notch_c_9", "mines": 14},
+			{"shape": "hole_lagoon_9", "mines": 15},
+			{"shape": "hole_lagoon_9", "mines": 15},
+			{"shape": "notch_c_10", "mines": 16},
+			{"shape": "hole_lagoon_10", "mines": 17},
+			{"shape": "hole_lagoon_10", "mines": 18},
+			{"shape": "holes_scatter_10", "mines": 18},
+			{"shape": "holes_reef_10", "mines": 19},
+			{"shape": "holes_scatter_10", "mines": 20},
+			{"shape": "holes_reef_10", "mines": 20},
+			{"shape": "holes_reef_10", "mines": 21},
+		],
+	},
 ]
 
 
@@ -65,11 +128,13 @@ static func all_regions() -> Array:
 	return REGIONS
 
 
-## 查不到返回空字典——调用方一律用 `is_empty()` 判，不抛异常。
 static func stage(stage_id: String) -> Dictionary:
 	for entry in STAGES:
 		if String(entry["id"]) == stage_id:
-			return entry
+			var out: Dictionary = entry.duplicate(true)
+			out["boards"] = boards_of(stage_id)
+			out["target_round"] = out["boards"].size()
+			return out
 	return {}
 
 
@@ -92,13 +157,45 @@ static func stages_in_region(region_id: String) -> Array:
 	return out
 
 
-## 该关的地形主题，直接取所属区的。关卡自己不带主题字段——一个区一个主题是共识 2 的
-## 前提，让关卡也能各带一个主题就会出现"区里混着两种地格"的破图。
 static func theme_of(stage_id: String) -> String:
 	var entry := stage(stage_id)
 	if entry.is_empty():
 		return ""
 	return String(region(String(entry["region"])).get("theme", ""))
+
+
+static func boards_of(stage_id: String) -> Array:
+	for entry in STAGES:
+		if String(entry["id"]) == stage_id:
+			return entry.get("boards", [])
+	return []
+
+
+static func shape_fits_theme(stage_id: String, shape_id: String) -> bool:
+	if not THEME_SHAPE_PREFIXES.has(stage_id):
+		return false
+	for prefix in THEME_SHAPE_PREFIXES[stage_id]:
+		if shape_id.begins_with(String(prefix)):
+			return true
+	return false
+
+
+static func board_at(stage_id: String, round_index: int) -> Dictionary:
+	var boards := boards_of(stage_id)
+	if round_index < 1 or round_index > boards.size():
+		return {}
+	return boards[round_index - 1]
+
+
+static func target_round_of(stage_id: String) -> int:
+	return boards_of(stage_id).size()
+
+
+## 非教程关应有的盘数：第 2 关 10，之后每关 +1。
+static func expected_board_count_for_order(order: int) -> int:
+	if order <= 1:
+		return 0
+	return NON_TUTORIAL_BOARD_BASE + (order - 2)
 
 
 static func cleared_count_in_region(region_id: String, cleared: Array) -> int:
@@ -109,8 +206,6 @@ static func cleared_count_in_region(region_id: String, cleared: Array) -> int:
 	return total
 
 
-## 地形区解锁：没有 `unlock_after` 就是开局可进；否则看前置区通关数够不够。
-## 只回溯一层——REGIONS 是线性链，`test_stage_table.gd` 会断言这条链无断点。
 static func is_region_unlocked(region_id: String, cleared: Array) -> bool:
 	var entry := region(region_id)
 	if entry.is_empty():
@@ -124,18 +219,24 @@ static func is_region_unlocked(region_id: String, cleared: Array) -> bool:
 	return cleared_count_in_region(previous, cleared) >= int(gate.get("count", 0))
 
 
-## 关卡解锁 = 它所在的区解锁。区内全开可任选（共识 2），所以关卡自己没有额外门槛。
+## 关卡解锁：所属区已开，且上一序号关已通关（第 1 关无前置）。
 static func is_stage_unlocked(stage_id: String, cleared: Array) -> bool:
 	var entry := stage(stage_id)
 	if entry.is_empty():
 		return false
-	return is_region_unlocked(String(entry["region"]), cleared)
+	if not is_region_unlocked(String(entry["region"]), cleared):
+		return false
+	var order := int(entry["order"])
+	if order <= 1:
+		return true
+	for previous in STAGES:
+		if int(previous["order"]) == order - 1:
+			return cleared.has(String(previous["id"]))
+	return false
 
 
-## 顶栏那行进度文字要的三个数：本区已通关、本区总数、下一区还差几关。
-## `next_region` 为空串 = 已经是最后一区。
 static func region_progress(region_id: String, cleared: Array) -> Dictionary:
-	var stages := stages_in_region(region_id)
+	var stage_list := stages_in_region(region_id)
 	var done := cleared_count_in_region(region_id, cleared)
 	var next_id := ""
 	var remaining := 0
@@ -147,15 +248,13 @@ static func region_progress(region_id: String, cleared: Array) -> Dictionary:
 			break
 	return {
 		"cleared": done,
-		"total": stages.size(),
+		"total": stage_list.size(),
 		"next_region": next_id,
 		"next_region_name": String(region(next_id).get("name", "")) if next_id != "" else "",
 		"remaining_for_next": remaining,
 	}
 
 
-## 第一个还没通关的已解锁关卡，用来决定地图初次显示时相机对准哪里。
-## 全通关了就退回最后一关。
 static func first_open_stage(cleared: Array) -> String:
 	for entry in STAGES:
 		var id := String(entry["id"])

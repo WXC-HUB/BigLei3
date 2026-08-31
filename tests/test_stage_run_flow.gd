@@ -146,11 +146,12 @@ func _check_normal_stage(game: Node) -> void:
 		if not bool(stage.get("teaches", false)):
 			normal = String(stage["id"])
 			break
-	game.set("_cleared_stages", [])
+	# 链式解锁：先通教学关，第二关才进得去。
+	game.set("_cleared_stages", [String(StageTable.STAGES[0]["id"])])
 	game.call("_enter_stage", normal, false)
 	await process_frame
 
-	var tutorial_count := int(game.get("TUTORIAL_LEVEL_COUNT")) if false else 4
+	var tutorial_count := 4
 	assert(
 		int(game.get("_run_number")) == tutorial_count + 1,
 		"非教学关没有跳过教程段，全局盘序是 %d" % int(game.get("_run_number"))
@@ -165,14 +166,13 @@ func _check_normal_stage(game: Node) -> void:
 		assert(bool(game.get(flag)), "非教学关起手缺了 %s" % flag)
 	for bonus in ["_lantern_bonus", "_compass_bonus", "_orbital_strike_bonus", "_super_luck_bonus"]:
 		assert(int(game.get(bonus)) == 1, "非教学关起手的 %s 不是 1" % bonus)
-	# 起始血金不做关卡差异化（共识 1）。
 	assert(int(game.get("_player_max_hp")) == 3, "非教学关改了生命上限")
 	assert(int(game.get("_gold")) == 0, "非教学关起手就有金币")
 
 
 ## 未解锁的关卡进不去。
 func _check_locked_stage_refused(game: Node) -> void:
-	var locked := String(StageTable.stages_in_region(String(StageTable.REGIONS[1]["id"]))[0]["id"])
+	var locked := String(StageTable.STAGES[2]["id"])
 	game.set("_cleared_stages", [])
 	game.call("_enter_stage", locked, false)
 	await process_frame
@@ -182,22 +182,22 @@ func _check_locked_stage_refused(game: Node) -> void:
 ## 到点叫停的边界：差一盘不算通关，打满才算；不在关卡里则永远不算。
 func _check_stop_at_target(game: Node) -> void:
 	game.set("_stage_id", "grass_2")
-	game.set("_stage_target_round", 6)
-	game.set("_stage_round", 5)
-	assert(not bool(game.call("_stage_complete")), "差一盘就被判成通关了")
-	game.set("_stage_round", 6)
+	game.set("_stage_target_round", 1)
+	game.set("_stage_round", 0)
+	assert(not bool(game.call("_stage_complete")), "还没打就被判成通关了")
+	game.set("_stage_round", 1)
 	assert(bool(game.call("_stage_complete")), "打满目标盘数没被判成通关")
-	game.set("_stage_round", 7)
+	game.set("_stage_round", 2)
 	assert(bool(game.call("_stage_complete")), "超过目标盘数反而不算通关")
 	game.set("_stage_id", "")
 	assert(not bool(game.call("_stage_complete")), "不在关卡里也被判成通关")
 
 
 func _check_stage_cleared(game: Node) -> void:
-	game.set("_cleared_stages", [])
+	game.set("_cleared_stages", [String(StageTable.STAGES[0]["id"])])
 	game.set("_stage_id", "grass_2")
-	game.set("_stage_target_round", 6)
-	game.set("_stage_round", 6)
+	game.set("_stage_target_round", 1)
+	game.set("_stage_round", 1)
 	game.set("_resume_stage_id", "grass_2")
 	game.set("_run_number", 10)
 	game.set("_resume_level", 10)
@@ -207,46 +207,60 @@ func _check_stage_cleared(game: Node) -> void:
 	assert((game.get("_cleared_stages") as Array).has("grass_2"), "通关后没记进已通关集合")
 	assert(String(game.get("_resume_stage_id")) == "", "通关后续局槽没清掉")
 	assert(String(game.get("_stage_id")) == "", "通关后还留在关卡里")
-	# 盘序必须回 1，否则读取侧的兜底规则会据此又推出一个续局槽，刚通关的关变回「进行中」。
 	assert(int(game.get("_resume_level")) == 1, "通关后盘序没有归位")
 	var map := game.get("_world_map") as WorldMap
 	assert(map != null and map.visible, "通关后没有回到世界地图")
+	# 上榜点穿会走 `_enter_stage(本关)`；结算锁必须挡住，否则榜一关就是第一盘。
+	game.call("_enter_stage", "grass_2", false)
+	await process_frame
+	assert(String(game.get("_stage_id")) == "", "结算榜开着时不应再进本关")
+	assert(map.visible, "误开关后应仍停在选关图")
 
-	# 落盘的内容要能被重新读回来。
 	var saved := GameSave.load_data()
 	assert(
 		(saved["cleared_stages"] as Array).has("grass_2"),
 		"通关记录没落盘"
 	)
 	assert(String(saved["resume_stage_id"]) == "", "落盘的续局槽没清掉")
+	await _dismiss_clear_leaderboard(game)
 
-	# 再通一关不该产生重复条目。
 	game.set("_stage_id", "grass_2")
-	game.set("_stage_target_round", 6)
-	game.set("_stage_round", 6)
+	game.set("_stage_target_round", 1)
+	game.set("_stage_round", 1)
 	game.call("_on_stage_cleared")
 	await process_frame
 	var cleared := game.get("_cleared_stages") as Array
 	assert(cleared.count("grass_2") == 1, "同一关被记了两次")
+	await _dismiss_clear_leaderboard(game)
 
 
-## 死亡：回地图，而不是回标题页；那一关仍然算进行中，可以再续。
+func _dismiss_clear_leaderboard(game: Node) -> void:
+	var panel: Node = game.get("_leaderboard_panel")
+	if panel != null:
+		panel.call("hide_immediately")
+	await process_frame
+	await process_frame
+
+
+## 死亡：回地图，而不是回标题页；本关仍未通关，但续局槽清掉——血量归零后不应再提示「放弃进度」。
 func _check_death_returns_to_map(game: Node) -> void:
-	game.set("_cleared_stages", [])
+	game.set("_cleared_stages", [String(StageTable.STAGES[0]["id"])])
 	game.call("_enter_stage", "grass_2", false)
 	await process_frame
 	assert(String(game.get("_stage_id")) == "grass_2", "没进到关卡里")
 
+	game.set("_player_hp", 0)
 	game.call("_on_game_over_return")
 	await process_frame
 	var map := game.get("_world_map") as WorldMap
 	assert(map.visible, "死亡返回后没有回到世界地图")
 	assert(game.get("_start_screen") == null, "死亡返回跑回了标题页")
-	assert(String(game.get("_resume_stage_id")) == "grass_2", "死亡后那一关不再算进行中")
+	assert(String(game.get("_resume_stage_id")) == "", "死亡后仍保留续局槽")
+	assert(String(map.get("_resume_stage_id")) == "", "地图仍以为有续局")
 	assert(not bool(game.get("_started")), "回地图后棋盘还是活的")
 	assert((game.get("_cells") as Array).is_empty(), "回地图后棋盘格子没收干净")
+	assert(not (map.get("_resume_banner") as Control).visible, "死亡后地图上还挂着续局条")
 
-	# 不在关卡里时（对战/异常），「返回」仍然回标题页。
 	game.set("_stage_id", "")
 	game.call("_on_game_over_return")
 	await process_frame
@@ -256,7 +270,7 @@ func _check_death_returns_to_map(game: Node) -> void:
 ## 续局：沿用内存里的血量/金币/强化，并从离开时那一盘的开头重建——盘面尺寸要一致。
 func _check_resume(game: Node) -> void:
 	game.set("_cleared_stages", [])
-	game.call("_enter_stage", "grass_3", false)
+	game.call("_enter_stage", "grass_1", false)
 	await process_frame
 	# 真的往下发两盘，模拟打了两盘之后离开——手动改 `_run_number` 会漏掉
 	# `_start_game` 对 `_resume_level` 的同步，存出来的档就和真实存档不是一回事。
@@ -279,13 +293,13 @@ func _check_resume(game: Node) -> void:
 	# 走一遍真实的"重开游戏读档"路径。
 	game.call("_return_to_main_menu")
 	await process_frame
-	assert(String(game.get("_resume_stage_id")) == "grass_3", "读档后续局槽指错了关卡")
+	assert(String(game.get("_resume_stage_id")) == "grass_1", "读档后续局槽指错了关卡")
 	assert(int(game.get("_gold")) == 14, "读档丢了金币")
 	assert(int(game.get("_lantern_bonus")) == 4, "读档丢了道具强化")
 	# 读取侧会把两个计数器各退一格，等 `_start_game` 加回来。
 	assert(int(game.get("_stage_round")) == 2, "读档后的本关盘数没退格: %d" % int(game.get("_stage_round")))
 
-	game.call("_enter_stage", "grass_3", true)
+	game.call("_enter_stage", "grass_1", true)
 	await process_frame
 	assert(int(game.get("_stage_round")) == 3, "续局后没回到第 3 盘")
 	assert(

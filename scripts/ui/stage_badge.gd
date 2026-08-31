@@ -9,9 +9,15 @@ extends Button
 ## 「不得仅依赖颜色传达」这条项目约束由形状本身兑现——把屏幕转成灰度，四个态照样分得
 ## 清。颜色只是加强。
 
+signal hover_changed(entered: bool)
+signal leaderboard_requested(stage_id: String)
+
 const WIDTH := 184.0
-const HEIGHT := 90.0
+const HEIGHT := 108.0
 const TAIL_HEIGHT := 13.0
+const HOVER_SCALE := 1.14
+const HOVER_ROTATION_DEG := -3.4
+const HOVER_DURATION := 0.14
 
 enum State {CLEARED, AVAILABLE, LOCKED, IN_PROGRESS}
 
@@ -33,6 +39,7 @@ const PAPER_EDGE := Color(0.784, 0.722, 0.604)
 const INK := Color(0.184, 0.165, 0.125)
 const INK_SOFT := Color(0.478, 0.427, 0.349)
 const CHIP := Color(0.898, 0.863, 0.776)
+const SCORE_INK := Color(0.545, 0.365, 0.090)
 
 var stage_id := ""
 
@@ -42,14 +49,19 @@ var _tail: Tail
 var _name_label: Label
 var _round_label: Label
 var _status_label: Label
+var _score_label: Label
 var _dim: ColorRect
-var _hover_lift := 0.0
+var _hover_tween: Tween
+var _hovering := false
+var _high_score := 0
 
 
 func _init() -> void:
 	name = "StageBadge"
 	custom_minimum_size = Vector2(WIDTH, HEIGHT + TAIL_HEIGHT)
 	size = custom_minimum_size
+	# 旋转/放大绕尖角，悬停时牌子往上长、尖角仍钉在地格上。
+	pivot_offset = Vector2(WIDTH * 0.5, HEIGHT + TAIL_HEIGHT)
 	focus_mode = Control.FOCUS_NONE
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	# 牌子自己是按钮，但它下面那根小尖角不该吃点击——尖角画在牌体之外，
@@ -63,6 +75,14 @@ func _ready() -> void:
 	set_stage_state(_state)
 	mouse_entered.connect(_on_hover_changed.bind(true))
 	mouse_exited.connect(_on_hover_changed.bind(false))
+	gui_input.connect(_on_gui_input)
+
+
+func _on_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		if stage_id != "":
+			leaderboard_requested.emit(stage_id)
+		accept_event()
 
 
 ## 牌体的皮：纸底 + 棕描边 + 圆角。四个态共用同一张皮，只有描边色跟着状态走，
@@ -108,7 +128,7 @@ func _build_children() -> void:
 	var chip := Panel.new()
 	chip.name = "RoundChip"
 	chip.position = Vector2(11.0, 48.0)
-	chip.size = Vector2(74.0, 32.0)
+	chip.size = Vector2(88.0, 32.0)
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var chip_box := StyleBoxFlat.new()
 	chip_box.bg_color = CHIP
@@ -119,7 +139,7 @@ func _build_children() -> void:
 	_round_label = Label.new()
 	_round_label.name = "BadgeRoundLabel"
 	_round_label.position = Vector2(11.0, 48.0)
-	_round_label.size = Vector2(74.0, 32.0)
+	_round_label.size = Vector2(88.0, 32.0)
 	_round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_round_label.add_theme_font_size_override("font_size", 20)
@@ -128,12 +148,22 @@ func _build_children() -> void:
 
 	_status_label = Label.new()
 	_status_label.name = "BadgeStatusLabel"
-	_status_label.position = Vector2(92.0, 48.0)
-	_status_label.size = Vector2(84.0, 32.0)
+	_status_label.position = Vector2(106.0, 48.0)
+	_status_label.size = Vector2(70.0, 32.0)
 	_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_status_label.add_theme_font_size_override("font_size", 16)
 	_status_label.add_theme_color_override("font_color", INK_SOFT)
 	add_child(_status_label)
+
+	_score_label = Label.new()
+	_score_label.name = "BadgeHighScoreLabel"
+	_score_label.position = Vector2(11.0, 80.0)
+	_score_label.size = Vector2(162.0, 22.0)
+	_score_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_score_label.add_theme_font_size_override("font_size", 15)
+	_score_label.add_theme_color_override("font_color", SCORE_INK)
+	add_child(_score_label)
+	_refresh_score_label()
 
 	_dim = ColorRect.new()
 	_dim.name = "BadgeLockOverlay"
@@ -153,9 +183,37 @@ func bind(stage: Dictionary) -> void:
 		await ready
 	_name_label.text = "%d · %s" % [int(stage.get("order", 0)), String(stage.get("name", ""))]
 	_round_label.text = "%d 盘" % int(stage.get("target_round", 0))
-	tooltip_text = "%s · 打通第 %d 盘即通关" % [
+	tooltip_text = "%s · 打完全部 %d 盘即通关" % [
 		String(stage.get("name", "")), int(stage.get("target_round", 0))
 	]
+
+
+func set_high_score(value: int) -> void:
+	_high_score = maxi(value, 0)
+	_refresh_score_label()
+
+
+func _refresh_score_label() -> void:
+	if _score_label == null:
+		return
+	if _high_score > 0:
+		_score_label.text = "最高 %s · 右键看榜" % _format_score(_high_score)
+		_score_label.add_theme_color_override("font_color", SCORE_INK)
+	else:
+		_score_label.text = "最高 — · 右键看榜"
+		_score_label.add_theme_color_override("font_color", INK_SOFT)
+
+
+func _format_score(value: int) -> String:
+	var raw := str(maxi(value, 0))
+	var out := ""
+	var count := 0
+	for i in range(raw.length() - 1, -1, -1):
+		if count > 0 and count % 3 == 0:
+			out = "," + out
+		out = raw[i] + out
+		count += 1
+	return out
 
 
 func set_stage_state(state: int) -> void:
@@ -179,17 +237,32 @@ func current_state() -> int:
 
 
 func _on_hover_changed(entered: bool) -> void:
-	if disabled:
+	if disabled and entered:
 		return
-	var target := -6.0 if entered else 0.0
-	var tween := create_tween()
-	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_property(self, "_hover_lift", target, 0.12)
+	set_hover_visual(entered)
+	hover_changed.emit(entered)
 
 
-func hover_lift() -> float:
-	return _hover_lift
+## 由世界地图统一驱动：悬停牌子或绑定地格时都会走到这里。
+func set_hover_visual(active: bool) -> void:
+	if disabled:
+		active = false
+	if _hovering == active:
+		return
+	_hovering = active
+	if _hover_tween != null and _hover_tween.is_valid():
+		_hover_tween.kill()
+	_hover_tween = create_tween().set_parallel(true)
+	_hover_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	var target_scale := Vector2(HOVER_SCALE, HOVER_SCALE) if active else Vector2.ONE
+	var target_rot := deg_to_rad(HOVER_ROTATION_DEG) if active else 0.0
+	var duration := HOVER_DURATION if active else 0.16
+	_hover_tween.tween_property(self, "scale", target_scale, duration)
+	_hover_tween.tween_property(self, "rotation", target_rot, duration)
 
+
+func is_hovering() -> bool:
+	return _hovering
 
 ## 牌子底下那根指向地格的小尖角。单独一个节点是为了让它画到牌体矩形之外，
 ## 又不参与 Button 的点击区。

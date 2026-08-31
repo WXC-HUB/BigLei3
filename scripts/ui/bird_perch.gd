@@ -26,10 +26,13 @@ signal action_finished
 @export var click_enabled := true
 
 @onready var _sprite: TextureRect = $Sprite
+@onready var _tree: TextureRect = get_node_or_null("Tree") as TextureRect
 @onready var _hit_area: Button = $HitArea
 @onready var _action_sfx: AudioStreamPlayer = $ActionSFX
 @onready var _trigger_sfx: AudioStreamPlayer = get_node_or_null("TriggerSFX") as AudioStreamPlayer
 
+## 对战分屏时收起树干和待机鸟，避免压住半屏。根节点保持可见，棋盘上的飞入特效才能定位。
+var _stowed := false
 var _idle_step := 0
 var _elapsed := 0.0
 var _finding := false
@@ -70,6 +73,7 @@ func play_find(found_mine: bool) -> void:
 	_elapsed = 0.0
 	_action_sfx.stop()
 	_action_sfx.play()
+	_sprite.visible = not _stowed
 	_sprite.texture = find_frames[0]
 	action_started.emit()
 	await get_tree().create_timer(find_frame_time).timeout
@@ -81,6 +85,7 @@ func play_find(found_mine: bool) -> void:
 	_idle_step = 0
 	_elapsed = 0.0
 	_sprite.texture = idle_frames[0]
+	_sprite.visible = not _stowed
 	action_finished.emit()
 
 
@@ -93,12 +98,13 @@ func play_action() -> void:
 	_elapsed = 0.0
 	_action_sfx.stop()
 	_action_sfx.play()
+	_sprite.visible = not _stowed
 	action_started.emit()
 	for frame_index in range(action_frames.size()):
 		_sprite.texture = action_frames[frame_index]
 		if frame_index == launch_frame_index:
 			action_launched.emit()
-			if hide_sprite_on_launch:
+			if hide_sprite_on_launch or _stowed:
 				_sprite.visible = false
 		var hold := action_last_hold if frame_index == action_frames.size() - 1 else action_frame_time
 		await get_tree().create_timer(hold).timeout
@@ -107,8 +113,29 @@ func play_action() -> void:
 	_elapsed = 0.0
 	if not stay_hidden_after_action:
 		_sprite.texture = idle_frames[0]
-		_sprite.visible = true
+		_sprite.visible = not _stowed
 	action_finished.emit()
+
+
+func set_stowed(stowed: bool) -> void:
+	_stowed = stowed
+	_apply_stow_visuals()
+
+
+func is_stowed() -> bool:
+	return _stowed
+
+
+func _apply_stow_visuals() -> void:
+	if _tree != null:
+		_tree.visible = not _stowed
+	if _hit_area != null:
+		_hit_area.visible = not _stowed
+		_hit_area.disabled = _stowed or not click_enabled
+	if _stowed and not _acting and not _finding:
+		_sprite.visible = false
+	elif not _stowed:
+		_sprite.visible = true
 
 
 func reset_to_idle() -> void:
@@ -117,12 +144,16 @@ func reset_to_idle() -> void:
 	_idle_step = 0
 	_elapsed = 0.0
 	position = _perch_home_position
-	visible = true
 	_sprite.position = _sprite_home_position
 	_sprite.texture = idle_frames[0]
-	_sprite.visible = true
 	_has_exit_position = false
 	_queued_departure_active = false
+	if _stowed:
+		visible = true
+		_apply_stow_visuals()
+		return
+	visible = true
+	_sprite.visible = true
 
 
 func depart_for_queued_action(exit_direction := Vector2.RIGHT, duration: float = 0.24) -> void:
@@ -162,6 +193,12 @@ func get_launch_global_position() -> Vector2:
 
 
 func fly_sprite_offscreen_right(duration: float = 0.34) -> void:
+	if _stowed:
+		_sprite.visible = false
+		_sprite.position = _sprite_home_position
+		if duration > 0.0:
+			await get_tree().create_timer(duration).timeout
+		return
 	var destination_x := get_viewport_rect().size.x + _sprite.size.x
 	var departure := create_tween()
 	departure.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -172,6 +209,12 @@ func fly_sprite_offscreen_right(duration: float = 0.34) -> void:
 
 
 func fly_sprite_offscreen_bottom(duration: float = 0.34) -> void:
+	if _stowed:
+		_sprite.visible = false
+		_sprite.position = _sprite_home_position
+		if duration > 0.0:
+			await get_tree().create_timer(duration).timeout
+		return
 	var destination_y := get_viewport_rect().size.y + _sprite.size.y
 	var departure := create_tween()
 	departure.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -190,6 +233,10 @@ func begin_travel_action(frame_index: int = 0, play_sfx: bool = true) -> void:
 	_elapsed = 0.0
 	if play_sfx:
 		play_action_sfx()
+	if _stowed:
+		# 栖枝已收起：从屏幕外飞入棋盘，不要在外围树位冒出来。
+		var viewport_size := get_viewport_rect().size
+		_sprite.global_position = Vector2(-_sprite.size.x * 1.5, viewport_size.y * 0.22)
 	_sprite.visible = true
 	set_travel_frame(frame_index)
 	action_started.emit()
@@ -222,6 +269,17 @@ func move_travel_sprite_to_global_center(target_center: Vector2, duration: float
 
 
 func finish_travel_action(duration: float = 0.34) -> void:
+	if _stowed:
+		_sprite.visible = false
+		_sprite.position = _sprite_home_position
+		if duration > 0.0:
+			await get_tree().create_timer(duration).timeout
+		_acting = false
+		_idle_step = 0
+		_elapsed = 0.0
+		_sprite.texture = idle_frames[0]
+		action_finished.emit()
+		return
 	var return_trip := create_tween()
 	return_trip.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	return_trip.tween_property(_sprite, "position", _sprite_home_position, duration)
@@ -235,6 +293,9 @@ func finish_travel_action(duration: float = 0.34) -> void:
 
 
 func slide_sprite_offscreen_nearest(duration: float = 0.36) -> void:
+	if _stowed:
+		_apply_stow_visuals()
+		return
 	if _finding or _acting:
 		await action_finished
 	var viewport_size := get_viewport_rect().size
@@ -268,7 +329,7 @@ func slide_sprite_offscreen_nearest(duration: float = 0.36) -> void:
 
 
 func return_sprite_from_last_exit(duration: float = 0.36) -> void:
-	if not _has_exit_position:
+	if _stowed or not _has_exit_position:
 		reset_to_idle()
 		return
 	position = _perch_home_position

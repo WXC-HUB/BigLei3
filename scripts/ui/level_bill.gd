@@ -7,6 +7,7 @@ const ButtonMotion := preload("res://scripts/ui/button_motion.gd")
 @onready var level_label: Label = $Center/Panel/Margin/Stack/Level
 @onready var mine_label: Label = $Center/Panel/Margin/Stack/Mines
 @onready var fish_label: Label = $Center/Panel/Margin/Stack/NightMasterFish
+@onready var combo_label: Label = $Center/Panel/Margin/Stack/ComboBonus
 @onready var total_label: Label = $Center/Panel/Margin/Stack/Total
 @onready var continue_button: Button = $Center/Panel/Margin/Stack/Continue
 
@@ -16,10 +17,18 @@ func _ready() -> void:
 	ButtonMotion.bind(continue_button, continue_button, -1.0)
 
 
-func present(level: int, flagged_mines: int, night_master_fish: int, total_gold: int) -> void:
+func present(
+	level: int,
+	flagged_mines: int,
+	night_master_fish: int,
+	combo_bonus_gold: int,
+	total_gold: int
+) -> void:
 	level_label.text = "第 %d 关账单" % level
 	mine_label.text = "正确标记雷 × %d    +%dG" % [flagged_mines, flagged_mines]
 	fish_label.text = "夜师傅吃掉的鱼 × %d    +%dG" % [night_master_fish, night_master_fish]
+	combo_label.text = "连击奖励    +%dG" % maxi(combo_bonus_gold, 0)
+	combo_label.visible = combo_bonus_gold > 0
 	total_label.text = "当前金币：%dG" % total_gold
 	continue_button.disabled = true
 	visible = true

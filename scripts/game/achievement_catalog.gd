@@ -11,6 +11,10 @@ const HERON_YOROSHIKU := "heron_yoroshiku"
 const REDSTART_AQUEDUCT := "redstart_aqueduct"
 const KESTREL_PIGEON_RAIN := "kestrel_pigeon_rain"
 const KESTREL_STUFFED := "kestrel_stuffed"
+const MAP_HEALTH_CHECK := "map_health_check"
+const MAP_PIGEON_BUFFET := "map_pigeon_buffet"
+const MAP_GET_DAZE := "map_get_daze"
+const MAP_HERON_BREAD := "map_heron_bread"
 
 ## 顺序就是成就页里的排列顺序。
 const ENTRIES: Array[Dictionary] = [
@@ -61,6 +65,30 @@ const ENTRIES: Array[Dictionary] = [
 		"title": "鸽 ？嗝~",
 		"description": "嗝~~~~~~~~~~~~~~~~",
 		"icon": preload("res://my_asset/birds/eg_idle_1.png"),
+	},
+	{
+		"id": MAP_HEALTH_CHECK,
+		"title": "健康检查",
+		"description": "关卡选择界面，啄掉3棵树",
+		"icon": preload("res://my_asset/birds/attacker_zhuo.png"),
+	},
+	{
+		"id": MAP_PIGEON_BUFFET,
+		"title": "美味自助",
+		"description": "关卡选择界面，吃掉3只鸽子",
+		"icon": preload("res://my_asset/birds/pigeons/pigeon_russet.png"),
+	},
+	{
+		"id": MAP_GET_DAZE,
+		"title": "Get Daze！",
+		"description": "关卡选择界面，完成一次成功对焦",
+		"icon": preload("res://my_asset/birds/red_idle_1.png"),
+	},
+	{
+		"id": MAP_HERON_BREAD,
+		"title": "我的了！",
+		"description": "关卡选择界面，被夜鹭吃掉5块面包",
+		"icon": preload("res://my_asset/birds/black_idle_2.png"),
 	},
 ]
 

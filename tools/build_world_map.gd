@@ -1,109 +1,58 @@
 extends SceneTree
-## 一次性布局生成工具 —— 产出 `scenes/world_map.tscn` 的第一版摆位。
+## 六边岛选关图生成器 —— 产出 `scenes/world_map.tscn`。
 ##
 ## 跑法：`godot --headless --script tools/build_world_map.gd`
-##
-## 跑完之后这个 .tscn 就是一份**普通的可手改场景**：在编辑器里拖地格、换装饰、挪关卡
-## 节点都随意，本工具不会再自动跑（除非你想重置整张图）。FEAT-002 共识 3 定的是"布局
-## 手摆在场景里当美术资产"，本工具只负责把 150 个节点的初稿铺出来，免得从空场景开始
-## 一个个拖。
-##
-## 三个地形区靠**不需要定向的地格**拉开差异 —— `hex_grass` 与 `hex_water` 都是六向对
-## 称的，摆下去不用管旋转：
-##   青草区：整片草地            → 内陆
-##   河谷区：草地被一条水带切开  → 河谷
-##   海岸区：中心草地 + 外圈环海  → 孤岛
-## 素材包里的 `tiles/roads` `tiles/rivers` `tiles/coast` 需要按邻接方向定向才能接得上，
-## 那是一套连通性求解，不在本期范围 —— 想要更精致的岸线和道路，在编辑器里手换。
+## 构图以 KayKit 六边格为主，岛浮在卡通水上；植被/水体/光线只用现有资源。
 
 const OUT_PATH := "res://scenes/world_map.tscn"
-const HEX := "res://assets/hexmap/"
+const NATURE := "res://assets/nature/"
+const HEXMAP := "res://assets/hexmap/"
+const HEX_DECO := "res://assets/hexmap/decoration/"
 
-## 地格实测尺寸：X = 2.0、Z = 2.309(=4/√3)、顶面在 y = 0。由此得轴向坐标公式。
-const HEX_STEP_X := 2.0
-const HEX_STEP_Z := 1.7320508
-## 水面压低一点，读起来才是"水在地下面"而不是"另一块地板"。
-const WATER_Y := -0.18
+## KayKit hex_grass：尖顶朝 Z，对边距 2，点距 2.309。
+const HEX_W := 2.0
+const HEX_H := 1.7320508
+const PATH_HALF := 1.35
+const TREE_MIN_GAP := 2.72
 
-const DIRS := [
-	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1),
-	Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1),
-]
-
-## 每个区：中心轴向坐标 + 半径 + 主题。半径 3 是 37 格，再补一圈残缺的第 4 环到 ~50 格。
-const REGION_LAYOUT := [
-	{"id": "grass", "center": Vector2i(0, 0), "radius": 3},
-	{"id": "river", "center": Vector2i(9, -2), "radius": 3},
-	{"id": "coast", "center": Vector2i(18, -3), "radius": 3},
-]
-
-## 每区的地标建筑，按关卡序依次取用。绿色阵营那套，和鸟类主题的暖色调不打架。
-const LANDMARKS := {
-	"grass": [
-		"buildings/green/building_home_A_green.gltf",
-		"buildings/green/building_windmill_green.gltf",
-		"buildings/green/building_well_green.gltf",
-		"buildings/green/building_home_B_green.gltf",
-		"buildings/green/building_church_green.gltf",
-		"buildings/green/building_tower_A_green.gltf",
-	],
-	"river": [
-		"buildings/green/building_watermill_green.gltf",
-		"buildings/neutral/building_bridge_A.gltf",
-		"buildings/green/building_lumbermill_green.gltf",
-		"buildings/neutral/building_bridge_B.gltf",
-		"buildings/green/building_market_green.gltf",
-		"buildings/green/building_tavern_green.gltf",
-	],
-	"coast": [
-		"buildings/green/building_tower_B_green.gltf",
-		"buildings/green/building_barracks_green.gltf",
-		"buildings/green/building_blacksmith_green.gltf",
-		"buildings/green/building_mine_green.gltf",
-		"buildings/green/building_tower_catapult_green.gltf",
-		"buildings/green/building_castle_green.gltf",
-	],
+const STAGE_T := [0.00, 0.20, 0.40, 0.60, 0.80, 1.00]
+const STAGE_IDS := ["grass_1", "grass_2", "grass_3", "river_1", "river_2", "coast_1"]
+## 关卡格上的一点建筑：按关名挑小屋/风车/井/磨坊/市集，不盖城堡。
+const STAGE_BUILDINGS := {
+	"grass_1": {"rel": "buildings/green/building_home_A_green.gltf", "scale": 1.18, "yaw": 0.55},
+	"grass_2": {"rel": "buildings/green/building_windmill_green.gltf", "scale": 0.88, "yaw": -0.35},
+	"grass_3": {"rel": "buildings/green/building_well_green.gltf", "scale": 1.22, "yaw": 0.18},
+	"river_1": {"rel": "buildings/green/building_home_B_green.gltf", "scale": 1.10, "yaw": 0.82},
+	"river_2": {"rel": "buildings/green/building_watermill_green.gltf", "scale": 0.86, "yaw": 0.42},
+	"coast_1": {"rel": "buildings/green/building_market_green.gltf", "scale": 0.76, "yaw": -0.48},
 }
-
-const LAND_DECOR := [
-	"decoration/nature/trees_A_large.gltf",
-	"decoration/nature/trees_A_medium.gltf",
-	"decoration/nature/trees_A_small.gltf",
-	"decoration/nature/trees_B_large.gltf",
-	"decoration/nature/trees_B_medium.gltf",
-	"decoration/nature/trees_B_small.gltf",
-	"decoration/nature/tree_single_A.gltf",
-	"decoration/nature/tree_single_B.gltf",
-	"decoration/nature/rock_single_A.gltf",
-	"decoration/nature/rock_single_C.gltf",
-	"decoration/nature/hill_single_A.gltf",
-	"decoration/nature/hills_A_trees.gltf",
-]
-const WATER_DECOR := [
-	"decoration/nature/waterlily_A.gltf",
-	"decoration/nature/waterlily_B.gltf",
-	"decoration/nature/waterplant_A.gltf",
-	"decoration/nature/waterplant_C.gltf",
-]
 
 var _rng := RandomNumberGenerator.new()
 var _root: Node3D
 var _terrain: Node3D
 var _markers: Node3D
+var _grove: Node3D
+var _path_scene: Node3D
+var _hex_floor: Node3D
 var _cache: Dictionary = {}
-var _tile_count := 0
-var _decor_count := 0
+var _path_samples: PackedVector3Array = PackedVector3Array()
+var _grass_cells: Array[Vector2i] = []
+var _water_cells: Array[Vector2i] = []
+var _tree_count := 0
+var _prop_count := 0
+var _ponds: Array[Dictionary] = []
 
 
 func _init() -> void:
-	# 固定种子：同一份代码永远产出同一张图，便于对照与重跑。
-	_rng.seed = 20260824
+	_rng.seed = 20260830
+	_setup_pond_specs()
 
 	_root = Node3D.new()
 	_root.name = "WorldMap"
 	_root.set_script(load("res://scripts/ui/world_map.gd"))
 
 	_build_environment()
+	_build_sky_dome()
 	_build_light()
 	_build_camera()
 
@@ -115,8 +64,22 @@ func _init() -> void:
 	_markers.name = "StageMarkers"
 	_add(_root, _markers)
 
-	for layout in REGION_LAYOUT:
-		_build_region(layout)
+	var floaters := Node3D.new()
+	floaters.name = "Floaters"
+	_add(_root, floaters)
+
+	_build_ground()
+	_build_hex_floor()
+	_build_dirt_path()
+	_build_stage_pads()
+	_build_ponds()
+	_build_floaters()
+	_build_atmosphere()
+
+	_grove = Node3D.new()
+	_grove.name = "Grove"
+	_add(_terrain, _grove)
+	_plant_forest()
 
 	var packed := PackedScene.new()
 	var err := packed.pack(_root)
@@ -130,252 +93,779 @@ func _init() -> void:
 		quit(1)
 		return
 	print("已生成 %s" % OUT_PATH)
-	print("  地格 %d 块 / 装饰 %d 个 / 关卡节点 %d 个" % [
-		_tile_count, _decor_count, _markers.get_child_count()
+	print("  六边格 %d 块 / 树木 %d 棵 / 点缀 %d 件 / 关卡节点 %d 个" % [
+		_hex_floor.get_child_count() if _hex_floor != null else 0,
+		_tree_count, _prop_count, _markers.get_child_count()
 	])
 	quit()
 
 
-## pack() 只会收 owner 指向根的节点。gltf 实例本身要设 owner（于是被记成 instance=），
-## 它内部的子节点不设（跟着实例走）。
 func _add(parent: Node, child: Node) -> void:
 	parent.add_child(child)
 	child.owner = _root
 
 
-## 背景走一层柔和的天空渐变，而不是一块死平的纯色——视角放平之后画面上半部分全是背景，
-## 纯色会显得空。颜色压在低饱和的暖粉到浅青之间，把地块的绿衬出来又不抢戏。
-func _build_environment() -> void:
-	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color(0.714, 0.780, 0.855)
-	sky_material.sky_horizon_color = Color(0.925, 0.878, 0.855)
-	sky_material.ground_horizon_color = Color(0.902, 0.851, 0.831)
-	sky_material.ground_bottom_color = Color(0.847, 0.792, 0.788)
-	sky_material.sun_angle_max = 1.0
-	sky_material.energy_multiplier = 1.0
-	var sky := Sky.new()
-	sky.sky_material = sky_material
+func _own_descendants(node: Node) -> void:
+	for child in node.get_children():
+		child.owner = _root
+		_own_descendants(child)
 
+
+func _path_at(t: float) -> Vector3:
+	# 俯视时路从左到右蜿蜒，六关横向铺开。
+	var x := -8.6 + 17.4 * t + 0.85 * sin(t * 2.5)
+	var z := 0.15 + 2.25 * sin(t * 2.2)
+	return Vector3(x, 0.0, z)
+
+
+func _build_path_samples() -> void:
+	_path_samples.clear()
+	for i in 56:
+		_path_samples.append(_path_at(float(i) / 55.0))
+
+
+func _dist_to_path(pos: Vector3) -> float:
+	var best := INF
+	for p in _path_samples:
+		best = minf(best, Vector2(pos.x - p.x, pos.z - p.z).length())
+	return best
+
+
+func _near_stage(pos: Vector3, radius: float) -> bool:
+	if _markers != null:
+		for child in _markers.get_children():
+			if not (child is Node3D):
+				continue
+			var pad := (child as Node3D).position
+			if Vector2(pos.x - pad.x, pos.z - pad.z).length() < radius:
+				return true
+		if _markers.get_child_count() > 0:
+			return false
+	for t in STAGE_T:
+		var pad := _path_at(float(t))
+		if Vector2(pos.x - pad.x, pos.z - pad.z).length() < radius:
+			return true
+	return false
+
+
+func _setup_pond_specs() -> void:
+	_ponds.clear()
+
+
+func _in_pond(pos: Vector3, extra := 0.0) -> bool:
+	var limit := HEX_W * 0.56 + extra
+	for cell in _water_cells:
+		var c := _hex_pos(cell.x, cell.y)
+		if Vector2(pos.x - c.x, pos.z - c.z).length() < limit:
+			return true
+	return false
+
+
+func _is_land(col: int, row: int) -> bool:
+	# 铺满第一屏：椭圆盖住俯视镜头下的地面，外圈溶进云雾。
+	var nx := float(col) / 10.5
+	var nz := float(row) / 9.0
+	var wobble := 0.08 * sin(float(col) * 0.7 + float(row) * 0.9)
+	return nx * nx + nz * nz <= 1.08 + wobble
+
+
+func _is_core_land(col: int, row: int) -> bool:
+	# 关卡与乔木仍集中在岛心，避免外圈长成密林。
+	var nx := float(col) / 6.0
+	var nz := float(row) / 4.0
+	var wobble := 0.13 * sin(float(col) * 1.05 + float(row) * 0.8)
+	return nx * nx + nz * nz <= 0.90 + wobble
+
+
+func _is_inland_water(col: int, row: int) -> bool:
+	if not _is_land(col, row):
+		return false
+	# 岛中央一片湖，外围全是草地格。
+	return float(col) * float(col) + float(row) * float(row) <= 4.2
+
+
+func _path_side_dir(t: float) -> Vector3:
+	var p := _path_at(t)
+	var nxt := _path_at(minf(t + 0.03, 1.0))
+	var dir := Vector3(nxt.x - p.x, 0.0, nxt.z - p.z)
+	if dir.length_squared() < 0.0001:
+		return Vector3.RIGHT
+	dir = dir.normalized()
+	return Vector3(-dir.z, 0.0, dir.x)
+
+
+func _build_environment() -> void:
 	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	# 背景用天空渐变，但**环境光走显式颜色**，不取天空。
-	#
-	# 踩过的坑：`AMBIENT_SOURCE_SKY` 的实际强度远不止 `ambient_light_energy` 这个数字——
-	# 它是整个天空半球的辐照度乘以这个系数，还会连带开启天空反射。朝上的地格顶面把这份
-	# 光吃满，而草地图集的原色本来就是黄绿（0.64, 0.66, 0.13，蓝通道极低），再乘上去绿
-	# 通道先削顶、红通道跟上，整片地格就冲成了荧光黄。改成显式颜色后亮度完全可控，冷蓝
-	# 的环境色照样能和暖色主光形成冷暖对比。
+	WorldMap._apply_pond_skybox(env)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.616, 0.678, 0.804)
-	env.ambient_light_energy = 0.15
+	env.ambient_light_color = Color(0.40, 0.50, 0.56)
+	env.ambient_light_energy = 0.10
 	env.ambient_light_sky_contribution = 0.0
-	# 素材是无光照色块风格，镜面反射只会在平坦的六边形顶面上糊一层灰。
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 0.78
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.78, 0.86, 0.94)
+	env.fog_density = 0.0008
+	env.glow_enabled = true
+	env.glow_intensity = 0.08
+	env.glow_bloom = 0.02
 	var holder := WorldEnvironment.new()
 	holder.name = "MapEnv"
 	holder.environment = env
 	_add(_root, holder)
 
 
-## 三点布光。素材是无光照色块图集，真正塑形的是这三盏灯的方向差：
-##   主光  暖白，左上前方斜射，唯一开阴影的一盏——地格之间、树与地面之间的接触阴影
-##         是"这些东西真的立在那儿"的主要证据。
-##   补光  冷蓝，右后方低角度，只有主光的三分之一，负责把背光面从死黑里捞回来并染上天光。
-##   反弹  暖橙，从下方往上打，很弱，模拟地面把阳光弹回物体底部，去掉低模常见的"悬空感"。
+func _build_sky_dome() -> void:
+	var sky_tex := load("res://my_asset/sky.png") as Texture2D
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_texture = sky_tex
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.disable_receive_shadows = true
+	var bed := MeshInstance3D.new()
+	bed.name = "SkyBed"
+	bed.mesh = _flat_quad(96.0)
+	bed.position = Vector3(0.5, 28.0, -40.0)
+	bed.rotation = Vector3(deg_to_rad(90.0), 0.0, 0.0)
+	bed.set_surface_override_material(0, mat)
+	bed.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	bed.extra_cull_margin = 80.0
+	_add(_root, bed)
+
+
 func _build_light() -> void:
 	var key := DirectionalLight3D.new()
 	key.name = "KeyLight"
-	key.rotation = Vector3(deg_to_rad(-46.0), deg_to_rad(-42.0), 0.0)
-	key.light_energy = 0.38
-	key.light_color = Color(1.0, 0.965, 0.906)
+	key.rotation = Vector3(deg_to_rad(-34.0), deg_to_rad(58.0), 0.0)
+	key.light_energy = 0.78
+	key.light_color = Color(0.98, 0.94, 0.86)
 	key.shadow_enabled = true
-	# 卡通风格要的是清晰但不锐利的阴影边——全糊掉就没有接触感，全硬又会有锯齿。
-	key.shadow_blur = 1.6
-	key.directional_shadow_max_distance = 70.0
+	key.shadow_blur = 1.4
+	key.directional_shadow_max_distance = 80.0
 	key.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	# 偏移是把双刃剑：给小了受光面撒摩尔纹，给大了阴影整个被推离物体、树底下干干净净。
-	# 1.6 就属于后者，实测下来 0.5 左右两边都还行。
 	key.shadow_normal_bias = 0.5
-	key.shadow_bias = 0.02
-	# 地图整体约 60 单位宽，把阴影范围收到刚好包住它，同样的阴影贴图分辨率就能换来更
-	# 锐利的边——范围给到 120 时一棵树的投影只占几个像素，糊成一团看不出是什么。
-	key.directional_shadow_split_1 = 0.12
+	key.shadow_bias = 0.04
+	key.light_angular_distance = 2.4
+	key.shadow_opacity = 0.82
 	_add(_root, key)
 
 	var fill := DirectionalLight3D.new()
 	fill.name = "FillLight"
-	fill.rotation = Vector3(deg_to_rad(-18.0), deg_to_rad(138.0), 0.0)
-	fill.light_energy = 0.10
-	fill.light_color = Color(0.729, 0.808, 0.925)
-	fill.shadow_enabled = false
+	fill.rotation = Vector3(deg_to_rad(-16.0), deg_to_rad(-118.0), 0.0)
+	fill.light_energy = 0.06
+	fill.light_color = Color(0.55, 0.68, 0.88)
 	_add(_root, fill)
 
 	var bounce := DirectionalLight3D.new()
 	bounce.name = "BounceLight"
-	bounce.rotation = Vector3(deg_to_rad(62.0), deg_to_rad(28.0), 0.0)
-	bounce.light_energy = 0.045
-	bounce.light_color = Color(0.980, 0.898, 0.796)
-	bounce.shadow_enabled = false
+	bounce.rotation = Vector3(deg_to_rad(58.0), deg_to_rad(20.0), 0.0)
+	bounce.light_energy = 0.03
+	bounce.light_color = Color(0.55, 0.72, 0.42)
 	_add(_root, bounce)
 
 
 func _build_camera() -> void:
 	var camera := Camera3D.new()
 	camera.name = "MapCamera"
-	camera.fov = 60.0
+	camera.fov = 46.0
 	camera.far = 400.0
-	# 具体位置由 world_map.gd 每次 present() 时按 pivot 与视距算，这里只给个初值，
-	# 让场景在编辑器里打开时就能看到东西。
-	camera.position = Vector3(0.0, 12.0, 18.5)
-	camera.rotation = Vector3(deg_to_rad(-33.0), 0.0, 0.0)
+	camera.position = Vector3(0.4, 16.0, 13.0)
+	camera.rotation = Vector3(deg_to_rad(-52.0), 0.0, 0.0)
 	_add(_root, camera)
 
 
-func _build_region(layout: Dictionary) -> void:
-	var region_id := String(layout["id"])
-	var center: Vector2i = layout["center"]
-	var radius := int(layout["radius"])
+func _hex_pos(col: int, row: int) -> Vector3:
+	var x := HEX_W * (float(col) + (0.5 if posmod(row, 2) == 1 else 0.0))
+	var z := HEX_H * float(row)
+	return Vector3(x, 0.0, z)
 
-	var cells: Array[Vector2i] = _blob(center, radius)
-	var marker_cells: Array[Vector2i] = _marker_cells(center)
-	var stages := StageTable.stages_in_region(region_id)
-	var landmarks: Array = LANDMARKS[region_id]
 
-	var group := Node3D.new()
-	group.name = "Region_" + region_id
-	_add(_terrain, group)
+func _hex_neighbors(cell: Vector2i) -> Array[Vector2i]:
+	var col := cell.x
+	var row := cell.y
+	var odd := posmod(row, 2) == 1
+	var dx := 1 if odd else 0
+	return [
+		Vector2i(col + 1, row),
+		Vector2i(col - 1, row),
+		Vector2i(col + dx, row + 1),
+		Vector2i(col + dx - 1, row + 1),
+		Vector2i(col + dx, row - 1),
+		Vector2i(col + dx - 1, row - 1),
+	]
 
-	for cell: Vector2i in cells:
-		var local: Vector2i = cell - center
-		var water := _is_water(region_id, local, center, cell, radius)
-		var is_marker := marker_cells.has(cell)
-		if is_marker:
-			water = false
-		_place_tile(group, cell, water)
-		if is_marker:
-			continue
-		_maybe_decorate(group, cell, water)
 
-	# 关卡节点：只是一个带 stage_id 的空 Node3D，悬浮牌靠它的世界坐标定位。
-	# 地标建筑单独摆在同一格上，属于地形组——手改时可以随便换掉而不影响关卡逻辑。
-	for index in mini(stages.size(), marker_cells.size()):
-		var marker_cell: Vector2i = marker_cells[index]
-		var stage: Dictionary = stages[index]
+func _build_ground() -> void:
+	_build_path_samples()
+	var fill := MeshInstance3D.new()
+	fill.name = "GroundFill"
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(90.0, 90.0)
+	fill.mesh = plane
+	fill.position = Vector3(0.5, -0.62, 0.0)
+	fill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var fill_mat := StandardMaterial3D.new()
+	fill_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fill_mat.albedo_color = Color(0.20, 0.42, 0.16)
+	fill.set_surface_override_material(0, fill_mat)
+	_add(_terrain, fill)
+
+
+func _build_hex_floor() -> void:
+	_hex_floor = Node3D.new()
+	_hex_floor.name = "HexFloor"
+	_add(_terrain, _hex_floor)
+	_grass_cells.clear()
+	_water_cells.clear()
+	var land: Dictionary = {}
+	for row in range(-11, 12):
+		for col in range(-12, 13):
+			if _is_land(col, row) and not _is_inland_water(col, row):
+				land[Vector2i(col, row)] = true
+	for key in land.keys():
+		var cell: Vector2i = key
+		_grass_cells.append(cell)
+		_spawn_hex("tiles/base/hex_grass.gltf", cell, _hex_pos(cell.x, cell.y))
+	for row in range(-11, 12):
+		for col in range(-12, 13):
+			if not _is_inland_water(col, row):
+				continue
+			var cell := Vector2i(col, row)
+			_water_cells.append(cell)
+			_spawn_hex("tiles/base/hex_water.gltf", cell, _hex_pos(cell.x, cell.y) + Vector3(0.0, -0.40, 0.0))
+
+
+func _spawn_hex(rel: String, cell: Vector2i, pos: Vector3) -> Node3D:
+	var scene := _load_asset(rel, HEXMAP)
+	if scene == null:
+		return null
+	var node := scene.instantiate() as Node3D
+	node.name = "hex_%d_%d" % [cell.x, cell.y]
+	node.position = pos
+	node.set_meta("hex_q", cell.x)
+	node.set_meta("hex_r", cell.y)
+	_add(_hex_floor, node)
+	_own_descendants(node)
+	return node
+
+
+func _build_hills() -> void:
+	var hills := Node3D.new()
+	hills.name = "Hills"
+	_add(_terrain, hills)
+	var specs := [
+		{"pos": Vector3(-14.0, -1.3, -8.0), "scale": Vector3(9.0, 3.0, 7.0)},
+		{"pos": Vector3(3.0, -1.5, -12.0), "scale": Vector3(12.0, 4.0, 8.0)},
+		{"pos": Vector3(14.0, -1.2, -6.0), "scale": Vector3(8.0, 2.8, 6.5)},
+		{"pos": Vector3(-16.0, -1.4, 3.0), "scale": Vector3(8.0, 3.0, 6.0)},
+	]
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.22, 0.40, 0.16)
+	mat.roughness = 1.0
+	mat.metallic = 0.0
+	for i in specs.size():
+		var spec: Dictionary = specs[i]
+		var ball := MeshInstance3D.new()
+		ball.name = "Hill_%d" % i
+		var mesh := SphereMesh.new()
+		mesh.radius = 1.0
+		mesh.height = 2.0
+		mesh.radial_segments = 12
+		mesh.rings = 8
+		ball.mesh = mesh
+		ball.position = spec["pos"]
+		ball.scale = spec["scale"]
+		ball.set_surface_override_material(0, mat)
+		_add(hills, ball)
+
+
+func _build_dirt_path() -> void:
+	_path_scene = Node3D.new()
+	_path_scene.name = "PathScene"
+	_add(_terrain, _path_scene)
+
+
+func _build_stage_pads() -> void:
+	var pool: Array[Vector2i] = []
+	for cell in _grass_cells:
+		if absf(_hex_pos(cell.x, cell.y).z) < 4.4:
+			pool.append(cell)
+	if pool.size() < 6:
+		pool = _grass_cells.duplicate()
+	var used: Array[Vector2i] = []
+	for i in STAGE_IDS.size():
+		var target_x := -8.2 + 16.4 * float(i) / 5.0
+		var best := Vector2i(0, 0)
+		var best_d := INF
+		for cell in pool:
+			if used.has(cell):
+				continue
+			var p := _hex_pos(cell.x, cell.y)
+			var blocked := false
+			for other in used:
+				var q := _hex_pos(other.x, other.y)
+				if Vector2(p.x - q.x, p.z - q.z).length() < 3.2:
+					blocked = true
+					break
+			if blocked:
+				continue
+			var d := absf(p.x - target_x) + absf(p.z) * 0.4
+			if d < best_d:
+				best_d = d
+				best = cell
+		assert(best_d < 12.0, "关卡 %s 找不到可落的六边格" % String(STAGE_IDS[i]))
+		used.append(best)
+		var pos := _hex_pos(best.x, best.y)
+		var tile := _hex_floor.get_node_or_null("hex_%d_%d" % [best.x, best.y]) as Node3D
+		if tile != null:
+			tile.name = "pad_%s" % String(STAGE_IDS[i])
+			_place_stage_building(tile, String(STAGE_IDS[i]))
 		var marker := Node3D.new()
-		marker.name = String(stage["id"])
-		marker.position = _axial_to_world(marker_cell)
-		marker.set_meta("stage_id", String(stage["id"]))
+		marker.name = String(STAGE_IDS[i])
+		marker.position = pos
+		marker.set_meta("stage_id", String(STAGE_IDS[i]))
 		_add(_markers, marker)
-		if index < landmarks.size():
-			_place_model(group, landmarks[index], marker_cell, 0.0, 1.0, _snap_yaw(index))
 
 
-## 半径内的全部格子，外加一圈残缺的第 4 环——正六边形轮廓太规整，缺几块才像块陆地。
-func _blob(center: Vector2i, radius: int) -> Array[Vector2i]:
-	var out: Array[Vector2i] = []
-	for dq in range(-radius - 1, radius + 2):
-		for dr in range(-radius - 1, radius + 2):
-			var cell := center + Vector2i(dq, dr)
-			var dist := _hex_distance(center, cell)
-			if dist <= radius:
-				out.append(cell)
-			elif dist == radius + 1 and _rng.randf() < 0.42:
-				out.append(cell)
-	return out
-
-
-## 6 个关卡落在第 2 环的六个"角"上，彼此隔得最开。
-func _marker_cells(center: Vector2i) -> Array[Vector2i]:
-	var out: Array[Vector2i] = []
-	for dir in DIRS:
-		out.append(center + dir * 2)
-	return out
-
-
-## 水的分布决定了三个区的轮廓：
-##   grass 全陆；river 在 r_local == 1 切一条水带（正好绕开 6 个关卡格）；
-##   coast 中心 2 环是陆、再往外全是海。
-func _is_water(
-	region_id: String, local: Vector2i, center: Vector2i, cell: Vector2i, radius: int
-) -> bool:
-	match region_id:
-		"river":
-			return local.y == 1
-		"coast":
-			return _hex_distance(center, cell) > radius - 1
-		_:
-			return false
-
-
-func _maybe_decorate(group: Node3D, cell: Vector2i, water: bool) -> void:
-	var pool: Array = WATER_DECOR if water else LAND_DECOR
-	var chance := 0.55 if water else 0.62
-	if _rng.randf() > chance:
+func _place_stage_building(tile: Node3D, stage_id: String) -> void:
+	if not STAGE_BUILDINGS.has(stage_id):
 		return
-	var model: String = pool[_rng.randi_range(0, pool.size() - 1)]
-	# 装饰在格子里随机偏一点，别每个都钉在正中心。
-	var jitter := Vector3(_rng.randf_range(-0.35, 0.35), 0.0, _rng.randf_range(-0.35, 0.35))
-	var y := WATER_Y if water else 0.0
-	_place_model(
-		group, model, cell, y, _rng.randf_range(0.85, 1.12),
-		_rng.randf_range(0.0, TAU), jitter
-	)
-	_decor_count += 1
+	var spec: Dictionary = STAGE_BUILDINGS[stage_id]
+	var scene := _load_asset(String(spec["rel"]), HEXMAP)
+	if scene == null:
+		return
+	var node := scene.instantiate() as Node3D
+	node.name = "building_%s" % stage_id
+	# 略往后坐，牌子仍对准格心，建筑当背景。
+	node.position = Vector3(0.06, 0.0, -0.34)
+	node.rotation = Vector3(0.0, float(spec["yaw"]), 0.0)
+	node.scale = Vector3.ONE * float(spec["scale"])
+	node.set_meta("stage_building", true)
+	_add(tile, node)
+	_own_descendants(node)
 
 
-func _place_tile(group: Node3D, cell: Vector2i, water: bool) -> void:
-	var model := "tiles/base/hex_water.gltf" if water else "tiles/base/hex_grass.gltf"
-	# 六向对称，旋转只为打散贴图上的细微重复感，不影响接缝。
-	_place_model(group, model, cell, WATER_Y if water else 0.0, 1.0, _snap_yaw(_rng.randi()))
-	_tile_count += 1
+func _build_ponds() -> void:
+	var host := Node3D.new()
+	host.name = "Ponds"
+	_add(_root, host)
+	var i := 0
+	for cell in _water_cells:
+		var water := MeshInstance3D.new()
+		water.name = "Pond_%d" % i
+		water.mesh = _hex_disc_mesh(0.96)
+		water.position = _hex_pos(cell.x, cell.y) + Vector3(0.0, -0.02, 0.0)
+		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_add(host, water)
+		i += 1
+
+
+func _build_floaters() -> void:
+	var host := _root.get_node("Floaters") as Node3D
+	var lilies: Array[String] = [
+		"nature/waterlily_A.gltf", "nature/waterlily_B.gltf",
+		"nature/waterplant_A.gltf", "nature/waterplant_B.gltf",
+	]
+	var n := 0
+	for cell in _water_cells:
+		var c := _hex_pos(cell.x, cell.y)
+		for j in 2:
+			var a := _rng.randf() * TAU
+			var k := _rng.randf_range(0.12, 0.38)
+			var pos := c + Vector3(cos(a) * k, 0.05, sin(a) * k)
+			_place_model(
+				host, lilies[(n + j) % lilies.size()],
+				pos, _rng.randf_range(0.48, 0.68), _rng.randf() * TAU, HEX_DECO
+			)
+			_prop_count += 1
+		n += 1
+
+
+func _ellipse_mesh(rx: float, rz: float, y: float, segs: int, noise: float) -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+	verts.append(Vector3(0.0, y, 0.0))
+	normals.append(Vector3.UP)
+	uvs.append(Vector2(0.5, 0.5))
+	for i in segs:
+		var a := TAU * float(i) / float(segs)
+		var wobble := 1.0 + 0.10 * sin(a * 3.0 + noise) + 0.06 * sin(a * 5.0 - noise)
+		var x := cos(a) * rx * wobble
+		var z := sin(a) * rz * wobble
+		verts.append(Vector3(x, y, z))
+		normals.append(Vector3.UP)
+		uvs.append(Vector2(x / (rx * 2.0) + 0.5, z / (rz * 2.0) + 0.5))
+	for i in segs:
+		var i1 := i + 1
+		var i2 := 1 if i == segs - 1 else i + 2
+		indices.append_array([0, i1, i2])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+func _hex_disc_mesh(flat_r: float) -> ArrayMesh:
+	var vert_r := flat_r / cos(PI / 6.0)
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+	verts.append(Vector3.ZERO)
+	normals.append(Vector3.UP)
+	uvs.append(Vector2(0.5, 0.5))
+	for i in 6:
+		var a := -PI * 0.5 + float(i) * PI / 3.0
+		var x := cos(a) * vert_r
+		var z := sin(a) * vert_r
+		verts.append(Vector3(x, 0.0, z))
+		normals.append(Vector3.UP)
+		uvs.append(Vector2(x / (vert_r * 2.0) + 0.5, z / (vert_r * 2.0) + 0.5))
+	for i in 6:
+		indices.append_array([0, i + 1, 1 if i == 5 else i + 2])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+func _annulus_mesh(inner_r: float, outer_r: float, segs: int) -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+	for i in segs:
+		var a := TAU * float(i) / float(segs)
+		var ca := cos(a)
+		var sa := sin(a)
+		verts.append(Vector3(ca * inner_r, 0.0, sa * inner_r * 0.78))
+		verts.append(Vector3(ca * outer_r, 0.0, sa * outer_r * 0.78))
+		normals.append(Vector3.UP)
+		normals.append(Vector3.UP)
+		uvs.append(Vector2(0.0, float(i) / float(segs)))
+		uvs.append(Vector2(1.0, float(i) / float(segs)))
+	for i in segs:
+		var i0 := i * 2
+		var i1 := i0 + 1
+		var i2 := 0 if i == segs - 1 else i0 + 2
+		var i3 := 1 if i == segs - 1 else i0 + 3
+		indices.append_array([i0, i1, i3, i0, i3, i2])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+func _build_atmosphere() -> void:
+	var fx := Node3D.new()
+	fx.name = "Atmosphere"
+	_add(_terrain, fx)
+	var ray_mat := StandardMaterial3D.new()
+	ray_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ray_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ray_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	ray_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	ray_mat.albedo_color = Color(1.0, 0.93, 0.68, 0.10)
+	ray_mat.disable_receive_shadows = true
+	for i in 6:
+		var p := _hex_pos(-3 + i, -1)
+		var quad := QuadMesh.new()
+		quad.size = Vector2(0.7 + float(i % 3) * 0.18, 11.0)
+		var mi := MeshInstance3D.new()
+		mi.name = "GodRay_%d" % i
+		mi.mesh = quad
+		mi.position = p + Vector3(0.4, 6.0, -0.8)
+		mi.rotation = Vector3(deg_to_rad(22.0), deg_to_rad(48.0), deg_to_rad(10.0))
+		mi.set_surface_override_material(0, ray_mat)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_add(fx, mi)
+	var cloud_mat := StandardMaterial3D.new()
+	cloud_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cloud_mat.albedo_color = Color(0.96, 0.98, 1.0)
+	cloud_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	cloud_mat.albedo_color.a = 0.92
+	for i in 10:
+		var a := TAU * float(i) / 10.0 + 0.2
+		var r := 20.4 + float(i % 3) * 0.8
+		var pos := Vector3(cos(a) * r, 1.35 + float(i % 4) * 0.55, sin(a) * r * 0.72)
+		var rel := "nature/cloud_big.gltf" if i % 2 == 0 else "nature/cloud_small.gltf"
+		var scene := _load_asset(rel, HEX_DECO)
+		if scene == null:
+			continue
+		var node := scene.instantiate() as Node3D
+		node.name = "Cloud_%d" % i
+		node.position = pos
+		node.rotation.y = a + 0.4
+		node.scale = Vector3.ONE * (2.4 if i % 2 == 0 else 1.8)
+		_add(fx, node)
+		_own_descendants(node)
+		_paint_unshaded(node, cloud_mat)
+
+
+func _paint_unshaded(node: Node, mat: Material) -> void:
+	var mesh_node := node as MeshInstance3D
+	if mesh_node != null:
+		mesh_node.set_surface_override_material(0, mat)
+		mesh_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for child in node.get_children():
+		_paint_unshaded(child, mat)
+
+
+func _plant_forest() -> void:
+	var pines: Array[String] = ["Pine_1.gltf", "Pine_2.gltf", "Pine_3.gltf", "Pine_4.gltf", "Pine_5.gltf"]
+	var commons: Array[String] = [
+		"CommonTree_1.gltf", "CommonTree_2.gltf", "CommonTree_3.gltf",
+		"CommonTree_4.gltf", "CommonTree_5.gltf",
+	]
+	var grasses: Array[String] = [
+		"Grass_Common_Short.gltf", "Grass_Common_Tall.gltf",
+		"Grass_Wispy_Short.gltf", "Grass_Wispy_Tall.gltf",
+	]
+	var cover: Array[String] = [
+		"Fern_1.gltf", "Plant_1.gltf", "Plant_1_Big.gltf",
+		"Flower_3_Group.gltf", "Flower_4_Group.gltf",
+		"Clover_1.gltf", "Clover_2.gltf",
+	]
+	var bushes: Array[String] = ["Bush_Common.gltf", "Bush_Common_Flowers.gltf"]
+	var rocks: Array[String] = ["Rock_Medium_1.gltf", "Rock_Medium_2.gltf", "Rock_Medium_3.gltf"]
+	var occupied: Array[Dictionary] = []
+	var tree_i := 0
+	for cell in _grass_cells:
+		if not _is_core_land(cell.x, cell.y):
+			continue
+		var pos := _hex_pos(cell.x, cell.y)
+		if _near_stage(pos, 1.55) or pos.z > 3.4:
+			continue
+		var rim := _is_rim_cell(cell)
+		var chance := 0.72 if rim else 0.18
+		if _rng.randf() > chance:
+			continue
+		var use_pine := _rng.randf() < 0.7
+		var path := pines[tree_i % pines.size()] if use_pine else commons[tree_i % commons.size()]
+		_plant_tree(path, pos, _rng.randf_range(0.42, 0.56), _rng.randf() * TAU, 1.08, occupied)
+		tree_i += 1
+	if _tree_count < 10:
+		for cell in _grass_cells:
+			if _tree_count >= 12:
+				break
+			if not _is_core_land(cell.x, cell.y):
+				continue
+			var pos := _hex_pos(cell.x, cell.y)
+			if _near_stage(pos, 1.55) or pos.z > 3.4:
+				continue
+			_plant_tree(pines[_tree_count % pines.size()], pos, 0.48, 0.2, 1.08, occupied, true)
+
+	for cell in _grass_cells:
+		var pos := _hex_pos(cell.x, cell.y)
+		if _near_stage(pos, 1.35):
+			continue
+		var core := _is_core_land(cell.x, cell.y)
+		if core and _rng.randf() < 0.16:
+			_place_model(
+				_grove, bushes[_rng.randi() % bushes.size()], pos,
+				_rng.randf_range(0.40, 0.55), _rng.randf() * TAU
+			)
+			_prop_count += 1
+		if core and _rng.randf() < 0.12:
+			_place_model(
+				_grove, rocks[_rng.randi() % rocks.size()], pos,
+				_rng.randf_range(0.18, 0.32), _rng.randf() * TAU
+			)
+			_prop_count += 1
+		_place_model(
+			_grove, grasses[_rng.randi() % grasses.size()],
+			pos + Vector3(_rng.randf_range(-0.28, 0.28), 0.0, _rng.randf_range(-0.28, 0.28)),
+			_rng.randf_range(0.46, 0.66), _rng.randf() * TAU
+		)
+		_prop_count += 1
+		if _rng.randf() < (0.28 if core else 0.16):
+			_place_model(
+				_grove, cover[_rng.randi() % cover.size()],
+				pos + Vector3(_rng.randf_range(-0.3, 0.3), 0.0, _rng.randf_range(-0.3, 0.3)),
+				_rng.randf_range(0.38, 0.56), _rng.randf() * TAU
+			)
+			_prop_count += 1
+		if core and _rng.randf() < 0.08:
+			_place_model(
+				_grove, "Mushroom_Common.gltf" if _rng.randf() < 0.6 else "Mushroom_Laetiporus.gltf",
+				pos, _rng.randf_range(0.22, 0.38), _rng.randf() * TAU
+			)
+			_prop_count += 1
+
+
+
+func _plant_tree(
+	path: String, pos: Vector3, scale_factor: float, yaw: float, radius: float,
+	occupied: Array[Dictionary], force := false
+) -> void:
+	if not force and _blocks_stage_view(pos):
+		return
+	if not _gap_free(occupied, pos, radius):
+		return
+	_place_model(_grove, path, pos, scale_factor, yaw)
+	occupied.append({"pos": pos, "radius": radius})
+	_tree_count += 1
+
+
+func _blocks_stage_view(pos: Vector3) -> bool:
+	if _in_pond(pos, 0.2):
+		return true
+	if pos.z > 4.8 and absf(pos.x) < 8.0:
+		return true
+	return _near_stage(pos, 2.4)
+
+
+func _is_rim_cell(cell: Vector2i) -> bool:
+	for n in _hex_neighbors(cell):
+		if _water_cells.has(n):
+			return true
+		if _is_core_land(cell.x, cell.y) and not _is_core_land(n.x, n.y):
+			return true
+	return false
+
+
+func _occludes_pond(pos: Vector3) -> bool:
+	for spec in _ponds:
+		var c: Vector3 = spec["pos"]
+		var rx: float = float(spec["rx"]) + 2.4
+		var rz: float = float(spec["rz"]) + 3.2
+		var dx := pos.x - c.x
+		var dz := pos.z - c.z
+		if absf(dx) < rx and dz > 0.0 and dz < rz:
+			return true
+	return false
+
+
+func _path_z_at_x(x: float) -> float:
+	var best_z := 0.8
+	var best_dx := INF
+	for p in _path_samples:
+		var dx := absf(p.x - x)
+		if dx < best_dx:
+			best_dx = dx
+			best_z = p.z
+	return best_z
+
+
+func _gap_free(occupied: Array[Dictionary], pos: Vector3, radius: float) -> bool:
+	for item in occupied:
+		var other: Vector3 = item["pos"]
+		var need := maxf(radius + float(item["radius"]) + 0.18, TREE_MIN_GAP)
+		if Vector2(pos.x - other.x, pos.z - other.z).length() < need:
+			return false
+	return true
+
+
+func _ribbon_mesh(points: PackedVector3Array, width: float, y: float, _color: Color) -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+	var half := width * 0.5
+	var u := 0.0
+	for i in points.size():
+		var p: Vector3 = points[i]
+		var dir := Vector3(0.0, 0.0, -1.0)
+		if i < points.size() - 1:
+			dir = points[i + 1] - p
+		elif i > 0:
+			dir = p - points[i - 1]
+		dir.y = 0.0
+		if dir.length_squared() < 0.0001:
+			dir = Vector3(0.0, 0.0, -1.0)
+		dir = dir.normalized()
+		var side := Vector3(-dir.z, 0.0, dir.x) * half
+		var left := Vector3(p.x, y, p.z) - side
+		var right := Vector3(p.x, y, p.z) + side
+		verts.append(left)
+		verts.append(right)
+		normals.append(Vector3.UP)
+		normals.append(Vector3.UP)
+		uvs.append(Vector2(0.0, u))
+		uvs.append(Vector2(1.0, u))
+		if i > 0:
+			u += 0.18
+			var i0 := (i - 1) * 2
+			indices.append_array([i0, i0 + 1, i0 + 3, i0, i0 + 3, i0 + 2])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+func _flat_quad(size: float) -> ArrayMesh:
+	var h := size * 0.5
+	var verts := PackedVector3Array([
+		Vector3(-h, 0.0, -h), Vector3(h, 0.0, -h), Vector3(h, 0.0, h), Vector3(-h, 0.0, h)
+	])
+	var normals := PackedVector3Array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
+	var uvs := PackedVector2Array([Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)])
+	var indices := PackedInt32Array([0, 1, 2, 0, 2, 3])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 
 func _place_model(
-	group: Node3D,
-	relative_path: String,
-	cell: Vector2i,
-	y: float,
-	scale_factor: float,
-	yaw: float,
-	jitter := Vector3.ZERO
+	group: Node3D, relative_path: String, pos: Vector3, scale_factor: float, yaw: float,
+	base := NATURE
 ) -> void:
-	var scene: PackedScene = _load_model(relative_path)
+	var scene: PackedScene = _load_asset(relative_path, base)
 	if scene == null:
 		return
 	var node := scene.instantiate()
-	node.name = "%s_%d_%d" % [relative_path.get_file().get_basename(), cell.x, cell.y]
-	node.position = _axial_to_world(cell) + Vector3(0.0, y, 0.0) + jitter
+	node.name = "%s_%d" % [relative_path.get_file().get_basename(), group.get_child_count()]
+	node.position = pos
 	node.rotation = Vector3(0.0, yaw, 0.0)
-	if not is_equal_approx(scale_factor, 1.0):
-		node.scale = Vector3.ONE * scale_factor
+	node.scale = Vector3.ONE * scale_factor
+	var stem := relative_path.get_file().get_basename()
+	var is_rock := stem.begins_with("Rock") or stem.begins_with("Pebble")
+	if not is_rock:
+		node.set_meta("flora", true)
+		var is_tree := (
+			stem.begins_with("Pine") or stem.begins_with("CommonTree")
+			or stem.begins_with("TwistedTree") or stem.begins_with("DeadTree")
+		)
+		node.set_meta("flora_tree", is_tree)
 	_add(group, node)
+	_own_descendants(node)
 
 
-func _load_model(relative_path: String) -> PackedScene:
-	if _cache.has(relative_path):
-		return _cache[relative_path]
-	var scene := load(HEX + relative_path) as PackedScene
+func _load_asset(relative_path: String, base := NATURE) -> PackedScene:
+	var key := base + relative_path
+	if _cache.has(key):
+		return _cache[key]
+	var scene := load(key) as PackedScene
 	if scene == null:
-		printerr("素材缺失: ", HEX + relative_path)
-	_cache[relative_path] = scene
+		printerr("素材缺失: ", key)
+	_cache[key] = scene
 	return scene
-
-
-## 六边形只在 60° 的整数倍上自洽，别的角度会露接缝。
-func _snap_yaw(step: int) -> float:
-	return float(step % 6) * TAU / 6.0
-
-
-func _axial_to_world(cell: Vector2i) -> Vector3:
-	return Vector3(
-		HEX_STEP_X * (float(cell.x) + float(cell.y) * 0.5),
-		0.0,
-		HEX_STEP_Z * float(cell.y)
-	)
-
-
-func _hex_distance(a: Vector2i, b: Vector2i) -> int:
-	var dq := a.x - b.x
-	var dr := a.y - b.y
-	return int((absi(dq) + absi(dq + dr) + absi(dr)) / 2.0)

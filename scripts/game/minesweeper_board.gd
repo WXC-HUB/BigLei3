@@ -31,6 +31,8 @@ var mines_placed := false
 var game_over := false
 var won := false
 var seed: int
+## 可玩格数量（掩码里为 1 的格子）。满矩形时等于 width * height。
+var active_cell_count: int
 
 var _mines := PackedByteArray()
 var _monster_cores := PackedByteArray()
@@ -40,6 +42,7 @@ var _states := PackedByteArray()
 var _adjacent := PackedByteArray()
 var _items := PackedByteArray()
 var _items_used := PackedByteArray()
+var _active := PackedByteArray()
 var _revealed_safe_cells := 0
 var _monster_peripheral_counts: Dictionary = {}
 ## 新被标出的雷，按标记发生的顺序排队。标雷的入口太多（手动右键、红尾水鸲、探测、
@@ -67,11 +70,11 @@ func _init(
 	xrays: int = 0,
 	chains: int = 0,
 	enlarges: int = 0,
-	detects: int = 0
+	detects: int = 0,
+	active_mask: PackedByteArray = PackedByteArray()
 ) -> void:
 	width = board_width
 	height = board_height
-	mine_count = clampi(mines, 1, width * height - 1)
 	lantern_count = maxi(lanterns, 0)
 	compass_count = maxi(compasses, 0)
 	orbital_strike_count = maxi(orbital_strikes, 0)
@@ -91,6 +94,7 @@ func _init(
 	_adjacent.resize(width * height)
 	_items.resize(width * height)
 	_items_used.resize(width * height)
+	_active.resize(width * height)
 	_mines.fill(0)
 	_monster_cores.fill(0)
 	_monster_peripherals.fill(0)
@@ -99,6 +103,17 @@ func _init(
 	_adjacent.fill(0)
 	_items.fill(ItemType.NONE)
 	_items_used.fill(0)
+	if active_mask.is_empty():
+		_active.fill(1)
+		active_cell_count = width * height
+	else:
+		assert(active_mask.size() == width * height, "active_mask 尺寸必须等于 width*height")
+		_active = active_mask.duplicate()
+		active_cell_count = 0
+		for bit in _active:
+			if bit == 1:
+				active_cell_count += 1
+	mine_count = clampi(mines, 1, maxi(active_cell_count - 1, 1))
 
 
 func reveal(index: int) -> PackedInt32Array:
@@ -240,6 +255,49 @@ func item_count(type: ItemType) -> int:
 	return total
 
 
+## 本关配置给该类型的数量（布雷前）或盘上实际张数（布雷后，含已翻开）。
+func total_item_count_of(type: ItemType) -> int:
+	if not mines_placed:
+		return configured_item_count(type)
+	return item_count(type)
+
+
+## 该类型尚未翻开的张数。
+func hidden_item_count_of(type: ItemType) -> int:
+	if type == ItemType.NONE:
+		return 0
+	if not mines_placed:
+		return configured_item_count(type)
+	var total := 0
+	for index in range(_items.size()):
+		if _items[index] == type and state_at(index) != CellState.REVEALED:
+			total += 1
+	return total
+
+
+func configured_item_count(type: ItemType) -> int:
+	match type:
+		ItemType.LANTERN:
+			return lantern_count
+		ItemType.COMPASS:
+			return compass_count
+		ItemType.ORBITAL_STRIKE:
+			return orbital_strike_count
+		ItemType.SUPER_LUCK:
+			return super_luck_count
+		ItemType.MEDICAL_KIT:
+			return medical_kit_count
+		ItemType.XRAY:
+			return xray_count
+		ItemType.CHAIN:
+			return chain_count
+		ItemType.ENLARGE:
+			return enlarge_count
+		ItemType.DETECT:
+			return detect_count
+	return 0
+
+
 ## How many item cards this level holds in total. Items only get scattered on the
 ## first reveal, so before that the configured budget is the honest answer — the
 ## board may still trim it if the level is too small to fit every card.
@@ -323,6 +381,8 @@ func apply_orbital_strike(center_index: int) -> Dictionary:
 	var row: int = center_index / width
 	for column in range(width):
 		var target := row * width + column
+		if not is_active(target):
+			continue
 		var result := apply_orbital_strike_cell(target)
 		revealed.append_array(result["revealed"])
 		flagged.append_array(result["flagged"])
@@ -465,8 +525,12 @@ func flag_count() -> int:
 	return total
 
 
+func is_active(index: int) -> bool:
+	return index >= 0 and index < _active.size() and _active[index] == 1
+
+
 func all_safe_cells_revealed() -> bool:
-	return _revealed_safe_cells == width * height - mine_count
+	return _revealed_safe_cells == active_cell_count - mine_count
 
 
 func all_mines_triggered_or_flagged() -> bool:
@@ -525,6 +589,8 @@ func inference_at(index: int) -> Dictionary:
 
 func neighbors_of(index: int) -> PackedInt32Array:
 	var result := PackedInt32Array()
+	if not is_active(index):
+		return result
 	var x := index % width
 	var y := index / width
 	for offset_y in range(-1, 2):
@@ -534,7 +600,9 @@ func neighbors_of(index: int) -> PackedInt32Array:
 			var neighbor_x := x + offset_x
 			var neighbor_y := y + offset_y
 			if neighbor_x >= 0 and neighbor_x < width and neighbor_y >= 0 and neighbor_y < height:
-				result.append(neighbor_y * width + neighbor_x)
+				var neighbor := neighbor_y * width + neighbor_x
+				if is_active(neighbor):
+					result.append(neighbor)
 	return result
 
 
@@ -542,12 +610,12 @@ func _place_mines(first_index: int) -> void:
 	var forbidden: Dictionary = {first_index: true}
 	# A full 3x3 first-click safe zone would consume the entire opening board.
 	# On the tutorial-sized first level only the clicked card is guaranteed safe.
-	if width > 3 or height > 3:
+	if active_cell_count > 9:
 		for neighbor in neighbors_of(first_index):
 			forbidden[neighbor] = true
 	var candidates: Array[int] = []
 	for index in range(width * height):
-		if not forbidden.has(index):
+		if is_active(index) and not forbidden.has(index):
 			candidates.append(index)
 	for index in range(candidates.size() - 1, 0, -1):
 		var swap_index := _rng.randi_range(0, index)
@@ -568,6 +636,9 @@ func _place_mines(first_index: int) -> void:
 	mine_count = placed_cores
 
 	for index in range(width * height):
+		if not is_active(index):
+			_adjacent[index] = 0
+			continue
 		# Hazard cells count themselves as well as their eight neighbors.
 		var count := 1 if has_mine(index) else 0
 		for neighbor in neighbors_of(index):
@@ -599,7 +670,7 @@ func _place_items(first_index: int) -> void:
 		forbidden[neighbor] = true
 	var candidates: Array[int] = []
 	for index in range(width * height):
-		if not has_mine(index) and not forbidden.has(index):
+		if is_active(index) and not has_mine(index) and not forbidden.has(index):
 			candidates.append(index)
 	for index in range(candidates.size() - 1, 0, -1):
 		var swap_index := _rng.randi_range(0, index)
@@ -637,4 +708,4 @@ func _place_items(first_index: int) -> void:
 
 
 func _is_valid(index: int) -> bool:
-	return index >= 0 and index < width * height
+	return is_active(index)

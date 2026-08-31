@@ -348,7 +348,72 @@ PVP 对局**不写存档**；单机存档结构保持 `GameSave.VERSION = 1` 不
 
 > 由 `/wxc-mini:verify FEAT-001` 填（Goal-Backward 证据 + 多维 review）。非必跑；规模大/风险高建议必跑，纯占位类可注明免验收。
 
-(待填)
+**结论：❌ 不通过**（2026-08-28 · Godot 4.7.2）
+
+用户体感「流程不通、Bug 很多」成立。自动化 happy path 在**桌面同机双实例**能绿，但对照 Spec 验收标准 + `PROJECT_CONSTRAINTS`（Web 首发），产品级联机流程**不可交付**。
+
+### Goal-Backward（从验收标准倒推）
+
+| # | 验收标准 | 证据 | 判定 |
+|---|---|---|---|
+| 1 | 双端连上、HUD「已连接」 | `test_duel_protocol` / `test_duel_integration` 桌面 PASS | ✅ 桌面同机 |
+| 2 | 棋盘逐格一致 + 开局格翻开 | `test_duel_board_parity` + integration | ✅ |
+| 3–4 | 标雷互伤 / 标雷 +1 金对面可见 | session_flow + integration | ✅ |
+| 5 | PVE 伤害不外溢 | integration `_check_pve_damage_stays_local` | ✅ |
+| 6 | 清盘立即冻结 | session_flow + integration | ✅（单帧竞态见下） |
+| 7–8 | 大全商店 / 购买公开 | integration + session_flow | ✅ 第一轮商店弹出有测 |
+| 9 | ready / 30s 开下一轮 | **仅** session 层有测；main UI → 第二轮**无端到端** | ⚠️ 半覆盖 |
+| 10 | 棋盘按曲线变大且仍一致 | session_flow 测种子；main 第二轮 UI 未测 | ⚠️ |
+| 11 | 血量归零分胜负 | session 有；main 终局 UI 被断线竞态污染 | ❌ |
+| 12 | 断线提示可回菜单 | close() 有测；大厅卡住 / 终局误报**无测** | ❌ |
+| 13 | 单机不受影响 | integration 教程 2×1 + 三选一商店 | ✅ |
+| 14 | headless duel 测试全绿 | protocol / board_parity / session_flow / integration / split_layout 均 PASS | ✅ 测例本身 |
+
+### 阻塞级缺陷（解释「流程不通」）
+
+1. **Web 导出无法「创建对战」**  
+   首发目标是浏览器（`PROJECT_CONSTRAINTS` / `export_presets.cfg` preset.0 = Web），但 `DuelClient.host()` 调 `WebSocketMultiplayerPeer.create_server()`——浏览器不能监听端口。`_on_duel_host_requested` 失败时裸 `return`，无提示。  
+   → Web 上点「创建对战」等于死按钮；双标签页互连也不成立。现有测试全是桌面 `127.0.0.1`，完全盖不住。
+
+2. **大厅无取消 / 无超时 → 永久卡死**  
+   `_enter_duel_lobby` 销毁标题页 + `set_frozen(true)`（冻结层 `MOUSE_FILTER_STOP`）。无人加入、或 Join 时对面未开房（`create_client` 异步失败），玩家无法回主菜单。这是最容易被感知成「流程不通」的路径。
+
+3. **Host 失败静默**  
+   端口 8910 被占时 `host_duel() != OK` 直接 return，标题页毫无反馈。
+
+### 严重缺陷（能进但对局坏）
+
+4. **终局 `duel_finished` 与 `link_lost` 竞态**  
+   一方 `leave()` / 回菜单会触发对方 `unlinked` → `_on_duel_link_lost` 把「对战胜利/失败」盖成「对手已断开 — 本局作废」，并可能双协程各调一次 `_return_to_main_menu`。`DuelSession._on_unlinked` 不区分正常终局与中途掉线。
+
+5. **对战中「跳过本关 / 返回」仍可用且只改本机**  
+   `_prepare_duel_run` 把 `_run_number = TUTORIAL_LEVEL_COUNT`，随后 `_start_game` `+= 1` → `_update_regular_skip_visibility` 打开 Skip（**未**判 `_is_duel()`）。Skip 在 CanvasLayer 95，高于对战 HUD 80。确认跳关走 `_start_game()`，不经 `ROUND_START` → 两端盘面立刻分叉。
+
+6. **地址写死 `127.0.0.1`**  
+   Spec 范围是 localhost，但 UI 无地址输入；跨机 / 非本机 Web 「加入」必然卡住（叠加缺陷 2）。
+
+### 中等
+
+7. 清盘包到达前一帧，落后方仍可能多结算标雷（`_tick_duel` 先于 `DuelClient.poll`）。  
+8. Ready → 开第二轮的 main 编排缺端到端测试。  
+9. `_leave_duel` 不复位分屏几何；异常路径可能残留 scale/offset。
+
+### 测试盲区（为何 do-it 勾满仍感觉烂）
+
+- 测的是**桌面同进程双 `main.tscn` + 几乎同时 host/join** 的理想路径。  
+- 不测：Web `create_server`、大厅失败/取消、端口占用、终局断线 UI、跳关拆盘、第二轮商店→ready、同实例对战后回单机。
+
+### 与 FEAT-003
+
+`test_duel_split_layout` PASS（左半盘 / 右半迷雾 / 协议仍 8 类 / 单机布局零回归）。分屏本身不是「联机不通」主因；主因在 Netplay 入口与收尾。
+
+### 建议修复优先级（未实施，仅验收建议）
+
+1. Web：隐藏/禁用 Host，或明确「仅桌面调试」+ 提供中继/匹配 FEAT；至少失败要有可见错误。  
+2. 大厅：取消按钮 + Join 超时回标题。  
+3. 终局：`FINISHED` 后忽略 `link_lost`。  
+4. 对战禁用 skip/return，或 return 走 `_leave_duel`。  
+5. 补测：大厅失败、终局文案、对战禁跳关、第二轮 ready。
 
 ## 结案总结 (Wrap-up)
 

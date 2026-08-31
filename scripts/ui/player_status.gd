@@ -11,7 +11,9 @@ const HEART_TEXTURE := preload("res://my_asset/heart.png")
 var _invincible := false
 var _health := 0
 var _maximum_health := 0
+var _compact_hearts := false
 var _hearts: Array[TextureRect] = []
+var _count_label: Label
 var _head_home := Vector2.ZERO
 var _head_scale := Vector2.ONE
 var _head_flash_tween: Tween
@@ -27,10 +29,26 @@ func _ready() -> void:
 
 func set_health(value: int, maximum: int) -> void:
 	_health = clampi(value, 0, maximum)
-	if _maximum_health != maximum or _hearts.size() != maximum:
+	var need_rebuild := _maximum_health != maximum
+	if _compact_hearts:
+		need_rebuild = need_rebuild or _hearts.size() != 1 or _count_label == null
+	else:
+		need_rebuild = need_rebuild or _hearts.size() != maximum
+	if need_rebuild:
 		_rebuild_hearts(maximum)
 	_maximum_health = maximum
 	_refresh_hearts()
+
+
+## 对战半屏摆不下整排心，改成一颗心加「×N」。单机仍逐颗列出。
+func set_compact_hearts(enabled: bool) -> void:
+	if _compact_hearts == enabled:
+		return
+	_compact_hearts = enabled
+	health_bar.custom_minimum_size = Vector2(132, 48) if _compact_hearts else Vector2(220, 38)
+	if _maximum_health > 0 or not _hearts.is_empty() or _compact_hearts:
+		_rebuild_hearts(_maximum_health)
+		_refresh_hearts()
 
 
 func heart_count() -> int:
@@ -119,21 +137,52 @@ func play_heal_feedback() -> void:
 
 
 func _rebuild_hearts(maximum: int) -> void:
-	for child in health_bar.get_children():
-		child.queue_free()
+	while health_bar.get_child_count() > 0:
+		var child := health_bar.get_child(0)
+		health_bar.remove_child(child)
+		child.free()
 	_hearts.clear()
+	_count_label = null
+	if _compact_hearts:
+		var heart := _make_heart()
+		health_bar.add_child(heart)
+		_hearts.append(heart)
+		_count_label = Label.new()
+		_count_label.name = "HeartCountLabel"
+		_count_label.add_theme_font_size_override("font_size", 34)
+		_count_label.add_theme_color_override("font_color", Color("f4e8c1"))
+		_count_label.add_theme_color_override("font_outline_color", Color("301c0e"))
+		_count_label.add_theme_constant_override("outline_size", 5)
+		_count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		health_bar.add_child(_count_label)
+		return
 	for index in range(maxi(maximum, 0)):
-		var heart := TextureRect.new()
-		heart.custom_minimum_size = Vector2(48, 48)
-		heart.texture = HEART_TEXTURE
-		heart.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		heart.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		heart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var heart := _make_heart()
 		health_bar.add_child(heart)
 		_hearts.append(heart)
 
 
+func _make_heart() -> TextureRect:
+	var heart := TextureRect.new()
+	heart.custom_minimum_size = Vector2(48, 48)
+	heart.texture = HEART_TEXTURE
+	heart.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	heart.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	heart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return heart
+
+
 func _refresh_hearts() -> void:
+	if _compact_hearts:
+		if _hearts.size() > 0:
+			if _health <= 0:
+				_hearts[0].modulate = Color(0.22, 0.22, 0.22, 0.34)
+			else:
+				_hearts[0].modulate = Color("fff370") if _invincible else Color.WHITE
+		if _count_label != null:
+			_count_label.text = "×%d" % _health
+		return
 	for index in range(_hearts.size()):
 		if index < _health:
 			_hearts[index].modulate = Color("fff370") if _invincible else Color.WHITE

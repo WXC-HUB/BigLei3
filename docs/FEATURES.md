@@ -24,3 +24,4 @@
 
 | ID | Feature 名 | 归属模块 | 状态 | 起 | 止 |
 |---|---|---|---|---|---|
+| [FEAT-004](features/FEAT-004-shaped-stage-boards.md) | shaped-stage-boards | BoardModel | ✅ 完成 | 2026-08-29 | 2026-08-29 |

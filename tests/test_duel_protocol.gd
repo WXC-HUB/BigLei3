@@ -45,6 +45,9 @@ func _test_encode_decode_roundtrip() -> void:
 		# JSON 把数字读回来都是 float，取值必须显式转 int —— 这里就是在钉住这条约定。
 		for key in payload:
 			assert(int((decoded["payload"] as Dictionary)[key]) == int(payload[key]))
+	var room := ProtocolScript.decode(ProtocolScript.encode(ProtocolScript.Kind.ROOM, {"code": "7K2M"}))
+	assert(int(room["kind"]) == ProtocolScript.Kind.ROOM)
+	assert(String((room["payload"] as Dictionary)["code"]) == "7K2M")
 	assert(ProtocolScript.kind_name(ProtocolScript.Kind.ROUND_OVER) == "ROUND_OVER")
 
 

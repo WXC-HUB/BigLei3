@@ -28,7 +28,7 @@ func _run() -> void:
 	await process_frame
 
 	shop.present("", "", 100, 5)
-	await create_timer(0.4).timeout
+	await create_timer(0.6).timeout
 	var stage := shop.get_node("Center") as Control
 	if not _require(shop.visible, "Shop did not become visible"):
 		return
@@ -110,6 +110,39 @@ func _run() -> void:
 	if not _require(not shop.visible, "Shop exit did not finish after continue"):
 		return
 	if not _require(continued[0], "Shop continue signal was not emitted"):
+		return
+
+	shop.present_full(40, 5)
+	await process_frame
+	if not _require(shop.item_grid.columns == 3, "Duel shop did not switch to three columns"):
+		return
+	var duel_scroll := shop.get("_item_scroll") as ScrollContainer
+	if not _require(duel_scroll != null and duel_scroll.is_ancestor_of(shop.item_grid), "Duel shop did not wrap offers in a scroll list"):
+		return
+	if not _require(duel_scroll.size.x >= 1200.0 and duel_scroll.size.y >= 620.0, "Duel shop scroll area is still too small"):
+		return
+	if not _require(shop.item_grid.get_theme_constant("h_separation") >= 48, "Duel shop horizontal spacing was not widened"):
+		return
+	if not _require(shop.item_grid.get_theme_constant("v_separation") >= 64, "Duel shop vertical spacing is still too tight"):
+		return
+	var duel_slot := (shop.get("_item_slots") as Array)[0] as Control
+	if not _require(duel_slot.custom_minimum_size.y >= 360.0, "Duel shop slots are still too short and would overlap"):
+		return
+	var duel_visible := 0
+	for slot in shop.get("_item_slots") as Array:
+		if (slot as Control).visible:
+			duel_visible += 1
+	if not _require(duel_visible == 13, "Duel shop did not show the full catalog"):
+		return
+	shop.exit_duel_mode()
+	if not _require((shop.get("_item_slots") as Array)[0].custom_minimum_size == Vector2(198, 230), "Solo shop slots did not restore their original size"):
+		return
+	shop.exit_duel_mode()
+	shop.present("", "", 20, 5)
+	await process_frame
+	if not _require(shop.item_grid.columns == 5, "Solo shop did not restore five columns"):
+		return
+	if not _require(shop.item_grid.get_parent().name == "ShopCard", "Solo shop did not restore the original item grid parent"):
 		return
 
 	print("Shop motion: test passed")

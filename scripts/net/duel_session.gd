@@ -8,6 +8,8 @@ extends Node
 
 signal linked
 signal link_lost
+## 加入超时、房间码被拒、或本方主动取消后的失败说明。
+signal link_failed(reason: String)
 ## 双方握手完成、对局种子已就位。载荷是种子，两端拿到的是同一个值。
 signal duel_started(duel_seed: int)
 signal round_started(round_index: int)
@@ -24,6 +26,7 @@ enum State { IDLE, LINKING, PLAYING, INTERMISSION, FINISHED }
 var duel_seed := 0
 var round_index := 0
 var state: State = State.IDLE
+var room_code := ""
 var self_ready := false
 var opponent_ready := false
 
@@ -37,6 +40,10 @@ var opponent := {
 }
 
 var _client: DuelClient
+var _handshake_pending := false
+var _announced_link := false
+var _leaving := false
+var _linking_elapsed := 0.0
 var _intermission_left := 0.0
 ## 倒计时是否已上膛。冻结的那一刻 state 就变成 INTERMISSION 了，但商店要过一段
 ## 收尾演出才弹出来；没有这个标志的话，房主会在演出还没放完时就看到「剩余 0 秒」
@@ -78,27 +85,49 @@ func is_host() -> bool:
 	return _client != null and _client.is_host()
 
 
-func host_duel(port: int = DuelConfig.DEFAULT_PORT) -> Error:
+func host_duel(port: int = -1, code: String = "") -> Error:
 	_ensure_client()
 	_reset_duel_state()
-	var error := _client.host(port)
+	room_code = DuelConfig.normalize_room_code(code)
+	if room_code.is_empty() and port < 0:
+		room_code = DuelConfig.generate_room_code()
+	var bind_port := port if port >= 0 else DuelConfig.port_for_room(room_code)
+	_handshake_pending = not room_code.is_empty()
+	var error := _client.host(bind_port)
 	state = State.LINKING if error == OK else State.IDLE
+	if error != OK:
+		_handshake_pending = false
+		room_code = ""
 	return error
 
 
-func join_duel(address: String = DuelConfig.DEFAULT_ADDRESS, port: int = DuelConfig.DEFAULT_PORT) -> Error:
+func join_duel(
+	address: String = DuelConfig.DEFAULT_ADDRESS,
+	port: int = -1,
+	code: String = ""
+) -> Error:
 	_ensure_client()
 	_reset_duel_state()
-	var error := _client.join(address, port)
+	room_code = DuelConfig.normalize_room_code(code)
+	if room_code.is_empty() and port < 0:
+		return ERR_INVALID_PARAMETER
+	var bind_port := port if port >= 0 else DuelConfig.port_for_room(room_code)
+	_handshake_pending = not room_code.is_empty()
+	var error := _client.join(address, bind_port)
 	state = State.LINKING if error == OK else State.IDLE
+	if error != OK:
+		_handshake_pending = false
+		room_code = ""
 	return error
 
 
 func leave() -> void:
+	_leaving = true
 	if _client != null:
 		_client.close()
 	_reset_duel_state()
 	state = State.IDLE
+	_leaving = false
 
 
 ## 每一轮的棋盘种子。双方 duel_seed 相同、轮次相同，于是算出同一个 level_seed，
@@ -172,6 +201,12 @@ func _process(delta: float) -> void:
 
 ## 推进一次中场休息倒计时。
 func tick(delta: float) -> void:
+	if state == State.LINKING and not is_host() and delta > 0.0:
+		_linking_elapsed += delta
+		if _linking_elapsed >= DuelConfig.JOIN_TIMEOUT_SECONDS:
+			leave()
+			link_failed.emit("连接超时。请核对房间码后重试。")
+			return
 	if state != State.INTERMISSION or not _intermission_armed:
 		return
 	_intermission_left = maxf(_intermission_left - delta, 0.0)
@@ -184,7 +219,25 @@ func tick(delta: float) -> void:
 
 
 func _on_linked() -> void:
+	if _handshake_pending:
+		if is_host():
+			# 先等客人报房间码，对上了再开局。
+			return
+		_client.send(DuelProtocol.Kind.ROOM, {"code": room_code})
+		return
+	_complete_link()
+
+
+func _announce_link() -> void:
+	if _announced_link:
+		return
+	_announced_link = true
 	linked.emit()
+
+
+func _complete_link() -> void:
+	_handshake_pending = false
+	_announce_link()
 	if not is_host():
 		return
 	# 房主负责造种子并下发，然后立刻开第一轮。
@@ -196,14 +249,33 @@ func _on_linked() -> void:
 
 
 func _on_unlinked() -> void:
+	if _leaving:
+		state = State.IDLE
+		_handshake_pending = false
+		return
+	# 房主还在等下一位：客人被踢或中途退出，服务器继续听，不要整间房拆掉。
+	if state == State.LINKING and is_host():
+		_handshake_pending = not room_code.is_empty()
+		_announced_link = false
+		return
+	var was_linking := state == State.LINKING
+	var was_pending := _handshake_pending
 	state = State.IDLE
+	_handshake_pending = false
+	if was_linking and was_pending:
+		link_failed.emit("房间码不对，或房主已离开。")
+		return
 	link_lost.emit()
 
 
 func _on_message_received(kind: int, payload: Dictionary) -> void:
 	match kind:
+		DuelProtocol.Kind.ROOM:
+			_on_room_offered(String(payload.get("code", "")))
 		DuelProtocol.Kind.HELLO:
+			_handshake_pending = false
 			duel_seed = int(payload.get("seed", 0))
+			_announce_link()
 			duel_started.emit(duel_seed)
 		DuelProtocol.Kind.ROUND_START:
 			round_index = int(payload.get("round", 1))
@@ -263,11 +335,25 @@ func _begin_round_locally() -> void:
 	round_started.emit(round_index)
 
 
+func _on_room_offered(code: String) -> void:
+	if not is_host() or state != State.LINKING:
+		return
+	if DuelConfig.normalize_room_code(code) != room_code:
+		if _client != null:
+			_client.kick_remote()
+		return
+	_complete_link()
+
+
 func _reset_duel_state() -> void:
 	duel_seed = 0
 	round_index = 0
+	room_code = ""
 	self_ready = false
 	opponent_ready = false
+	_handshake_pending = false
+	_announced_link = false
+	_linking_elapsed = 0.0
 	_intermission_left = 0.0
 	_intermission_armed = false
 	opponent = {

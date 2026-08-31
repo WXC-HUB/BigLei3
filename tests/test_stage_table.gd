@@ -1,6 +1,5 @@
 extends SceneTree
-## 关卡表的纯数据体检：id 唯一、序号连续、目标盘数合理、解锁链无断点。
-## 这些断言是「布局手摆在场景里」的对价——摆位不可测，但数值与拓扑必须可测。
+## 关卡表的纯数据体检：id 唯一、序号连续、盘表合理、单区链式解锁无断点。
 
 
 func _init() -> void:
@@ -11,6 +10,7 @@ func _run() -> void:
 	_check_stage_ids()
 	_check_orders()
 	_check_target_rounds()
+	_check_stage_themes()
 	_check_regions()
 	_check_unlock_chain()
 	_check_progress_readout()
@@ -34,7 +34,6 @@ func _check_stage_ids() -> void:
 	assert(not StageTable.has_stage(""), "has_stage 把空串当成了关卡")
 
 
-## 序号是给玩家看的，必须从 1 连续排到 N——中间断号会让「3 · 风车丘」后面直接跳到 5。
 func _check_orders() -> void:
 	for index in StageTable.STAGES.size():
 		var order := int(StageTable.STAGES[index]["order"])
@@ -43,137 +42,117 @@ func _check_orders() -> void:
 
 func _check_target_rounds() -> void:
 	for stage in StageTable.STAGES:
-		var target := int(stage["target_round"])
-		assert(target > 0, "%s 的目标盘数不是正数" % String(stage["id"]))
-		# 教学关的前 4 盘是硬编码教程盘，目标盘数必须留出至少一盘正式盘面，
-		# 否则玩家打完教程就通关了、一盘真棋都没下。
+		var id := String(stage["id"])
+		var boards := StageTable.boards_of(id)
+		assert(not boards.is_empty(), "%s 没有盘列表" % id)
+		var target := StageTable.target_round_of(id)
+		assert(target == boards.size(), "%s 的目标盘数与盘列表长度不符" % id)
+		assert(int(StageTable.stage(id)["target_round"]) == target, "%s stage() 未派生 target_round" % id)
+		var order := int(stage["order"])
 		if bool(stage.get("teaches", false)):
 			assert(
 				target > 4,
-				"教学关 %s 的目标盘数 %d 没超过 4 盘教程" % [String(stage["id"]), target]
+				"教学关 %s 的目标盘数 %d 没超过 4 盘教程" % [id, target]
 			)
+		else:
+			var expected := StageTable.expected_board_count_for_order(order)
+			assert(
+				target == expected,
+				"非教程关 %s 盘数应为 %d，实际 %d" % [id, expected, target]
+			)
+			assert(target >= StageTable.NON_TUTORIAL_BOARD_BASE, "非教程关至少 %d 盘" % StageTable.NON_TUTORIAL_BOARD_BASE)
+		for board in boards:
+			var shape_id := String(board["shape"])
+			assert(BoardShape.has_shape(shape_id), "%s 引用了不存在的形状 %s" % [id, shape_id])
+			var mines := int(board["mines"])
+			assert(mines >= 1, "%s 的盘雷数不是正数" % id)
+			assert(
+				mines <= BoardShape.max_mines_for(shape_id),
+				"%s 的盘 %s 雷数 %d 超过可玩格预留下限" % [id, shape_id, mines]
+			)
+	# 盘数递增：后一关不少于前一非教程关。
+	var prev := 0
+	for stage in StageTable.STAGES:
+		if bool(stage.get("teaches", false)):
+			continue
+		var n := StageTable.target_round_of(String(stage["id"]))
+		assert(n >= prev, "非教程关盘数应递增")
+		prev = n
+
+
+## 每关只讲一种伤：形状必须落在该关允许的前缀里，且每关手写盘表。
+func _check_stage_themes() -> void:
+	for stage in StageTable.STAGES:
+		var id := String(stage["id"])
+		assert(stage.has("boards"), "%s 应手写盘列表，不要再靠阶梯生成" % id)
+		var prefixes: Array = StageTable.THEME_SHAPE_PREFIXES.get(id, [])
+		assert(not prefixes.is_empty(), "%s 没有主题形状前缀" % id)
+		var seen := {}
+		for board in StageTable.boards_of(id):
+			var shape_id := String(board["shape"])
+			assert(
+				StageTable.shape_fits_theme(id, shape_id),
+				"%s 的 %s 不属于本关主题" % [id, shape_id]
+			)
+			seen[shape_id] = true
+		assert(seen.size() >= 3, "%s 主题形太少，长关会显得重复" % id)
+	var coast_finale := StageTable.boards_of("coast_1")
+	for index in range(maxi(coast_finale.size() - 3, 0), coast_finale.size()):
+		var shape_id := String(coast_finale[index]["shape"])
+		assert(
+			shape_id.begins_with("holes_"),
+			"尽头港收尾第 %d 盘应是碎礁，实际是 %s" % [index + 1, shape_id]
+		)
+		assert(
+			not shape_id.contains("_7"),
+			"尽头港收尾不应绕回 7×7：%s" % shape_id
+		)
 
 
 func _check_regions() -> void:
-	var region_ids := {}
-	for region in StageTable.REGIONS:
-		var id := String(region["id"])
-		assert(not region_ids.has(id), "地形区 id 重复: %s" % id)
-		region_ids[id] = true
-		assert(String(region["name"]) != "", "地形区 %s 没有名字" % id)
-		assert(String(region["theme"]) != "", "地形区 %s 没有主题" % id)
-		assert(not StageTable.stages_in_region(id).is_empty(), "地形区 %s 里一个关卡都没有" % id)
-	for stage in StageTable.STAGES:
-		var region_id := String(stage["region"])
-		assert(region_ids.has(region_id), "%s 挂在不存在的区 %s 上" % [String(stage["id"]), region_id])
-		assert(StageTable.theme_of(String(stage["id"])) != "", "%s 取不到主题" % String(stage["id"]))
-	# 只有一个区可以是开局就开的入口，否则新手一上来就看到三片全开的地图。
-	var entry_count := 0
-	for region in StageTable.REGIONS:
-		if (region.get("unlock_after", {}) as Dictionary).is_empty():
-			entry_count += 1
-	assert(entry_count == 1, "开局即解锁的地形区有 %d 个，应当只有 1 个" % entry_count)
+	assert(StageTable.REGIONS.size() == 1, "选关地图应只有 1 个连续地形区")
+	var region: Dictionary = StageTable.REGIONS[0]
+	var id := String(region["id"])
+	assert(String(region["name"]) != "", "地形区没有名字")
+	assert(String(region["theme"]) != "", "地形区没有主题")
+	assert(StageTable.stages_in_region(id).size() == StageTable.STAGES.size(), "关卡没有全部挂在唯一区上")
+	assert((region.get("unlock_after", {}) as Dictionary).is_empty(), "唯一区不应再设区级解锁门槛")
 
 
-## 解锁链无断点：每个非入口区的前置区都存在，且门槛不超过前置区的关卡总数——
-## 门槛比总数还大就是永远开不了的死区。
+## 空档只有第 1 关可进；通关第 N 关后第 N+1 关解锁。
 func _check_unlock_chain() -> void:
-	for region in StageTable.REGIONS:
-		var gate: Dictionary = region.get("unlock_after", {})
-		if gate.is_empty():
-			continue
-		var previous := String(gate.get("region", ""))
-		assert(
-			not StageTable.region(previous).is_empty(),
-			"%s 的前置区 %s 不存在" % [String(region["id"]), previous]
-		)
-		var need := int(gate.get("count", 0))
-		var available := StageTable.stages_in_region(previous).size()
-		assert(need > 0, "%s 的解锁门槛不是正数" % String(region["id"]))
-		assert(
-			need <= available,
-			"%s 要求前置区通关 %d 关，但那边只有 %d 关" % [String(region["id"]), need, available]
-		)
-
-	# 空存档：只有入口区可进。
 	var empty: Array = []
-	var entry_id := ""
-	for region in StageTable.REGIONS:
-		if (region.get("unlock_after", {}) as Dictionary).is_empty():
-			entry_id = String(region["id"])
-	for region in StageTable.REGIONS:
-		var id := String(region["id"])
-		var unlocked := StageTable.is_region_unlocked(id, empty)
-		assert(
-			unlocked == (id == entry_id),
-			"空存档下 %s 的解锁状态错了（%s）" % [id, str(unlocked)]
-		)
-	for stage in StageTable.stages_in_region(entry_id):
-		assert(
-			StageTable.is_stage_unlocked(String(stage["id"]), empty),
-			"入口区的 %s 在空存档下没解锁" % String(stage["id"])
-		)
+	assert(StageTable.is_stage_unlocked(String(StageTable.STAGES[0]["id"]), empty), "第一关在空档下没解锁")
+	for index in range(1, StageTable.STAGES.size()):
+		var id := String(StageTable.STAGES[index]["id"])
+		assert(not StageTable.is_stage_unlocked(id, empty), "空档下后面的关 %s 居然开了" % id)
 
-	# 逐区推进：把前一区打到门槛，下一区就该开。
 	var cleared: Array = []
-	for index in range(1, StageTable.REGIONS.size()):
-		var region: Dictionary = StageTable.REGIONS[index]
-		var gate: Dictionary = region["unlock_after"]
-		var previous := String(gate["region"])
-		var need := int(gate["count"])
-		var previous_stages := StageTable.stages_in_region(previous)
-		# 差一关时必须还是锁着的。
-		cleared = cleared.duplicate()
-		for offset in need - 1:
-			var id := String(previous_stages[offset]["id"])
-			if not cleared.has(id):
-				cleared.append(id)
-		assert(
-			not StageTable.is_region_unlocked(String(region["id"]), cleared),
-			"%s 在前置区只通 %d 关时就解锁了" % [String(region["id"]), need - 1]
-		)
-		cleared.append(String(previous_stages[need - 1]["id"]))
-		assert(
-			StageTable.is_region_unlocked(String(region["id"]), cleared),
-			"%s 在前置区通关 %d 关后仍未解锁" % [String(region["id"]), need]
-		)
+	for index in range(StageTable.STAGES.size() - 1):
+		var current := String(StageTable.STAGES[index]["id"])
+		var nxt := String(StageTable.STAGES[index + 1]["id"])
+		assert(not StageTable.is_stage_unlocked(nxt, cleared), "还没通 %s 时下一关就开了" % current)
+		cleared.append(current)
+		assert(StageTable.is_stage_unlocked(nxt, cleared), "通关 %s 后下一关仍锁着" % current)
 
 
 func _check_progress_readout() -> void:
-	var first := String(StageTable.REGIONS[0]["id"])
+	var region_id := String(StageTable.REGIONS[0]["id"])
 	var empty: Array = []
-	var progress := StageTable.region_progress(first, empty)
-	assert(int(progress["cleared"]) == 0, "空存档下第一区的已通关数不是 0")
-	assert(
-		int(progress["total"]) == StageTable.stages_in_region(first).size(),
-		"region_progress 的总数与区内关卡数不符"
-	)
-	assert(String(progress["next_region"]) != "", "第一区报不出下一个区")
-	assert(String(progress["next_region_name"]) != "", "下一个区没有名字")
-	assert(int(progress["remaining_for_next"]) > 0, "空存档下开启下一区居然不用再通关")
+	var progress := StageTable.region_progress(region_id, empty)
+	assert(int(progress["cleared"]) == 0, "空存档下已通关数不是 0")
+	assert(int(progress["total"]) == StageTable.STAGES.size(), "region_progress 总数不对")
+	assert(String(progress["next_region"]) == "", "单区地图不应再报下一个区")
 
-	# 通一关，剩余门槛就该减一。
-	var one: Array = [String(StageTable.stages_in_region(first)[0]["id"])]
-	var after := StageTable.region_progress(first, one)
+	var one: Array = [String(StageTable.STAGES[0]["id"])]
+	var after := StageTable.region_progress(region_id, one)
 	assert(int(after["cleared"]) == 1, "通一关后已通关数没变成 1")
-	assert(
-		int(after["remaining_for_next"]) == int(progress["remaining_for_next"]) - 1,
-		"通一关后剩余门槛没减少"
-	)
-
-	# 最后一区没有下一个。
-	var last := String(StageTable.REGIONS[StageTable.REGIONS.size() - 1]["id"])
-	assert(
-		String(StageTable.region_progress(last, empty)["next_region"]) == "",
-		"最后一区居然报出了下一个区"
-	)
 
 
 func _check_first_open_stage() -> void:
 	var empty: Array = []
 	var first := StageTable.first_open_stage(empty)
 	assert(first == String(StageTable.STAGES[0]["id"]), "空存档下的初始焦点不是第一关")
-	# 全部通关后不该返回空串——地图仍要有个地方对焦。
 	var all_ids: Array = []
 	for stage in StageTable.STAGES:
 		all_ids.append(String(stage["id"]))

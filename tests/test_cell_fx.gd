@@ -1,8 +1,10 @@
 extends SceneTree
 ## 覆盖 vfx/cell_fx.gd 的三类爆发特效：能生成、会发射、有上限、能自毁，
-## 以及“正确标记 → 地格炸碎”在真实对局流程里的落地状态。
+## 以及“正确标记 → 雷图 + 绿勾底板”在真实对局流程里的落地状态。
 
 const CELL_FX := preload("res://vfx/cell_fx.gd")
+const GREEN_CHECK := preload("res://my_asset/effects/marked_mine_green_check.png")
+const MONSTER_SMALL := preload("res://my_asset/monster_small.png")
 
 
 func _init() -> void:
@@ -14,11 +16,11 @@ func _run() -> void:
 	# aborts its function and leaves null here, so failures cannot slip past.
 	assert(await _test_bursts_spawn_and_expire())
 	assert(await _test_burst_budget())
-	assert(await _test_correct_flag_shatters_cell())
-	assert(await _test_settlement_keeps_crater())
+	assert(await _test_correct_flag_shows_mine_and_check())
+	assert(await _test_settlement_keeps_correct_mark())
 	assert(await _test_last_mine_still_costs_health())
 	assert(await _test_wrong_mark_costs_health())
-	print("Cell FX: burst, budget and flag-shatter checks passed")
+	print("Cell FX: burst, budget and correct-mark checks passed")
 	await process_frame
 	quit()
 
@@ -62,7 +64,7 @@ func _test_burst_budget() -> bool:
 	return true
 
 
-func _test_correct_flag_shatters_cell() -> bool:
+func _test_correct_flag_shows_mine_and_check() -> bool:
 	var game: Node = (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
 	await process_frame
@@ -86,26 +88,27 @@ func _test_correct_flag_shatters_cell() -> bool:
 	var cell: MineCell = cells[mine_index]
 	game.call("_on_cell_flagged", mine_index)
 	assert(board.state_at(mine_index) == MinesweeperBoard.CellState.FLAGGED)
-	assert(not cell.is_flag_sealed(), "The card must survive until the flag pose lands")
+	var content := cell.get("_content") as TextureRect
+	var fault := cell.get("_fault_plate") as TextureRect
+	assert(content.visible, "A confirmed mine should show the monster sprite")
+	assert(fault.visible and fault.texture == GREEN_CHECK, "A confirmed mine should sit on a green-check plate")
 
-	await create_timer(0.8).timeout
-	assert(cell.is_flag_sealed(), "A confirmed mine's card should have shattered away")
-
-	# A refresh must not rebuild the card that was just blown off the board.
+	# A refresh must not swap the confirmation back to a flag.
 	game.call("_refresh_cell", mine_index)
-	assert(cell.is_flag_sealed(), "Refreshing a sealed cell restored its card")
+	assert(fault.visible and fault.texture == GREEN_CHECK, "Refreshing a marked mine dropped the green check")
+	assert(content.texture == MONSTER_SMALL or content.visible, "Refreshing a marked mine hid the mine sprite")
 
 	# Unmarking puts the board back the way it was.
 	game.call("_on_cell_flagged", mine_index)
 	assert(board.state_at(mine_index) == MinesweeperBoard.CellState.COVERED)
-	assert(not cell.is_flag_sealed(), "Unmarking should restore the card")
+	assert(not fault.visible, "Unmarking should clear the green-check plate")
 	game.queue_free()
 	await process_frame
 	return true
 
 
-## 结算横幅会把每个格子的内容摊开；已经炸碎的格子不能借这一步长回来。
-func _test_settlement_keeps_crater() -> bool:
+## 结算横幅会把每个格子的内容摊开；已经正确标记的雷要保住绿勾底板。
+func _test_settlement_keeps_correct_mark() -> bool:
 	var game := await _fresh_game()
 	var board: MinesweeperBoard = game.get("_board")
 	board.reveal(int(board.height / 2) * board.width + int(board.width / 2))
@@ -115,12 +118,16 @@ func _test_settlement_keeps_crater() -> bool:
 	var cells: Array = game.get("_cells")
 	var cell: MineCell = cells[mine_index]
 	game.call("_on_cell_flagged", mine_index)
-	await create_timer(0.8).timeout
-	assert(cell.is_flag_sealed())
+	await process_frame
+	var fault := cell.get("_fault_plate") as TextureRect
+	assert(fault.visible and fault.texture == GREEN_CHECK)
 
 	game.call("_finish_game")
 	await process_frame
-	assert(cell.is_flag_sealed(), "Settlement rebuilt a card the mark burst destroyed")
+	assert(
+		fault.visible and fault.texture == GREEN_CHECK,
+		"Settlement dropped the green-check plate on a correctly marked mine"
+	)
 	game.queue_free()
 	await process_frame
 	return true

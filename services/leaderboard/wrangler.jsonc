@@ -1,0 +1,17 @@
+{
+	"name": "biglei-leaderboard",
+	"main": "src/index.js",
+	"compatibility_date": "2026-08-29",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "biglei-leaderboard",
+			"database_id": "7bc716d4-a441-4b0b-9302-75e3b2fc8933"
+		}
+	]
+}

@@ -28,7 +28,8 @@ func _run() -> void:
 	await process_frame
 
 	_host_game.call("_on_duel_host_requested")
-	_guest_game.call("_on_duel_join_requested")
+	var room_code: String = _host_game.get("_duel").room_code
+	_guest_game.call("_start_duel_join", room_code, "127.0.0.1")
 	assert(await _wait(func() -> bool:
 		return _host_game.get("_board") != null and _guest_game.get("_board") != null
 	))
@@ -37,18 +38,20 @@ func _run() -> void:
 	_test_counters_stay_in_left_half()
 	_test_opponent_slot_mirrors_the_board()
 	_test_cell_size_only_shrinks_on_the_biggest_board()
+	await _test_peripheral_birds_hidden()
+	_test_divider_is_prominent()
 	await _test_single_player_layout_untouched()
 
 	print("DuelSplitLayout: all tests passed")
 	quit()
 
 
-## 验收：本 FEAT 不新增任何网络消息。这是共识 #3 的硬约束，也是「棋盘全遮」
-## 换来的最大一笔节省——遮住了就没有状态要同步。
+## 房间码握手多了一条 ROOM；其余对战消息保持原序。
 func _test_protocol_did_not_grow() -> void:
-	assert(ProtocolScript.Kind.size() == 8)
+	assert(ProtocolScript.Kind.size() == 9)
 	assert(ProtocolScript.Kind.keys()[0] == "HELLO")
 	assert(ProtocolScript.Kind.keys()[7] == "DUEL_OVER")
+	assert(ProtocolScript.Kind.keys()[8] == "ROOM")
 
 
 ## 验收：左屏棋盘整块落在左半屏内，不越过中线。
@@ -69,10 +72,22 @@ func _test_counters_stay_in_left_half() -> void:
 	var item_rect: Rect2 = (_host_game.get("_item_counter_panel") as Control).get_global_rect()
 	assert(mine_rect.end.x <= midline)
 	assert(item_rect.end.x <= midline)
-	# 自身 HUD 被缩过一档，正是为了给读数行让出这段横向空间。
+	# 两行叠放：道具在剩余雷下方。
+	assert(item_rect.position.y >= mine_rect.end.y - 1.0)
+	# 自身 HUD 被缩过一档，正是为了给读数让出空间。
 	var status: Control = _host_game.get("_player_status")
 	assert(is_equal_approx(status.scale.x, 0.72))
-	assert(status.get_global_rect().end.x < mine_rect.position.x)
+	assert(status.get_global_rect().end.x < maxf(mine_rect.position.x, item_rect.position.x) + 1.0)
+	assert(bool(status.get("_compact_hearts")))
+	assert((status.get("_hearts") as Array).size() == 1)
+	assert((status.get("_count_label") as Label).text.begins_with("×"))
+	# 对手侧不再挂「已标雷」读数，只留血金与已购强化。
+	var hud = _host_game.get("_duel_hud")
+	var mark_panel: Control = hud.get("_opponent_mark_panel")
+	assert(mark_panel != null and not mark_panel.visible)
+	var opponent_status: Control = hud.get("_opponent_status")
+	assert(bool(opponent_status.get("_compact_hearts")))
+	assert((opponent_status.get("_hearts") as Array).size() == 1)
 
 
 ## 验收：右屏那块位与左屏棋盘等尺寸，且真的盖着迷雾罩。
@@ -113,6 +128,57 @@ func _test_cell_size_only_shrinks_on_the_biggest_board() -> void:
 	_host_game.call("_apply_split_layout", board.width, board.height)
 
 
+## 验收：分屏里外围栖枝全部藏掉，避免压住左右棋盘。道具结算 reset / 飞入也不能把树和待机鸟唤回来。
+func _test_peripheral_birds_hidden() -> void:
+	for bird_name in ["BlueBirdPerch", "RedBirdPerch", "BlackBirdPerch", "AttackerBirdPerch", "EgBirdPerch"]:
+		var bird := _host_game.get_node(bird_name) as BirdPerch
+		assert(bird.is_stowed())
+		var tree := bird.get_node_or_null("Tree") as CanvasItem
+		var sprite := bird.get_node("Sprite") as CanvasItem
+		if tree != null:
+			assert(not tree.visible)
+		assert(not sprite.visible)
+		bird.reset_to_idle()
+		assert(bird.is_stowed())
+		if tree != null:
+			assert(not tree.visible)
+		assert(not sprite.visible)
+		# 道具结算会先把 Sprite 打开再 reset；收起状态必须把它们按回去。
+		sprite.visible = true
+		bird.reset_to_idle()
+		if tree != null:
+			assert(not tree.visible)
+		assert(not sprite.visible)
+
+	var attacker := _host_game.get_node("AttackerBirdPerch") as BirdPerch
+	var attacker_tree := attacker.get_node_or_null("Tree") as CanvasItem
+	var attacker_sprite := attacker.get_node("Sprite") as CanvasItem
+	await attacker.begin_travel_action(0, false)
+	if attacker_tree != null:
+		assert(not attacker_tree.visible)
+	assert(attacker_sprite.global_position.x < 0.0)
+	await attacker.finish_travel_action(0.0)
+	if attacker_tree != null:
+		assert(not attacker_tree.visible)
+	assert(not attacker_sprite.visible)
+	attacker.reset_to_idle()
+	if attacker_tree != null:
+		assert(not attacker_tree.visible)
+	assert(not attacker_sprite.visible)
+
+
+## 验收：中缝比原来的 4px 苔绿线更宽、分层更清楚。
+func _test_divider_is_prominent() -> void:
+	var hud = _host_game.get("_duel_hud")
+	var divider: Control = hud.get("_divider")
+	assert(divider != null)
+	assert(divider.offset_right - divider.offset_left >= 16.0)
+	assert(divider.get_node("DividerBacking") != null)
+	assert(divider.get_node("DividerGold") != null)
+	var gold: ColorRect = divider.get_node("DividerGold")
+	assert(gold.color.r > 0.85 and gold.color.g > 0.85 and gold.color.b > 0.65)
+
+
 ## 验收：单机布局一个像素都没动。
 func _test_single_player_layout_untouched() -> void:
 	var solo: Node = load("res://scenes/main.tscn").instantiate()
@@ -125,6 +191,8 @@ func _test_single_player_layout_untouched() -> void:
 	assert(is_equal_approx(float(solo.get("_cell_size")), 88.0))
 	assert((solo.get("_board_center_offset") as Vector2) == Vector2.ZERO)
 	assert(is_equal_approx((solo.get("_player_status") as Control).scale.x, 1.0))
+	assert(not bool((solo.get("_player_status") as Control).get("_compact_hearts")))
+	assert((solo.get_node("BlueBirdPerch") as Control).visible)
 	# 最大盘在单机下也绝不缩。
 	solo.call("_apply_split_layout", 10, 10)
 	assert(is_equal_approx(float(solo.get("_cell_size")), 88.0))

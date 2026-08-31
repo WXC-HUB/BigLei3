@@ -61,23 +61,25 @@
 - **职责**：六边形 3D 世界地图的手工布局场景、相机（拖拽+缩放）、关卡节点与悬浮牌交互、关卡表数据。代码位于 `scripts/game/stage_table.gd`（数据）、`scripts/ui/world_map.gd`（场景控制）、`scripts/ui/stage_badge.gd`（悬浮牌）与 `scenes/world_map.tscn`（手摆布局）。
 - **对外接口**（草稿，待 that-is-all 定稿）：
   - `StageTable.stage(id)` / `region(id)` / `stages_in_region(region_id)` / `all_stages()` — 关卡表查询
+  - `StageTable.boards_of(id)` / `board_at(id, round)` / `target_round_of(id)` — 盘列表（形状+雷数）；`target_round` 由盘数派生
   - `StageTable.is_stage_unlocked(id, cleared)` / `is_region_unlocked(region_id, cleared)` / `region_progress(region_id, cleared)` — 解锁与进度判定，纯函数
   - `WorldMap.present(cleared, resume_stage_id, stage_round)` / `dismiss()` — 显示与收起
   - `WorldMap` 信号 `stage_selected(stage_id)` / `title_requested` / `resume_requested` / `abandon_requested` — GameFlow 靠订阅这四条做路由
   - `StageBadge.bind(stage)` / `set_stage_state(state)` — 悬浮牌内容与四态
 - **关联模块**：GameFlow, Persistence, ShopEconomy, BoardModel
-- **关联 FEAT**：FEAT-002
-- **关键术语**：[[世界地图]]、[[地格]]、[[关卡]]、[[目标盘数]]、[[悬浮牌]]、[[地形区]]、[[关卡表]]
+- **关联 FEAT**：FEAT-002, FEAT-004
+- **关键术语**：[[世界地图]]、[[地格]]、[[关卡]]、[[目标盘数]]、[[悬浮牌]]、[[地形区]]、[[关卡表]]、[[盘列表]]
 - **归档线框**：_(FEAT 工作线框见 `docs/features/wireframes/FEAT-002-WorldMapWireframe.html`；归档融合待 that-is-all)_
 
 ### BoardModel
 
-- **职责**：扫雷棋盘的纯规则核（布雷、翻开、标记、道具散布、推理）。代码位于 `scripts/game/minesweeper_board.gd`。
+- **职责**：扫雷棋盘的纯规则核（布雷、翻开、标记、道具散布、推理、可玩格掩码）。代码位于 `scripts/game/minesweeper_board.gd`；形状库 `scripts/game/board_shape.gd`。
 - **对外接口**：_(既有代码，待后续 FEAT 收尾时定稿)_
 - **关联模块**：—
-- **关联 FEAT**：FEAT-001, FEAT-002
-- **关键术语**：[[开局格]]
+- **关联 FEAT**：FEAT-001, FEAT-002, FEAT-004
+- **关键术语**：[[开局格]]、[[盘面形状]]、[[可玩格]]
 - **本 FEAT 新增接口**：`take_scored_mine_log()`（对战计分用的 append-only 去重队列，与连携那条 `take_marked_mine_log()` 互不干扰）、`opening_cell_for(seed, w, h)`（静态，由种子推出开局格）
+- **FEAT-004 新增**：构造函数 `active_mask`；`is_active` / `active_cell_count`；`BoardShape.get_shape` / `has_shape` / `is_mask_connected` / `max_mines_for`
 
 ### GameFlow
 
@@ -134,10 +136,13 @@
 | 地格 | Hex Tile | 世界地图的最小单元，对应一块 KayKit 六边形地块模型 | WorldMap | FEAT-002 | 🔒 锁定 |
 | 关卡 | Stage | 世界地图上的一个可点节点，进入后是一整局从头开始的肉鸽 | WorldMap | FEAT-002 | 🔒 锁定 |
 | 盘 | Board Round | 一个关卡内的第 N 张棋盘，对应现有 `_run_number`；现有 UI 文案里的"局"统一改称此名 | GameFlow | FEAT-002 | 🔒 锁定 |
-| 目标盘数 | Target Round | 关卡数据里写死的通关门槛——打通第 N 盘即通关 | WorldMap | FEAT-002 | 🔒 锁定 |
+| 目标盘数 | Target Round | 该关盘列表长度；打完全部盘即通关（由 `boards.size()` 派生） | WorldMap | FEAT-002 | 🔒 锁定 |
 | 悬浮牌 | Stage Badge | 关卡上方悬浮的 UI 卡片，显示序号/名字、目标盘数、状态图标 | WorldMap | FEAT-002 | 🔒 锁定 |
 | 地形区 | Region | 一组共享地形主题、成组解锁的关卡 | WorldMap | FEAT-002 | 🔒 锁定 |
-| 关卡表 | Stage Table | 与场景摆放分离的关卡数据：id / 名字 / 目标盘数 / 主题 / 所属区 / 解锁关系 | WorldMap | FEAT-002 | 🔒 锁定 |
+| 关卡表 | Stage Table | 与场景摆放分离的关卡数据：id / 名字 / 盘列表(形状+雷数) / 主题 / 所属区 / 解锁关系 | WorldMap | FEAT-002 | 🔒 锁定 |
+| 盘列表 | Board List | 关卡内按顺序配置的每一盘：`shape` + `mines` | WorldMap | FEAT-004 | 🔒 锁定 |
+| 盘面形状 | Board Shape | 包围盒 + 可玩格掩码；引擎只认掩码 | BoardModel | FEAT-004 | 🔒 锁定 |
+| 可玩格 | Active Cell | 掩码为 1、可交互并计入胜负与布雷的格子 | BoardModel | FEAT-004 | 🔒 锁定 |
 
 ---
 

@@ -64,6 +64,16 @@ func close() -> void:
 	_reset()
 
 
+## 房主踢掉当前对手，服务器继续听。用于房间码不对：别把整间房关了。
+func kick_remote() -> void:
+	if _peer == null or _remote_id == 0:
+		return
+	var id := _remote_id
+	_remote_id = 0
+	_linked = false
+	_peer.disconnect_peer(id)
+
+
 ## 驱动一次收发。`_process` 会自动调它；headless 测试里没有稳定的帧节奏，测试代码
 ## 要自己循环调用这个方法，不能指望 SceneTree 替它 poll。
 func poll() -> void:

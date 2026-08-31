@@ -7,9 +7,11 @@ extends RefCounted
 ## 牌的 ✓ 与地形区解锁）、`resume_stage_id`（唯一续局槽属于哪一关，空串 = 无续局）、
 ## `stage_round`（续局槽在**本关内**打到第几盘，与全局盘序 `current_level` 分开记）、
 ## `music_break_played`（原本只在内存里，落盘后换歌插播在整个存档周期内只放一次）。
+## v3：`stage_high_scores`（每关历史最高分，字典 stage_id → int）。
+## v3 续：`leaderboard_name`（上榜昵称，本地记住，下次上榜预填）。
 ## 其余字段原样不动。
 
-const VERSION := 2
+const VERSION := 3
 static var save_path := "user://bird_minesweeper_save.json"
 
 
@@ -47,6 +49,7 @@ static func load_data() -> Dictionary:
 ## v1 → v2：老档没有关卡概念，所以已通关集合从空开始。老档若有一轮打到一半
 ## （`current_level > 1`），把这份进度整体归给第一关的续局槽——玩家回来时地图上会看到
 ## 第一关标着「进行中」，点续上就接着打，血量金币强化全在。
+## v2 → v3：补每关最高分字典；没有玩过的关保持缺席（读侧当 0）。
 static func _migrate(data: Dictionary, from_version: int) -> Dictionary:
 	if from_version <= 1:
 		data["cleared_stages"] = []
@@ -58,6 +61,11 @@ static func _migrate(data: Dictionary, from_version: int) -> Dictionary:
 		else:
 			data["resume_stage_id"] = ""
 			data["stage_round"] = 0
+	if from_version <= 2:
+		if not data.has("stage_high_scores") or not data["stage_high_scores"] is Dictionary:
+			data["stage_high_scores"] = {}
+		if not data.has("leaderboard_name"):
+			data["leaderboard_name"] = ""
 	return data
 
 

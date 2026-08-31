@@ -1,0 +1,14 @@
+{
+	"name": "biglei-leaderboard",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "node src/standalone.mjs",
+		"schema": "wrangler d1 execute biglei-leaderboard --remote --file=./schema.sql"
+	},
+	"devDependencies": {
+		"wrangler": "^4.28.0"
+	}
+}

@@ -10,7 +10,7 @@ Godot 4 的扫雷肉鸽项目基础工程，首发平台为 Web。
 
 ## 当前玩法
 
-- **世界地图选关**：标题页点「开始」先进一张六边形 3D 世界地图，18 个关卡分成青草 / 河谷 / 海岸三个地形区，区内可任选、通关 4 关开启下一区。每个关卡进去都是一整局从头开始的肉鸽，打满该关的目标盘数即通关。地图可拖拽平移、滚轮缩放。
+- **世界地图选关**：标题页点「开始」进入林间土路选关图；6 关沿路摆放（打通上一关才开下一关）。第 1 关含教程；其余关卡按盘列表推进。对战仍为正方形盘面。
 - 10 × 8 棋盘，共 12 枚地雷。
 - 左键翻开地格，右键插旗或撤旗。
 - 首次翻开的地格及其周围八格不会布雷。
@@ -22,10 +22,12 @@ Godot 4 的扫雷肉鸽项目基础工程，首发平台为 Web。
 - 失败或胜利后可通过“重新布置雷区”开始新局。
 
 棋盘规则位于 `scripts/game/minesweeper_board.gd`，显示与交互分别位于 `scripts/main.gd` 和 `scripts/ui/mine_cell.gd`。
-世界地图位于 `scripts/ui/world_map.gd` 与 `scenes/world_map.tscn`（布局是可在编辑器里手改的美术资产，初稿由 `tools/build_world_map.gd` 生成一次），关卡数据在 `scripts/game/stage_table.gd`。
+世界地图位于 `scripts/ui/world_map.gd` 与 `scenes/world_map.tscn`（布局是可在编辑器里手改的美术资产，初稿由 `tools/build_world_map.gd` 生成一次），关卡数据在 `scripts/game/stage_table.gd`，盘面形状库在 `scripts/game/board_shape.gd`。
 
 ## 第三方素材
 
-- **KayKit Medieval Hexagon Pack 1.0 (FREE)** — 作者 Kay Lousberg（[kaylousberg.com](https://www.kaylousberg.com)），许可 **CC0 / Creative Commons Zero**，个人、教育与商业用途均免费，署名非强制。世界地图的六边形地格、装饰与建筑全部来自这个包。只取用了 `Assets/gltf/` 子树（放在 `assets/hexmap/`），`fbx` 与 `fbx(unity)` 未入库。许可原文见 `assets/hexmap/LICENSE-KayKit.txt`。
+- **KayKit Medieval Hexagon Pack 1.0 (FREE)** — 作者 Kay Lousberg（[kaylousberg.com](https://www.kaylousberg.com)），许可 **CC0 / Creative Commons Zero**，个人、教育与商业用途均免费，署名非强制。早期平面六边地图素材在 `assets/hexmap/`。许可原文见 `assets/hexmap/LICENSE-KayKit.txt`。
+- **KayKit Medieval Builder Pack 1.0 (FREE)** — 同一作者，同样 **CC0**。备用六边地格与建筑在 `assets/builder/`。许可原文见 `assets/builder/LICENSE-KayKit.txt`。
+- **Stylized Nature MegaKit (Standard)** — 作者 Quaternius（[quaternius.com](https://quaternius.com)），许可 **CC0**。选关图林间树、草、花、石在 `assets/nature/`。许可原文见 `assets/nature/LICENSE-Quaternius.txt`。
 
 详细工程与体验约束见 [docs/PROJECT_CONSTRAINTS.md](docs/PROJECT_CONSTRAINTS.md)。

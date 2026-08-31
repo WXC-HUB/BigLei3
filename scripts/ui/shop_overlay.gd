@@ -12,6 +12,19 @@ const ButtonMotion := preload("res://scripts/ui/button_motion.gd")
 const GREETING_TEXT := "大酬宾哟！"
 const GREETING_MAX_FONT_SIZE := 49
 const GREETING_MIN_FONT_SIZE := 20
+const SOLO_SHOP_COLUMNS := 5
+const DUEL_SHOP_COLUMNS := 3
+const SOLO_GRID_OFFSETS := Rect2(351.0, 301.0, 1148.0, 588.0)
+const SOLO_SLOT_SIZE := Vector2(198, 230)
+const SOLO_H_SEPARATION := 128
+const SOLO_V_SEPARATION := 32
+## ItemBg 是 Sprite2D，视觉大约 343×343，锚在格子偏右下；格子必须包住它，
+## 否则 Grid 按 198×230 排版，卡片会裁切、上下叠在一起。
+const DUEL_SLOT_SIZE := Vector2(348, 378)
+const DUEL_H_SEPARATION := 52
+const DUEL_V_SEPARATION := 72
+const DUEL_SCROLL_POSITION := Vector2(180.0, 228.0)
+const DUEL_SCROLL_SIZE := Vector2(1260.0, 660.0)
 
 const OFFER_ICONS: Array[Texture2D] = [
 	preload("res://my_asset/heart.png"),
@@ -86,6 +99,9 @@ var _duel_countdown_label: Label
 var _duel_opponent_ready_label: Label
 var _duel_opponent_label: Label
 var _duel_opponent_upgrades: GridContainer
+var _item_scroll: ScrollContainer
+var _item_scroll_margin: MarginContainer
+var _solo_grid_index := 0
 
 
 func _ready() -> void:
@@ -119,6 +135,7 @@ func present(_result: String, _progress: String, gold: int, price: int) -> void:
 ## 界面，只是跳过那次抽取。
 func present_full(gold: int, price: int) -> void:
 	_duel_mode = true
+	_apply_duel_shop_layout()
 	_set_greeting_text(GREETING_TEXT)
 	_current_price = price
 	gold_label.text = "当前金币：%dG" % gold
@@ -187,6 +204,7 @@ func set_duel_self_ready(is_ready: bool) -> void:
 ## 对战结束时把商店还原成单机形态，免得下一次单机开局继承了大全模式。
 func exit_duel_mode() -> void:
 	_duel_mode = false
+	_restore_solo_shop_layout()
 	if _duel_bar != null:
 		_duel_bar.visible = false
 	refresh_button.visible = true
@@ -246,6 +264,83 @@ func _duel_bar_style() -> StyleBoxFlat:
 	style.set_corner_radius_all(10)
 	style.set_content_margin_all(14)
 	return style
+
+
+func _apply_duel_shop_layout() -> void:
+	item_grid.columns = DUEL_SHOP_COLUMNS
+	item_grid.add_theme_constant_override("h_separation", DUEL_H_SEPARATION)
+	item_grid.add_theme_constant_override("v_separation", DUEL_V_SEPARATION)
+	for slot in _item_slots:
+		slot.custom_minimum_size = DUEL_SLOT_SIZE
+	if item_grid.get_parent() != _item_scroll_margin:
+		var shop_card := item_grid.get_parent() as Control
+		_solo_grid_index = item_grid.get_index()
+		if _item_scroll == null:
+			_item_scroll = ScrollContainer.new()
+			_item_scroll.name = "ItemScroll"
+			_item_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			_item_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+			_item_scroll.follow_focus = true
+			_item_scroll.clip_contents = true
+			_item_scroll_margin = MarginContainer.new()
+			_item_scroll_margin.name = "ItemScrollMargin"
+			_item_scroll_margin.add_theme_constant_override("margin_left", 16)
+			_item_scroll_margin.add_theme_constant_override("margin_top", 20)
+			_item_scroll_margin.add_theme_constant_override("margin_right", 28)
+			_item_scroll_margin.add_theme_constant_override("margin_bottom", 24)
+			_item_scroll_margin.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			_item_scroll_margin.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			shop_card.add_child(_item_scroll)
+			shop_card.move_child(_item_scroll, _solo_grid_index)
+			_item_scroll.add_child(_item_scroll_margin)
+		item_grid.reparent(_item_scroll_margin, false)
+	_item_scroll.position = DUEL_SCROLL_POSITION
+	_item_scroll.size = DUEL_SCROLL_SIZE
+	_item_scroll.custom_minimum_size = DUEL_SCROLL_SIZE
+	item_grid.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	item_grid.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_style_duel_scrollbar()
+	_item_scroll.visible = true
+
+
+func _restore_solo_shop_layout() -> void:
+	item_grid.columns = SOLO_SHOP_COLUMNS
+	item_grid.add_theme_constant_override("h_separation", SOLO_H_SEPARATION)
+	item_grid.add_theme_constant_override("v_separation", SOLO_V_SEPARATION)
+	item_grid.size_flags_horizontal = Control.SIZE_FILL
+	item_grid.size_flags_vertical = Control.SIZE_FILL
+	for slot in _item_slots:
+		slot.custom_minimum_size = SOLO_SLOT_SIZE
+	if _item_scroll == null or item_grid.get_parent() != _item_scroll_margin:
+		return
+	var shop_card := _item_scroll.get_parent()
+	item_grid.reparent(shop_card, false)
+	shop_card.move_child(item_grid, _solo_grid_index)
+	item_grid.offset_left = SOLO_GRID_OFFSETS.position.x
+	item_grid.offset_top = SOLO_GRID_OFFSETS.position.y
+	item_grid.offset_right = SOLO_GRID_OFFSETS.end.x
+	item_grid.offset_bottom = SOLO_GRID_OFFSETS.end.y
+	_item_scroll.visible = false
+
+
+func _style_duel_scrollbar() -> void:
+	var grabber := StyleBoxFlat.new()
+	grabber.bg_color = Color("d4a84b")
+	grabber.set_corner_radius_all(6)
+	grabber.set_content_margin_all(4)
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(0.16, 0.12, 0.06, 0.72)
+	track.set_corner_radius_all(6)
+	_item_scroll.add_theme_stylebox_override("grabber", grabber)
+	_item_scroll.add_theme_stylebox_override("scroll", track)
+	var vbar := _item_scroll.get_v_scroll_bar()
+	if vbar == null:
+		return
+	vbar.custom_minimum_size.x = 16.0
+	vbar.add_theme_stylebox_override("grabber", grabber)
+	vbar.add_theme_stylebox_override("grabber_highlight", grabber)
+	vbar.add_theme_stylebox_override("grabber_pressed", grabber)
+	vbar.add_theme_stylebox_override("scroll", track)
 
 
 func show_insufficient_gold(gold: int, _price: int) -> void:

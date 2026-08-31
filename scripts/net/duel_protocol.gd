@@ -23,6 +23,8 @@ enum Kind {
 	ROUND_OVER,
 	## 双向：我血量归零了 —— 收到即本方获胜。
 	DUEL_OVER,
+	## guest → host：报房间码。对不上就踢，对上了房主才开局。
+	ROOM,
 }
 
 

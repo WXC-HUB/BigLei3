@@ -19,6 +19,13 @@ const CHAIN_MARKER_TEXTURE := preload("res://assets/sprites/generated/marker_cha
 const CHAIN_ANCHOR_BADGE_SCALE := 0.58
 ## Size the flag settles at once its card has been blown away.
 const SEALED_MARKER_SCALE := 0.66
+## 误标 / 已触发雷的底板红叉：放大一点、半透，才不压过雷图和数字。
+const FAULT_PLATE_SCALE := 1.42
+const FAULT_PLATE_ALPHA := 0.48
+const CORRECT_MARK_PLATE := preload("res://my_asset/effects/marked_mine_green_check.png")
+## 正确标记的绿勾比红叉小一圈、更实一点，避免盖住雷图。
+const CORRECT_MARK_PLATE_SCALE := 1.08
+const CORRECT_MARK_PLATE_ALPHA := 0.72
 
 
 class MarchingDashedBorder extends Control:
@@ -105,6 +112,7 @@ var _preview_overlay: Panel
 var _inference_border: MarchingDashedBorder
 var _super_luck_border: MarchingDashedBorder
 var _shadow: Panel
+var _fault_plate: TextureRect
 var _content: TextureRect
 var _number_label: Label
 var _mud_front: Control
@@ -186,6 +194,12 @@ func _ready() -> void:
 	_shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_shadow.add_theme_stylebox_override("panel", _shadow_style())
 	_visual_root.add_child(_shadow)
+
+	# 误标红叉 / 已触发雷红叉 / 正确标记绿勾，压在地面上、内容（雷图或数字）之下。
+	_fault_plate = _texture_layer()
+	_fault_plate.z_index = 5
+	_fault_plate.visible = false
+	_visual_root.add_child(_fault_plate)
 
 	_content = _texture_layer()
 	_content.z_index = DEFAULT_CONTENT_Z
@@ -314,6 +328,7 @@ func display_covered(marker: Texture2D = null) -> void:
 		_preview_overlay.visible = false
 	self_modulate = Color.WHITE
 	_targeting_selected = false
+	_set_fault_plate(null)
 	_set_content(null, ContentKind.EMPTY)
 	modulate = Color.WHITE
 	# Unmarking puts the card back; any other refresh has to keep the crater the
@@ -329,7 +344,8 @@ func display_revealed(
 	kind: ContentKind = ContentKind.EMPTY,
 	preserve_cover_for_animation: bool = false,
 	content_span: int = 1,
-	number_value: int = 0
+	number_value: int = 0,
+	fault_plate: Texture2D = null
 ) -> void:
 	_revealed = true
 	_destroyed = false
@@ -343,6 +359,7 @@ func display_revealed(
 	_combat_label.visible = false
 	_monster_health_back.visible = false
 	_showing_corpse = kind == ContentKind.CORPSE
+	_set_fault_plate(fault_plate)
 	_set_content(content, kind, content_span)
 	if kind == ContentKind.NUMBER and number_value > 0:
 		_set_number(number_value)
@@ -365,6 +382,39 @@ func set_item_used_visual(used: bool) -> void:
 	var grayscale_material := ShaderMaterial.new()
 	grayscale_material.shader = USED_ITEM_SHADER
 	_content.material = grayscale_material
+
+
+func _set_fault_plate(texture: Texture2D) -> void:
+	_fault_plate.texture = texture
+	_fault_plate.visible = texture != null
+	if texture == null:
+		_fault_plate.scale = Vector2.ONE
+		_fault_plate.modulate = Color.WHITE
+		return
+	# 用格子边长做轴心，避免刚显示时 size 还是 0 导致放大偏到一角。
+	_fault_plate.pivot_offset = Vector2(_cell_size, _cell_size) * 0.5
+	var plate_scale := _fault_plate_target_scale()
+	_fault_plate.scale = plate_scale
+	_fault_plate.modulate = Color(1.0, 1.0, 1.0, _fault_plate_target_alpha())
+	_fault_plate.rotation = 0.0
+	_fault_plate.material = null
+
+
+func _fault_plate_target_scale() -> Vector2:
+	var amount := (
+		CORRECT_MARK_PLATE_SCALE
+		if _fault_plate.texture == CORRECT_MARK_PLATE
+		else FAULT_PLATE_SCALE
+	)
+	return Vector2(amount, amount)
+
+
+func _fault_plate_target_alpha() -> float:
+	return (
+		CORRECT_MARK_PLATE_ALPHA
+		if _fault_plate.texture == CORRECT_MARK_PLATE
+		else FAULT_PLATE_ALPHA
+	)
 
 
 func set_interactable(value: bool) -> void:
@@ -497,13 +547,21 @@ func play_reveal(delay: float = 0.0) -> void:
 
 
 func play_flag() -> void:
-	_marker.pivot_offset = _marker.size * 0.5
-	_marker.rotation = deg_to_rad(-5.0)
-	_marker.scale = Vector2(0.72, 0.72)
+	var target := _content if _content.visible else _marker
+	if not target.visible:
+		return
+	target.pivot_offset = target.size * 0.5
+	target.rotation = deg_to_rad(-5.0)
+	target.scale = Vector2(0.72, 0.72)
 	var tween := create_tween().set_parallel(true)
 	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_marker, "rotation", 0.0, 0.16)
-	tween.tween_property(_marker, "scale", Vector2.ONE, 0.16)
+	tween.tween_property(target, "rotation", 0.0, 0.16)
+	tween.tween_property(target, "scale", Vector2.ONE, 0.16)
+	if _fault_plate.visible and target == _content:
+		_fault_plate.pivot_offset = Vector2(_cell_size, _cell_size) * 0.5
+		var plate_scale := _fault_plate_target_scale()
+		_fault_plate.scale = plate_scale * 0.72
+		tween.tween_property(_fault_plate, "scale", plate_scale, 0.16)
 
 
 ## Blows the confirmed mine's card apart once the flag pose has landed. The tile
@@ -687,9 +745,11 @@ func is_flag_sealed() -> bool:
 func display_revealed_in_crater(
 	content: Texture2D,
 	kind: ContentKind,
-	content_span: int = 1
+	content_span: int = 1,
+	number_value: int = 0,
+	fault_plate: Texture2D = null
 ) -> void:
-	display_revealed(content, kind, false, content_span)
+	display_revealed(content, kind, false, content_span, number_value, fault_plate)
 	_flag_sealed = true
 	_apply_sealed_surface()
 
@@ -763,10 +823,21 @@ func _set_content(texture: Texture2D, kind: ContentKind, content_span: int = 1) 
 			_content.z_index = ITEM_CONTENT_Z
 		ContentKind.CORPSE, ContentKind.TRIGGERED:
 			_content.z_index = CORPSE_CONTENT_Z
+		ContentKind.NUMBER:
+			_content.z_index = NUMBER_CONTENT_Z
 		_:
 			_content.z_index = DEFAULT_CONTENT_Z
-	_shadow.visible = kind == ContentKind.ITEM or kind == ContentKind.MONSTER or kind == ContentKind.CORPSE
-	_mud_front.visible = kind == ContentKind.ITEM or (kind == ContentKind.MONSTER and content_span == 1)
+	_shadow.visible = (
+		kind == ContentKind.ITEM
+		or kind == ContentKind.MONSTER
+		or kind == ContentKind.CORPSE
+		or kind == ContentKind.TRIGGERED
+	)
+	_mud_front.visible = (
+		kind == ContentKind.ITEM
+		or (kind == ContentKind.MONSTER and content_span == 1)
+		or (kind == ContentKind.TRIGGERED and content_span == 1)
+	)
 	var scale_ratio := 0.0
 	var vertical_offset := 0.0
 	match kind:
@@ -777,8 +848,9 @@ func _set_content(texture: Texture2D, kind: ContentKind, content_span: int = 1) 
 			scale_ratio = 0.82
 			vertical_offset = -4.0
 		ContentKind.TRIGGERED:
-			scale_ratio = 0.76
-			vertical_offset = 0.0
+			# 已触发雷 / 正确标记：内容是雷图，底板另铺红叉或绿勾，尺寸与小雷一致。
+			scale_ratio = 2.82 if content_span == 3 else 0.82
+			vertical_offset = -12.0 if content_span == 3 else -3.0
 		ContentKind.DESTROYED:
 			scale_ratio = 0.70
 			vertical_offset = 0.0
@@ -792,7 +864,10 @@ func _set_content(texture: Texture2D, kind: ContentKind, content_span: int = 1) 
 			(_cell_size - content_size) * 0.5 + vertical_offset
 		)
 		_content.size = Vector2(content_size, content_size)
-	if (kind == ContentKind.MONSTER or kind == ContentKind.CORPSE) and content_span == 3:
+	if (
+		(kind == ContentKind.MONSTER or kind == ContentKind.CORPSE or kind == ContentKind.TRIGGERED)
+		and content_span == 3
+	):
 		_shadow.position = Vector2(-_cell_size * 0.72, _cell_size * 1.02)
 		_shadow.size = Vector2(_cell_size * 2.44, _cell_size * 0.32)
 	else:

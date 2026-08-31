@@ -1,6 +1,6 @@
 extends SceneTree
 
-const WRONG_FLAG_SKULL := preload("res://assets/sprites/generated/marker_wrong_flag_skull.png")
+const RED_CROSS := preload("res://my_asset/effects/triggered_mine_red_cross.png")
 
 
 func _init() -> void:
@@ -46,11 +46,15 @@ func _run() -> void:
 	var cells: Array = game.get("_cells")
 	var wrong_cell: MineCell = cells[safe_index]
 	var content := wrong_cell.get("_content") as TextureRect
-	var base := wrong_cell.get("_base") as TextureRect
-	var surface := wrong_cell.get("_surface") as Panel
-	var surface_style := surface.get_theme_stylebox("panel") as StyleBoxFlat
-	assert(content.texture == WRONG_FLAG_SKULL, "Wrong mark did not display the skull")
-	assert(not base.visible and surface_style.bg_color.is_equal_approx(Color("090b0a")), "Wrong mark cell was not blackened")
+	var fault := wrong_cell.get("_fault_plate") as TextureRect
+	var number_label := wrong_cell.get("_number_label") as Label
+	var expected_number := board.adjacent_mines(safe_index)
+	assert(fault.visible and fault.texture == RED_CROSS, "Wrong mark missing red-cross plate")
+	assert(content.texture == null, "Wrong mark still showed item or skull content")
+	if expected_number > 0:
+		assert(number_label.visible and number_label.text == str(expected_number), "Wrong mark did not show adjacent number")
+	else:
+		assert(not number_label.visible, "Wrong mark showed a number on a zero cell")
 	var item_queue: Array[int] = []
 	var queued_items: Dictionary = {}
 	game.call("_present_revealed", PackedInt32Array([safe_index]), item_queue, queued_items)
