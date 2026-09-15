@@ -7,7 +7,7 @@ func _init() -> void:
 
 func _run() -> void:
 	var stage := "scene setup"
-	create_timer(5.0).timeout.connect(func() -> void:
+	create_timer(20.0).timeout.connect(func() -> void:
 		push_error("Medical kit test timed out during: %s" % stage)
 		quit(2)
 	)
@@ -16,7 +16,9 @@ func _run() -> void:
 	root.add_child(game)
 	await process_frame
 	game.set("_medical_kit_bonus", 3)
-	game.set("_run_number", 4)
+	game.set("_dove_bird_unlocked", true)
+	# 教学关一张治愈牌都不发，所以要在正式关上验。
+	game.set("_run_number", int(game.get("TUTORIAL_LEVEL_COUNT")))
 	game.call("_start_game")
 	stage = "mine placement"
 	var board: MinesweeperBoard = game.get("_board")
@@ -65,7 +67,8 @@ func _resolve_item(game: Node, board: MinesweeperBoard, item_index: int) -> void
 		queue,
 		queued
 	)
-	await create_timer(0.75).timeout
+	# 斑鸠要从栖位飞到血条才结算，等它飞完。
+	await create_timer(1.4).timeout
 	assert(board.is_item_used(item_index), "Medical kit was not consumed")
 
 

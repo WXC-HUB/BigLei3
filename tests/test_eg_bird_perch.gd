@@ -11,11 +11,11 @@ func _run() -> void:
 	root.add_child(bird)
 	await process_frame
 	assert(bird.idle_frames.size() == 2)
-	assert(not bird.has_node("Tree"), "EG bird must not have a branch")
+	assert(bird.has_node("Tree"), "Every bird stands on a branch; the kestrel has none")
 	assert((bird.get_node("Sprite") as TextureRect).visible)
 	var trigger_sfx := bird.get_node("TriggerSFX") as AudioStreamPlayer
 	assert(trigger_sfx.stream != null)
 	bird.play_trigger_sfx()
 	assert(trigger_sfx.playing)
-	print("EgBirdPerch: two-frame idle and branchless layout passed")
+	print("EgBirdPerch: two-frame idle and branch passed")
 	quit()

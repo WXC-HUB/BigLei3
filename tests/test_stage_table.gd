@@ -44,6 +44,12 @@ func _check_target_rounds() -> void:
 	for stage in StageTable.STAGES:
 		var id := String(stage["id"])
 		var boards := StageTable.boards_of(id)
+		if bool(stage.get("endless", false)):
+			# 无尽关没有盘列表也没有目标盘数：盘由 endless_board 现生成，见 test_endless_stage。
+			assert(boards.is_empty(), "%s 是无尽关，不该有手写盘列表" % id)
+			assert(StageTable.target_round_of(id) == 0, "%s 的目标盘数应为 0" % id)
+			assert(int(StageTable.stage(id)["target_round"]) == 0, "%s stage() 派生的 target_round 应为 0" % id)
+			continue
 		assert(not boards.is_empty(), "%s 没有盘列表" % id)
 		var target := StageTable.target_round_of(id)
 		assert(target == boards.size(), "%s 的目标盘数与盘列表长度不符" % id)
@@ -73,7 +79,7 @@ func _check_target_rounds() -> void:
 	# 盘数递增：后一关不少于前一非教程关。
 	var prev := 0
 	for stage in StageTable.STAGES:
-		if bool(stage.get("teaches", false)):
+		if bool(stage.get("teaches", false)) or bool(stage.get("endless", false)):
 			continue
 		var n := StageTable.target_round_of(String(stage["id"]))
 		assert(n >= prev, "非教程关盘数应递增")
@@ -84,9 +90,17 @@ func _check_target_rounds() -> void:
 func _check_stage_themes() -> void:
 	for stage in StageTable.STAGES:
 		var id := String(stage["id"])
-		assert(stage.has("boards"), "%s 应手写盘列表，不要再靠阶梯生成" % id)
 		var prefixes: Array = StageTable.THEME_SHAPE_PREFIXES.get(id, [])
 		assert(not prefixes.is_empty(), "%s 没有主题形状前缀" % id)
+		if bool(stage.get("endless", false)):
+			# 无尽关的「主题」是全部形状族：每个尺寸的抽签池都得够花样。
+			for size in range(StageTable.ENDLESS_START_SIZE, StageTable.ENDLESS_MAX_SIZE + 1):
+				var pool := StageTable.endless_shape_pool(size)
+				assert(pool.size() >= 3, "无尽关边长 %d 的形状池太小：%d" % [size, pool.size()])
+				for shape_id in pool:
+					assert(StageTable.shape_fits_theme(id, String(shape_id)), "无尽关池里混进了 %s" % String(shape_id))
+			continue
+		assert(stage.has("boards"), "%s 应手写盘列表，不要再靠阶梯生成" % id)
 		var seen := {}
 		for board in StageTable.boards_of(id):
 			var shape_id := String(board["shape"])
@@ -141,7 +155,11 @@ func _check_progress_readout() -> void:
 	var empty: Array = []
 	var progress := StageTable.region_progress(region_id, empty)
 	assert(int(progress["cleared"]) == 0, "空存档下已通关数不是 0")
-	assert(int(progress["total"]) == StageTable.STAGES.size(), "region_progress 总数不对")
+	var clearable := 0
+	for stage in StageTable.STAGES:
+		if not bool(stage.get("endless", false)):
+			clearable += 1
+	assert(int(progress["total"]) == clearable, "region_progress 总数应只数能通关的关：%d" % int(progress["total"]))
 	assert(String(progress["next_region"]) == "", "单区地图不应再报下一个区")
 
 	var one: Array = [String(StageTable.STAGES[0]["id"])]

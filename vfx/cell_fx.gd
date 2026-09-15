@@ -228,7 +228,14 @@ static func play_mine_explosion(layer: Control, center: Vector2, power: float = 
 
 
 ## 正确标记雷：外扩的金色确认环 + 向内收束的封印环，读作“锁定并封住”。
-static func play_flag_seal(layer: Control, center: Vector2) -> void:
+## `tint` 和 `power` 由连击热度喂进来（见 ComboStyle）：档位色染在外环和星屑上，
+## power 0-1 把整个封印撑大一圈。默认值就是原来的单发金色封印。
+static func play_flag_seal(
+	layer: Control,
+	center: Vector2,
+	tint: Color = Color(1.0, 0.84, 0.42, 1.0),
+	power: float = 0.0
+) -> void:
 	var grade := _grade(layer)
 	if grade == GRADE_SKIP:
 		return
@@ -236,8 +243,9 @@ static func play_flag_seal(layer: Control, center: Vector2) -> void:
 	if root == null:
 		return
 	var lite := grade == GRADE_LITE
+	var heat := clampf(power, 0.0, 1.0)
 
-	var gold := Color(1.0, 0.84, 0.42, 1.0)
+	var gold := tint
 	var cyan := Color(0.55, 0.94, 0.95, 1.0)
 
 	# 立刻起爆的金色核心，保证高频操作下反馈不迟到。
@@ -247,7 +255,7 @@ static func play_flag_seal(layer: Control, center: Vector2) -> void:
 	root.add_child(core)
 	var core_tween := root.create_tween().set_parallel(true)
 	core_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	core_tween.tween_property(core, "radius", 78.0, 0.14)
+	core_tween.tween_property(core, "radius", 78.0 + 30.0 * heat, 0.14)
 	core_tween.tween_property(core, "modulate:a", 0.0, 0.22).set_delay(0.06)
 
 	# 外扩确认环
@@ -258,7 +266,7 @@ static func play_flag_seal(layer: Control, center: Vector2) -> void:
 	root.add_child(ring)
 	var ring_tween := root.create_tween().set_parallel(true)
 	ring_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	ring_tween.tween_property(ring, "radius", 152.0, 0.34)
+	ring_tween.tween_property(ring, "radius", 152.0 + 64.0 * heat, 0.34)
 	ring_tween.tween_property(ring, "thickness", 4.0, 0.34)
 	ring_tween.tween_property(ring, "modulate:a", 0.0, 0.2).set_delay(0.16)
 
@@ -282,7 +290,7 @@ static func play_flag_seal(layer: Control, center: Vector2) -> void:
 	root.add_child(gleam)
 	var gleam_tween := root.create_tween()
 	gleam_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	gleam_tween.tween_property(gleam, "length", 96.0, 0.18).set_delay(0.14)
+	gleam_tween.tween_property(gleam, "length", 96.0 + 40.0 * heat, 0.18).set_delay(0.14)
 	gleam_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	gleam_tween.tween_property(gleam, "length", 0.0, 0.22)
 	gleam_tween.parallel().tween_property(gleam, "rotation", 0.42, 0.22)
@@ -290,8 +298,8 @@ static func play_flag_seal(layer: Control, center: Vector2) -> void:
 	if lite:
 		return
 
-	# 金色星屑
-	var sparkles := _make_particles(14, 0.6)
+	# 金色星屑：连击越高撒得越多。
+	var sparkles := _make_particles(14 + int(round(12.0 * heat)), 0.6)
 	sparkles.texture = _soft_dot()
 	sparkles.lifetime_randomness = 0.4
 	sparkles.direction = Vector2(0.0, -1.0)
@@ -307,6 +315,7 @@ static func play_flag_seal(layer: Control, center: Vector2) -> void:
 	sparkles.color_ramp = _gold_ramp()
 	sparkles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
 	sparkles.emission_sphere_radius = 12.0
+	sparkles.color_ramp = _tint_ramp(tint)
 	root.add_child(sparkles)
 
 	# 上浮光尘，把“已封印”的状态留在格子上多停半拍。
@@ -324,11 +333,47 @@ static func play_flag_seal(layer: Control, center: Vector2) -> void:
 	motes.color_ramp = _gold_ramp()
 	motes.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
 	motes.emission_sphere_radius = 34.0
+	motes.color_ramp = _tint_ramp(tint)
 	root.add_child(motes)
 
 	for child in root.get_children():
 		if child is CPUParticles2D:
 			child.emitting = true
+
+
+## 连击收束的奖金：金币从棋盘抛向左上角的钱袋。奖金原本只在屏幕角落飘一行数字，
+## 玩家不会把它和刚刚打完的那串连击联系起来——得让钱自己走完这段路。
+static func play_gold_flight(layer: Control, from: Vector2, to: Vector2, count: int) -> void:
+	var grade := _grade(layer)
+	if grade == GRADE_SKIP:
+		return
+	var coins := clampi(count, 1, 6 if grade == GRADE_LITE else 10)
+	for i in range(coins):
+		var root := _spawn_root(layer, from, 1.5)
+		if root == null:
+			return
+		var coin := RadialGlow.new()
+		coin.color = Color(1.0, 0.86, 0.42, 1.0)
+		coin.radius = 0.0
+		coin.falloff = 1.5
+		root.add_child(coin)
+		# 每枚币走自己的一条抛物线，否则一串金币会连成一根直棍。
+		var control := from.lerp(to, 0.42) + Vector2(
+			randf_range(-90.0, 90.0), randf_range(-150.0, -55.0)
+		)
+		var flight := randf_range(0.46, 0.62)
+		var tween := root.create_tween()
+		tween.tween_interval(float(i) * 0.06)
+		tween.tween_property(coin, "radius", 11.0, 0.1)
+		tween.parallel().tween_method(
+			func(t: float) -> void:
+				root.global_position = from.lerp(control, t).lerp(control.lerp(to, t), t),
+			0.0,
+			1.0,
+			flight
+		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_property(coin, "radius", 0.0, 0.12)
+		tween.tween_callback(root.queue_free)
 
 
 ## 正确标记的格子在封印动效之后整块炸碎：泥土碎块 + 金色火花 + 扬尘。
@@ -651,6 +696,15 @@ static func _blood_ramp(tint: Color) -> Gradient:
 		[0.0, Color(1.0, 0.95, 0.9, 1.0)],
 		[0.3, Color(tint.r, tint.g, tint.b, 1.0)],
 		[1.0, Color(tint.r * 0.55, tint.g * 0.25, tint.b * 0.22, 0.0)],
+	])
+
+
+## 把确认星屑染成当前连击档位的颜色，落点和角落的 COMBO 柱才是同一套光。
+static func _tint_ramp(tint: Color) -> Gradient:
+	return _ramp([
+		[0.0, Color(1.0, 1.0, 0.94, 1.0)],
+		[0.35, Color(tint.r, tint.g, tint.b, 1.0)],
+		[1.0, Color(tint.r * 0.92, tint.g * 0.74, tint.b * 0.58, 0.0)],
 	])
 
 

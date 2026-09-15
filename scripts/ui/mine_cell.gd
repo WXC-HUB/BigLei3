@@ -14,9 +14,6 @@ const NUMBER_CONTENT_Z := 6
 const DEFAULT_CONTENT_Z := 20
 const CORPSE_CONTENT_Z := 8
 const USED_ITEM_SHADER := preload("res://shaders/used_item_grayscale.gdshader")
-const CHAIN_MARKER_TEXTURE := preload("res://assets/sprites/generated/marker_chain_special.png")
-## 连携标记点 A 是道具牌上的角标，缩到这个比例才不会压住牌面。
-const CHAIN_ANCHOR_BADGE_SCALE := 0.58
 ## Size the flag settles at once its card has been blown away.
 const SEALED_MARKER_SCALE := 0.66
 ## 误标 / 已触发雷的底板红叉：放大一点、半透，才不压过雷图和数字。
@@ -26,6 +23,8 @@ const CORRECT_MARK_PLATE := preload("res://my_asset/effects/marked_mine_green_ch
 ## 正确标记的绿勾比红叉小一圈、更实一点，避免盖住雷图。
 const CORRECT_MARK_PLATE_SCALE := 1.08
 const CORRECT_MARK_PLATE_ALPHA := 0.72
+## 开局发牌：一张牌从牌堆飞到自己格子上要多久。
+const DEAL_FLIGHT_TIME := 0.34
 
 
 class MarchingDashedBorder extends Control:
@@ -132,6 +131,7 @@ var _showing_corpse := false
 var _border_flash_generation := 0
 var _hover_tween: Tween
 var _flip_tween: Tween
+var _deal_tween: Tween
 var _pending_ground_texture: Texture2D
 var _flipping := false
 var _revealed := false
@@ -141,6 +141,8 @@ var _last_reveal_delay := 0.0
 var _xray_hint: TextureRect
 var _xray_number: Label
 var _xray_generation := 0
+## 透视闪烁时草皮最淡能淡到原来的几成——越低越像看穿，太低又会让格子看着像被挖空。
+const XRAY_COVER_FADE := 0.22
 
 
 func _ready() -> void:
@@ -434,21 +436,6 @@ func set_flag_marker(marker: Texture2D) -> void:
 ## 「连携」的标记点 A 落在已经翻开的道具牌上，所以标记画成右上角的一枚小角标，
 ## 不去盖住道具本身的图。display_revealed() 每次都会藏起 _marker，因此每次刷新
 ## 这张牌之后都要重新调一次。
-func set_chain_anchor(value: bool) -> void:
-	if not value:
-		if _marker.texture == CHAIN_MARKER_TEXTURE:
-			_marker.texture = null
-			_marker.visible = false
-			_marker.scale = Vector2.ONE
-			_marker.position = Vector2.ZERO
-		return
-	_marker.texture = CHAIN_MARKER_TEXTURE
-	_marker.visible = true
-	_marker.modulate = Color.WHITE
-	_marker.scale = Vector2(CHAIN_ANCHOR_BADGE_SCALE, CHAIN_ANCHOR_BADGE_SCALE)
-	_marker.position = Vector2(_cell_size * (1.0 - CHAIN_ANCHOR_BADGE_SCALE), -_cell_size * 0.06)
-
-
 func show_xray_hint(texture: Texture2D, number_value: int, duration: float = 3.0) -> void:
 	_ensure_xray_nodes()
 	_xray_generation += 1
@@ -458,17 +445,23 @@ func show_xray_hint(texture: Texture2D, number_value: int, duration: float = 3.0
 	_xray_number.text = str(number_value)
 	_xray_number.visible = texture == null
 	play_border_flash(Color("c58cff"), maxi(1, ceili(duration / 0.2)), 0.1)
+	# 透视得看着像「把这张牌看穿」：草皮自己淡下去、底下的内容同时亮起来，两边反相地
+	# 一呼一吸。光在完好的牌面上飘一个小数字是看不出来的——牌面不动，就不像透视。
+	var cover_alpha := _base.modulate.a
 	var pulse := create_tween().set_loops(maxi(1, ceili(duration / 0.4)))
-	pulse.tween_property(_xray_hint, "modulate:a", 0.48, 0.2)
-	pulse.parallel().tween_property(_xray_number, "modulate:a", 0.48, 0.2)
+	pulse.tween_property(_xray_hint, "modulate:a", 0.5, 0.2)
+	pulse.parallel().tween_property(_xray_number, "modulate:a", 0.5, 0.2)
+	pulse.parallel().tween_property(_base, "modulate:a", cover_alpha, 0.2)
 	pulse.tween_property(_xray_hint, "modulate:a", 1.0, 0.2)
 	pulse.parallel().tween_property(_xray_number, "modulate:a", 1.0, 0.2)
+	pulse.parallel().tween_property(_base, "modulate:a", cover_alpha * XRAY_COVER_FADE, 0.2)
 	await get_tree().create_timer(duration).timeout
 	if generation != _xray_generation:
 		return
 	pulse.kill()
 	_xray_hint.visible = false
 	_xray_number.visible = false
+	_base.modulate.a = cover_alpha
 
 
 func _ensure_xray_nodes() -> void:
@@ -491,10 +484,47 @@ func _ensure_xray_nodes() -> void:
 	_xray_number.add_theme_color_override("font_color", Color("f1d9ff"))
 	_xray_number.add_theme_color_override("font_outline_color", Color("3a1748"))
 	_xray_number.add_theme_constant_override("outline_size", 7)
-	_xray_number.add_theme_font_size_override("font_size", 38)
+	_xray_number.add_theme_font_size_override("font_size", 46)
 	_xray_number.z_index = 35
 	_xray_number.visible = false
 	_visual_root.add_child(_xray_number)
+
+
+## 开局洗牌：先把这张牌藏起来并叠到牌堆上，等 `play_deal_in()` 把它发出去。
+## `offset` 是牌堆相对自己最终位置的偏移，由调用方按棋盘中心算好。
+func prepare_deal(offset: Vector2, spin: float) -> void:
+	if _deal_tween != null and _deal_tween.is_valid():
+		_deal_tween.kill()
+	_visual_root.pivot_offset = size * 0.5
+	_visual_root.position = offset
+	_visual_root.rotation = spin
+	_visual_root.scale = Vector2(0.78, 0.78)
+	_visual_root.modulate.a = 0.0
+
+
+## 把这张牌从牌堆甩到自己的格子上。`delay` 让整盘牌一张张落下而不是一起砸下来。
+func play_deal_in(delay: float = 0.0) -> void:
+	if _deal_tween != null and _deal_tween.is_valid():
+		_deal_tween.kill()
+	_deal_tween = create_tween().set_parallel(true)
+	if delay > 0.0:
+		_deal_tween.tween_interval(delay)
+		_deal_tween.chain().set_parallel(true)
+	_deal_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_deal_tween.tween_property(_visual_root, "position", Vector2.ZERO, DEAL_FLIGHT_TIME)
+	_deal_tween.tween_property(_visual_root, "rotation", 0.0, DEAL_FLIGHT_TIME)
+	_deal_tween.tween_property(_visual_root, "modulate:a", 1.0, DEAL_FLIGHT_TIME * 0.55)
+	_deal_tween.tween_property(_visual_root, "scale", Vector2.ONE, DEAL_FLIGHT_TIME) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_deal_tween.chain().tween_callback(_finish_deal)
+
+
+## 发牌结束后把动画层彻底归位，免得残留的偏移/透明度影响后面的翻牌与悬停。
+func _finish_deal() -> void:
+	_visual_root.position = Vector2.ZERO
+	_visual_root.rotation = 0.0
+	_visual_root.scale = Vector2.ONE
+	_visual_root.modulate.a = 1.0
 
 
 func play_reveal(delay: float = 0.0) -> void:

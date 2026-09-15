@@ -1,6 +1,9 @@
 class_name MinesweeperBoard
 extends RefCounted
 
+## 连携组至少要两颗雷才谈得上「连携」，配置成 1 的时候按没有连携组处理。
+const CHAIN_MINE_MIN_GROUP := 2
+
 enum CellState { COVERED, REVEALED, FLAGGED }
 enum ItemType {
 	NONE,
@@ -35,6 +38,10 @@ var seed: int
 var active_cell_count: int
 
 var _mines := PackedByteArray()
+## 连携雷：开局就从已布下的雷里挑出的一组。玩家标中组里任意一颗，其余同组的雷会被
+## 一并标出。组的成员由 `_rng` 决定，所以对战双方同一颗种子会挑出同一组。
+var _chain_mines := PackedByteArray()
+var _chain_mine_indices := PackedInt32Array()
 var _monster_cores := PackedByteArray()
 var _monster_peripherals := PackedByteArray()
 var _monster_core_lookup := PackedInt32Array()
@@ -87,6 +94,7 @@ func _init(
 	seed = run_seed if run_seed != 0 else int(Time.get_unix_time_from_system() * 1000.0) ^ Time.get_ticks_msec()
 	_rng.seed = seed
 	_mines.resize(width * height)
+	_chain_mines.resize(width * height)
 	_monster_cores.resize(width * height)
 	_monster_peripherals.resize(width * height)
 	_monster_core_lookup.resize(width * height)
@@ -96,6 +104,7 @@ func _init(
 	_items_used.resize(width * height)
 	_active.resize(width * height)
 	_mines.fill(0)
+	_chain_mines.fill(0)
 	_monster_cores.fill(0)
 	_monster_peripherals.fill(0)
 	_monster_core_lookup.fill(-1)
@@ -194,6 +203,44 @@ func ensure_mines_placed(safe_index: int) -> void:
 		_place_mines(safe_index)
 
 
+## 按给定的格子直接布雷，不走随机：新手强引导那一盘的雷位是写死的。
+## 只在还没布雷时生效；同时清空道具（那一盘不发任何牌），返回是否真的布下了。
+func place_fixed_mines(mine_indices: PackedInt32Array) -> bool:
+	if mines_placed:
+		return false
+	var occupied: Dictionary = {}
+	var placed := 0
+	for index in mine_indices:
+		if not _is_valid(index) or occupied.has(index):
+			continue
+		_place_monster(index, occupied)
+		placed += 1
+	mine_count = placed
+	for index in range(width * height):
+		if not is_active(index):
+			_adjacent[index] = 0
+			continue
+		var count := 1 if has_mine(index) else 0
+		for neighbor in neighbors_of(index):
+			if has_mine(neighbor):
+				count += 1
+		_adjacent[index] = count
+	_items.fill(ItemType.NONE)
+	_chain_mines.fill(0)
+	_chain_mine_indices = PackedInt32Array()
+	lantern_count = 0
+	compass_count = 0
+	orbital_strike_count = 0
+	super_luck_count = 0
+	medical_kit_count = 0
+	xray_count = 0
+	chain_count = 0
+	enlarge_count = 0
+	detect_count = 0
+	mines_placed = true
+	return placed > 0
+
+
 func is_monster_core(index: int) -> bool:
 	return _monster_cores[index] == 1
 
@@ -290,7 +337,8 @@ func configured_item_count(type: ItemType) -> int:
 		ItemType.XRAY:
 			return xray_count
 		ItemType.CHAIN:
-			return chain_count
+			# 连携改成了雷的属性，不再有实体牌埋在盘上——道具读数里就不该再出现它。
+			return 0
 		ItemType.ENLARGE:
 			return enlarge_count
 		ItemType.DETECT:
@@ -310,7 +358,6 @@ func total_item_count() -> int:
 			+ super_luck_count
 			+ medical_kit_count
 			+ xray_count
-			+ chain_count
 			+ enlarge_count
 			+ detect_count
 		)
@@ -645,8 +692,55 @@ func _place_mines(first_index: int) -> void:
 			if has_mine(neighbor):
 				count += 1
 		_adjacent[index] = count
+	_designate_chain_mines()
 	_place_items(first_index)
 	mines_placed = true
+
+
+## 从已经布好的雷里挑出这一盘的连携组。和布雷、发牌共用同一条 `_rng`，所以对战
+## 双方拿到的组完全一致；挑不满就有多少算多少。
+func _designate_chain_mines() -> void:
+	_chain_mines.fill(0)
+	_chain_mine_indices = PackedInt32Array()
+	if chain_count < CHAIN_MINE_MIN_GROUP:
+		return
+	var cores: Array[int] = []
+	for index in range(width * height):
+		if is_monster_core(index):
+			cores.append(index)
+	if cores.size() < CHAIN_MINE_MIN_GROUP:
+		return
+	for index in range(cores.size() - 1, 0, -1):
+		var swap_index := _rng.randi_range(0, index)
+		var temporary := cores[index]
+		cores[index] = cores[swap_index]
+		cores[swap_index] = temporary
+	for cursor in range(mini(chain_count, cores.size())):
+		_chain_mines[cores[cursor]] = 1
+		_chain_mine_indices.append(cores[cursor])
+	_chain_mine_indices.sort()
+
+
+func is_chain_mine(index: int) -> bool:
+	return _is_valid(index) and _chain_mines[index] == 1
+
+
+## 本盘连携雷总数。布雷之前只能按配置值报——和 `configured_item_count()` 一个道理。
+func chain_mine_total() -> int:
+	if not mines_placed:
+		# 盘上的雷不够组成一组时，报出去的也不能超过实际雷数——开局横幅照这个数写。
+		var planned := mini(chain_count, mine_count)
+		return planned if planned >= CHAIN_MINE_MIN_GROUP else 0
+	return _chain_mine_indices.size()
+
+
+## 同组里还没被标出来的连携雷。连携触发时要带出来的就是这一批。
+func covered_chain_mines() -> PackedInt32Array:
+	var result := PackedInt32Array()
+	for index in _chain_mine_indices:
+		if state_at(index) == CellState.COVERED:
+			result.append(index)
+	return result
 
 
 func _find_single_monster_core(candidates: Array[int], occupied: Dictionary) -> int:
@@ -695,9 +789,6 @@ func _place_items(first_index: int) -> void:
 		cursor += 1
 	for count in range(mini(xray_count, candidates.size() - cursor)):
 		_items[candidates[cursor]] = ItemType.XRAY
-		cursor += 1
-	for count in range(mini(chain_count, candidates.size() - cursor)):
-		_items[candidates[cursor]] = ItemType.CHAIN
 		cursor += 1
 	for count in range(mini(enlarge_count, candidates.size() - cursor)):
 		_items[candidates[cursor]] = ItemType.ENLARGE

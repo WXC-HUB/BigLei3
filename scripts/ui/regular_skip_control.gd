@@ -26,6 +26,8 @@ enum ConfirmationMode { NONE, SKIP, RETURN_TO_MENU }
 var _available := false
 var _closing := false
 var _confirmation_mode := ConfirmationMode.NONE
+## 「返回」去哪：单机回主界面，自定义模式回编辑器。只换文案，信号照旧。
+var _return_destination := "主界面"
 
 
 func _ready() -> void:
@@ -39,6 +41,11 @@ func _ready() -> void:
 	ButtonMotion.bind(cancel_button, cancel_button, -0.8)
 	modal.visible = false
 	set_available(false)
+
+
+func set_return_destination(label: String) -> void:
+	_return_destination = label if not label.is_empty() else "主界面"
+	return_button.text = "返回" + _return_destination
 
 
 func set_available(value: bool) -> void:
@@ -134,8 +141,8 @@ func _close_confirmation(confirmed: bool) -> void:
 func _apply_confirmation_copy() -> void:
 	if _confirmation_mode == ConfirmationMode.RETURN_TO_MENU:
 		eyebrow_label.text = "结束当前清扫"
-		title_label.text = "返回主界面"
-		message_label.text = "返回主界面，您的进度将会丢失，要返回么？"
+		title_label.text = "返回" + _return_destination
+		message_label.text = "返回%s，您的进度将会丢失，要返回么？" % _return_destination
 		cancel_button.text = "继续游戏"
 		confirm_button.text = "确认返回"
 		return

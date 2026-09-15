@@ -43,7 +43,15 @@ func _run() -> void:
 	var board_panel := grid.get_parent() as Control
 	var board_stage := board_panel.get_parent() as Control
 	var board_center_y := board_panel.position.y + board_panel.size.y * 0.5
-	if not _require(is_equal_approx(board_center_y, board_stage.size.y * 0.5 - 32.0), "Mine card grid did not keep its downward-adjusted offset"): return
+	# 棋盘先抬 BOARD_VERTICAL_LIFT 再压 BOARD_VERTICAL_SHIFT；大盘还会被
+	# _apply_solo_board_fit 整体下移（见 test_board_fit_scaling），这盘是教学小盘，
+	# 位移为 0。常量从主脚本读，免得改了版式这里又变成陈年断言。
+	var layout := (game.get_script() as GDScript).get_script_constant_map()
+	var expected_center_y: float = (
+		board_stage.size.y * 0.5 - float(layout["BOARD_VERTICAL_LIFT"])
+		+ float(layout["BOARD_VERTICAL_SHIFT"]) + (game.get("_board_center_offset") as Vector2).y
+	)
+	if not _require(is_equal_approx(board_center_y, expected_center_y), "Mine card grid did not keep its downward-adjusted offset"): return
 	if not _require(face_0.texture != face_1.texture, "Horizontal card faces are not evenly alternated"): return
 	if not _require(face_0.texture != face_next_row.texture, "Vertical card faces are not evenly alternated"): return
 	if not _require(tooltip.z_index > item_icon.z_index, "Tooltip is below board item icon"): return

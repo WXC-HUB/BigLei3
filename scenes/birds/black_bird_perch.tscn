@@ -25,17 +25,12 @@ launch_frame_index = 1
 stay_hidden_after_action = true
 click_enabled = false
 
-[node name="Tree" type="TextureRect" parent="." unique_id=787566869]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -185.0
-offset_top = 315.0
-offset_right = -34.43219
-offset_bottom = 410.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="Tree" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 24.8
+offset_top = 438.7
+offset_right = 396.3
+offset_bottom = 717.3
 mouse_filter = 2
 texture = ExtResource("2_tree")
 expand_mode = 1

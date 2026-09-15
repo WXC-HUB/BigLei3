@@ -21,7 +21,7 @@ func _capture() -> void:
 	if screen != null:
 		game.set("_start_screen", null)
 		screen.get_parent().queue_free()
-	game.set("_run_number", 5)
+	game.set("_run_number", 6)
 	game.call("_start_game")
 	await process_frame
 

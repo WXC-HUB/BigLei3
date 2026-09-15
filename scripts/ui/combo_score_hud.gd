@@ -1,7 +1,16 @@
 class_name ComboScoreHud
 extends Control
 ## 贴齐画面右缘的大型得分/连击柱。
-## 「COMBO」字形本身就是能量槽；有连击时文字会摇摆、色相流转，并持续喷粒子。
+## 连击**不显示数字**：屏幕上那个大字是档位词（GOOD／GREAT／EXCELLENT／PERFECT），
+## 「连到第几下」是过程，「打得怎么样」才是玩家真正要的那句话。字号按词长反推，
+## 短词也占满、长词也不出框。
+## 「COMBO」字形本身就是进度条：填到满就是下一个里程碑（每 5 连一档）。
+## 原来这条填充读的是能量槽剩余时间，连击改成不再倒计时之后就换成了里程碑进度。
+## 有连击时文字会摇摆、色相流转，并持续喷粒子。
+##
+## 这里**刻意没有**铺满整块 HUD 的闪光层。曾经有过一个 520×640 的黄色 ColorRect，
+## 每次命中拉到 0.75 透明度再淡出——它在画面上就是一块边界分明的黄色底板，
+## 会把底下的鸟和场景整片染黄。命中反馈交给冲能、色差残影、边缘冲击和粒子就够了。
 
 const PIXEL_FONT := preload("res://assets/fonts/tianwangxing_pixel.ttf")
 
@@ -10,27 +19,25 @@ const COLOR_EMPTY_FILL := Color("1a160f")
 const COLOR_EMPTY_STROKE := Color("5a4a32")
 const COLOR_MUTED := Color("8a7a58")
 
-const TIER_COLORS := [
-	Color("e8c56a"), ## 1-4 暖金
-	Color("ff9a3c"), ## 5-9 熔橙
-	Color("ff5a3c"), ## 10-19 炽红
-	Color("fff4d0"), ## 20+ 白热
-]
+## 档位配色、色相流光和里程碑判定全部走 ComboStyle，和棋盘上的光波同源——
+## 两边各留一份就会调着调着变成两个游戏的配色。
+const TIER_COLORS := ComboStyle.TIER_COLORS
 
 const HUD_SIZE := Vector2(520, 640)
 const EDGE_INSET := 8.0
 
 const COMBO_HOME := Vector2(20, 150)
+## 档位词的字号上下限。连击数字取消之后它就是这根柱子的主角，能多大就多大。
+const RANK_FONT_MAX := 132
+const RANK_FONT_MIN := 68
 const WORD_HOME := Vector2(24, 360)
-const CAPTION_HOME := Vector2(24, 300)
 
 
 var _score_caption: Label
 var _score_value: Label
-var _combo_count: Label
-var _combo_ghost_a: Label
-var _combo_ghost_b: Label
-var _combo_caption: Label
+var _rank_label: Label
+var _rank_ghost_a: Label
+var _rank_ghost_b: Label
 var _empty_word: Label
 var _fill_clip: Control
 var _fill_word: Label
@@ -38,17 +45,15 @@ var _glow_word: Label
 var _outline_word_a: Label
 var _outline_word_b: Label
 var _word_box: Control
-var _flash: ColorRect
 var _edge_glow: ColorRect
 var _spark_layer: Control
 var _aura: _HeatAura
 
 var _score := 0
 var _combo := 0
-var _meter := 0.0
+var _fill := 0.0
 var _display_score := 0.0
 var _punch_tween: Tween
-var _flash_tween: Tween
 var _ghost_tween: Tween
 var _shake_strength := 0.0
 var _home := Vector2.ZERO
@@ -102,36 +107,29 @@ func _build() -> void:
 	_score_value.add_theme_constant_override("shadow_offset_y", 4)
 	add_child(_score_value)
 
-	_combo_ghost_a = _make_label("", 148, Color(1.0, 0.2, 0.55, 0.0))
-	_combo_ghost_a.position = COMBO_HOME
-	_combo_ghost_a.size = Vector2(HUD_SIZE.x - 40, 160)
-	_combo_ghost_a.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_combo_ghost_a.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	add_child(_combo_ghost_a)
+	_rank_ghost_a = _make_label("", 148, Color(1.0, 0.2, 0.55, 0.0))
+	_rank_ghost_a.position = COMBO_HOME
+	_rank_ghost_a.size = Vector2(HUD_SIZE.x - 40, 160)
+	_rank_ghost_a.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_rank_ghost_a.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	add_child(_rank_ghost_a)
 
-	_combo_ghost_b = _make_label("", 148, Color(0.15, 0.9, 1.0, 0.0))
-	_combo_ghost_b.position = COMBO_HOME
-	_combo_ghost_b.size = Vector2(HUD_SIZE.x - 40, 160)
-	_combo_ghost_b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_combo_ghost_b.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	add_child(_combo_ghost_b)
+	_rank_ghost_b = _make_label("", 148, Color(0.15, 0.9, 1.0, 0.0))
+	_rank_ghost_b.position = COMBO_HOME
+	_rank_ghost_b.size = Vector2(HUD_SIZE.x - 40, 160)
+	_rank_ghost_b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_rank_ghost_b.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	add_child(_rank_ghost_b)
 
-	_combo_count = _make_label("", 148, TIER_COLORS[0])
-	_combo_count.position = COMBO_HOME
-	_combo_count.size = Vector2(HUD_SIZE.x - 40, 160)
-	_combo_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_combo_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_combo_count.add_theme_color_override("font_outline_color", Color("140806"))
-	_combo_count.add_theme_constant_override("outline_size", 18)
-	_combo_count.visible = false
-	add_child(_combo_count)
-
-	_combo_caption = _make_label("连击", 36, COLOR_MUTED)
-	_combo_caption.position = CAPTION_HOME
-	_combo_caption.size = Vector2(HUD_SIZE.x - 48, 40)
-	_combo_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_combo_caption.visible = false
-	add_child(_combo_caption)
+	_rank_label = _make_label("", 148, TIER_COLORS[0])
+	_rank_label.position = COMBO_HOME
+	_rank_label.size = Vector2(HUD_SIZE.x - 40, 160)
+	_rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_rank_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_rank_label.add_theme_color_override("font_outline_color", Color("140806"))
+	_rank_label.add_theme_constant_override("outline_size", 18)
+	_rank_label.visible = false
+	add_child(_rank_label)
 
 	_word_box = Control.new()
 	_word_box.name = "ComboWord"
@@ -189,12 +187,6 @@ func _build() -> void:
 	_fill_word.add_theme_constant_override("outline_size", 12)
 	_fill_clip.add_child(_fill_word)
 
-	_flash = ColorRect.new()
-	_flash.color = Color(1, 0.85, 0.35, 0)
-	_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_flash)
-
 	_spark_layer = Control.new()
 	_spark_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_spark_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -238,7 +230,7 @@ func _process(delta: float) -> void:
 	_spawn_ambient_particles(delta)
 
 	if _aura != null:
-		_aura.intensity = _meter * (0.6 + 0.5 * absf(sin(_pulse * 5.0)))
+		_aura.intensity = _fill * (0.6 + 0.5 * absf(sin(_pulse * 5.0)))
 		_aura.tint = _live_color(0.0)
 		_aura.secondary = _live_color(0.33)
 		_aura.queue_redraw()
@@ -249,10 +241,9 @@ func _update_live_colors() -> void:
 	var accent_a := _live_color(0.28)
 	var accent_b := _live_color(0.62)
 	_fill_word.add_theme_color_override("font_color", main)
-	_combo_count.add_theme_color_override("font_color", main.lightened(0.12))
-	_combo_caption.add_theme_color_override("font_color", accent_a.lightened(0.2))
+	_rank_label.add_theme_color_override("font_color", main.lightened(0.12))
 	_glow_word.add_theme_color_override(
-		"font_color", Color(main.r, main.g, main.b, 0.3 + 0.55 * _meter)
+		"font_color", Color(main.r, main.g, main.b, 0.3 + 0.55 * _fill)
 	)
 	_glow_word.add_theme_color_override(
 		"font_outline_color", Color(accent_a.r, accent_a.g, accent_a.b, 0.55)
@@ -261,7 +252,7 @@ func _update_live_colors() -> void:
 	_outline_word_b.add_theme_color_override("font_color", Color(accent_b.r, accent_b.g, accent_b.b, 0.55))
 	_outline_word_a.position = Vector2(-3.0 - 2.0 * sin(_pulse * 7.0), 1.5 * cos(_pulse * 5.0))
 	_outline_word_b.position = Vector2(3.0 + 2.0 * cos(_pulse * 6.0), -1.5 * sin(_pulse * 4.5))
-	_edge_glow.color = Color(main.r, main.g, main.b, 0.1 + 0.45 * _meter * (0.7 + 0.3 * absf(sin(_pulse * 8.0))))
+	_edge_glow.color = Color(main.r, main.g, main.b, 0.1 + 0.45 * _fill * (0.7 + 0.3 * absf(sin(_pulse * 8.0))))
 
 
 func _update_sway(_delta: float) -> void:
@@ -272,12 +263,9 @@ func _update_sway(_delta: float) -> void:
 
 	if _punch_tween == null or not _punch_tween.is_valid():
 		var breathe := 1.0 + 0.045 * sin(_pulse * 5.5) * intensity
-		_combo_count.scale = Vector2(breathe, breathe * (1.0 + 0.02 * sin(_pulse * 7.0)))
-		_combo_count.rotation_degrees = sway_rot * 0.55
-		_combo_count.position = COMBO_HOME + Vector2(sway_x * 0.35, sway_y)
-
-	_combo_caption.position = CAPTION_HOME + Vector2(sway_x * 0.2, sway_y * 0.35)
-	_combo_caption.rotation_degrees = -sway_rot * 0.25
+		_rank_label.scale = Vector2(breathe, breathe * (1.0 + 0.02 * sin(_pulse * 7.0)))
+		_rank_label.rotation_degrees = sway_rot * 0.55
+		_rank_label.position = COMBO_HOME + Vector2(sway_x * 0.35, sway_y)
 
 	_word_box.position = WORD_HOME + Vector2(sway_x, sway_y * 0.6)
 	_word_box.rotation_degrees = sway_rot
@@ -286,7 +274,7 @@ func _update_sway(_delta: float) -> void:
 
 
 func _spawn_ambient_particles(delta: float) -> void:
-	_ambient_accum += delta * (10.0 + float(mini(_combo, 25)) * 1.6 + _meter * 8.0)
+	_ambient_accum += delta * (10.0 + float(mini(_combo, 25)) * 1.6 + _fill * 8.0)
 	while _ambient_accum >= 1.0:
 		_ambient_accum -= 1.0
 		_spawn_one_ambient()
@@ -307,57 +295,55 @@ func _spawn_one_ambient() -> void:
 		_spawn_orbit_spark(origin, color)
 
 
-func sync_state(score: int, combo: int, meter: float, animate_score: bool = true) -> void:
+func sync_state(score: int, combo: int, animate_score: bool = true) -> void:
 	_score = maxi(score, 0)
 	_combo = maxi(combo, 0)
-	_meter = clampf(meter, 0.0, 1.0)
+	_fill = ComboStyle.milestone_progress(_combo)
 	if not animate_score:
 		_display_score = float(_score)
 		_score_value.text = _format_score(_score)
 	_refresh_visuals(true)
 
 
-func play_hit(total_score: int, points: int, combo: int, meter: float) -> void:
+func play_hit(total_score: int, points: int, combo: int) -> void:
 	_score = maxi(total_score, 0)
 	_combo = maxi(combo, 0)
-	_meter = clampf(meter, 0.0, 1.0)
+	_fill = ComboStyle.milestone_progress(_combo)
 	_sway_boost = minf(2.2, 0.8 + float(combo) * 0.06)
 	_refresh_visuals(false)
 	_punch_combo(combo)
 	_chromatic_ghost(combo)
-	_flash_burst(combo)
 	_edge_strike(combo)
 	_spawn_point_popup(points, combo)
 	_spawn_sparks(combo)
 	_spawn_star_burst(combo)
 	_spawn_slash(combo)
 	_shake_strength = minf(18.0, 4.0 + float(combo) * 0.55)
-	if combo == 5 or combo == 10 or combo == 15 or combo == 20 or (combo > 20 and combo % 5 == 0):
+	if ComboStyle.is_milestone(combo):
 		_milestone_pulse(combo)
 
 
 func play_combo_break() -> void:
 	_combo = 0
-	_meter = 0.0
+	_fill = 0.0
 	_sway_boost = 0.0
 	_edge_glow.color.a = 0.0
 	if _aura != null:
 		_aura.visible = false
 	if _punch_tween != null and _punch_tween.is_valid():
 		_punch_tween.kill()
-	_combo_count.modulate = Color(0.55, 0.45, 0.4, 1)
+	_rank_label.modulate = Color(0.55, 0.45, 0.4, 1)
 	var tween := create_tween()
-	tween.tween_property(_combo_count, "modulate:a", 0.0, 0.32)
-	tween.parallel().tween_property(_combo_count, "scale", Vector2(0.6, 1.4), 0.32)
+	tween.tween_property(_rank_label, "modulate:a", 0.0, 0.32)
+	tween.parallel().tween_property(_rank_label, "scale", Vector2(0.6, 1.4), 0.32)
 	if _word_box != null:
 		tween.parallel().tween_property(_word_box, "modulate:a", 0.0, 0.28)
 	tween.tween_callback(func() -> void:
-		_combo_count.visible = false
-		_combo_caption.visible = false
-		_combo_count.modulate = Color.WHITE
-		_combo_count.scale = Vector2.ONE
-		_combo_count.rotation_degrees = 0.0
-		_combo_count.position = COMBO_HOME
+		_rank_label.visible = false
+		_rank_label.modulate = Color.WHITE
+		_rank_label.scale = Vector2.ONE
+		_rank_label.rotation_degrees = 0.0
+		_rank_label.position = COMBO_HOME
 		if _word_box != null:
 			_word_box.visible = false
 			_word_box.modulate.a = 1.0
@@ -391,7 +377,7 @@ func play_gold_bonus(amount: int) -> void:
 func reset_visuals() -> void:
 	_score = 0
 	_combo = 0
-	_meter = 0.0
+	_fill = 0.0
 	_display_score = 0.0
 	_sway_boost = 0.0
 	_score_value.text = "0"
@@ -406,10 +392,10 @@ func set_home(pos: Vector2) -> void:
 func _refresh_visuals(instant: bool) -> void:
 	var fill_color := _live_color(0.0) if _combo > 0 else TIER_COLORS[0]
 	_fill_word.add_theme_color_override("font_color", fill_color)
-	_combo_count.add_theme_color_override("font_color", fill_color)
+	_rank_label.add_theme_color_override("font_color", fill_color)
 
 	var word_width := _word_box.size.x if _word_box != null else HUD_SIZE.x - 48.0
-	var target_w := word_width * _meter
+	var target_w := word_width * _fill
 	var target_x := word_width - target_w
 	if instant or _fill_clip == null:
 		_set_fill_clip(target_x, target_w)
@@ -427,22 +413,19 @@ func _refresh_visuals(instant: bool) -> void:
 		)
 
 	var show_combo := _combo > 0
-	_combo_count.visible = show_combo
-	_combo_caption.visible = show_combo
+	_rank_label.visible = show_combo
 	if _word_box != null:
 		_word_box.visible = show_combo
 	if _aura != null:
 		_aura.visible = show_combo
 	if not show_combo:
 		_edge_glow.color.a = 0.0
-		_combo_ghost_a.modulate.a = 0.0
-		_combo_ghost_b.modulate.a = 0.0
+		_rank_ghost_a.modulate.a = 0.0
+		_rank_ghost_b.modulate.a = 0.0
 		return
-	_combo_count.text = "×%d" % _combo
-	_combo_ghost_a.text = _combo_count.text
-	_combo_ghost_b.text = _combo_count.text
-	_empty_word.modulate.a = 0.35 + 0.55 * (1.0 - _meter)
-	_word_box.modulate = Color(1, 1, 1, 0.7 + 0.3 * maxf(_meter, 0.2))
+	_set_rank_text(ComboStyle.tier_name(_combo))
+	_empty_word.modulate.a = 0.35 + 0.55 * (1.0 - _fill)
+	_word_box.modulate = Color(1, 1, 1, 0.7 + 0.3 * maxf(_fill, 0.2))
 
 
 func _set_fill_clip(clip_x: float, clip_w: float) -> void:
@@ -455,85 +438,77 @@ func _set_fill_clip(clip_x: float, clip_w: float) -> void:
 	_fill_word.size = _word_box.size if _word_box != null else _fill_word.size
 
 
-func _tier_for(combo: int) -> int:
-	if combo >= 20:
-		return 3
-	if combo >= 10:
-		return 2
-	if combo >= 5:
-		return 1
-	return 0
-
-
 ## 以档位色为底，叠一段流光色相，让文字一直在变色。
+## 三个标签（本体 + 两道色差残影）必须同字号同内容，否则残影会错位成两个词。
+func _set_rank_text(text: String) -> void:
+	var size_px := _rank_font_size(text)
+	for label in [_rank_label, _rank_ghost_a, _rank_ghost_b]:
+		label.text = text
+		label.add_theme_font_size_override("font_size", size_px)
+
+
+## 档位词长短差一倍（GOOD 四个字母、EXCELLENT 九个）。固定字号要么让短词显小、
+## 要么让长词撑出框，所以按可用宽度从大往小试，取第一个装得下的。
+func _rank_font_size(text: String) -> int:
+	var available := HUD_SIZE.x - 40.0
+	var size_px := RANK_FONT_MAX
+	while size_px > RANK_FONT_MIN:
+		var width := PIXEL_FONT.get_string_size(
+			text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, size_px
+		).x
+		if width <= available:
+			return size_px
+		size_px -= 4
+	return RANK_FONT_MIN
+
+
 func _live_color(phase_offset: float) -> Color:
-	var base: Color = TIER_COLORS[_tier_for(_combo)]
-	var hue := fmod(_hue_shift + phase_offset, 1.0)
-	var shift := Color.from_hsv(hue, 0.75, 1.0)
-	return base.lerp(shift, 0.55).lightened(0.08)
+	return ComboStyle.live_color(_combo, _hue_shift + phase_offset)
 
 
 func _punch_combo(combo: int) -> void:
-	_combo_count.visible = true
-	_combo_caption.visible = true
-	_combo_count.text = "×%d" % combo
-	_combo_count.pivot_offset = Vector2(_combo_count.size.x, _combo_count.size.y * 0.5)
-	_combo_caption.pivot_offset = Vector2(_combo_caption.size.x, _combo_caption.size.y * 0.5)
+	_rank_label.visible = true
+	_set_rank_text(ComboStyle.tier_name(combo))
+	_rank_label.pivot_offset = Vector2(_rank_label.size.x, _rank_label.size.y * 0.5)
 	if _punch_tween != null and _punch_tween.is_valid():
 		_punch_tween.kill()
-	_combo_count.scale = Vector2(2.5, 0.3)
-	_combo_count.rotation_degrees = randf_range(-14, 14)
-	_combo_count.modulate = Color(2.2, 2.0, 1.5, 1.0)
+	_rank_label.scale = Vector2(2.5, 0.3)
+	_rank_label.rotation_degrees = randf_range(-14, 14)
+	_rank_label.modulate = Color(2.2, 2.0, 1.5, 1.0)
 	_punch_tween = create_tween()
 	var peak := 1.6 + minf(0.6, float(combo) * 0.028)
 	_punch_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_punch_tween.tween_property(_combo_count, "scale", Vector2(peak, peak * 0.78), 0.08)
-	_punch_tween.parallel().tween_property(_combo_count, "modulate", Color.WHITE, 0.12)
+	_punch_tween.tween_property(_rank_label, "scale", Vector2(peak, peak * 0.78), 0.08)
+	_punch_tween.parallel().tween_property(_rank_label, "modulate", Color.WHITE, 0.12)
 	_punch_tween.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	_punch_tween.tween_property(_combo_count, "scale", Vector2.ONE, 0.42)
-	_punch_tween.parallel().tween_property(_combo_count, "rotation_degrees", 0.0, 0.35)
-	_combo_caption.scale = Vector2(0.65, 0.65)
-	var cap := create_tween()
-	cap.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	cap.tween_property(_combo_caption, "scale", Vector2.ONE, 0.28)
+	_punch_tween.tween_property(_rank_label, "scale", Vector2.ONE, 0.42)
+	_punch_tween.parallel().tween_property(_rank_label, "rotation_degrees", 0.0, 0.35)
 
 
 func _chromatic_ghost(combo: int) -> void:
-	_combo_ghost_a.text = "×%d" % combo
-	_combo_ghost_b.text = "×%d" % combo
 	var c_a := _live_color(0.2)
 	var c_b := _live_color(0.7)
-	_combo_ghost_a.add_theme_color_override("font_color", c_a)
-	_combo_ghost_b.add_theme_color_override("font_color", c_b)
-	_combo_ghost_a.modulate.a = 0.9
-	_combo_ghost_b.modulate.a = 0.9
+	_rank_ghost_a.add_theme_color_override("font_color", c_a)
+	_rank_ghost_b.add_theme_color_override("font_color", c_b)
+	_rank_ghost_a.modulate.a = 0.9
+	_rank_ghost_b.modulate.a = 0.9
 	var spread := 22.0 + float(mini(combo, 16))
-	_combo_ghost_a.position = COMBO_HOME + Vector2(-spread, -8)
-	_combo_ghost_b.position = COMBO_HOME + Vector2(spread, 8)
+	_rank_ghost_a.position = COMBO_HOME + Vector2(-spread, -8)
+	_rank_ghost_b.position = COMBO_HOME + Vector2(spread, 8)
 	if _ghost_tween != null and _ghost_tween.is_valid():
 		_ghost_tween.kill()
 	_ghost_tween = create_tween().set_parallel(true)
-	_ghost_tween.tween_property(_combo_ghost_a, "position", COMBO_HOME, 0.32)
-	_ghost_tween.tween_property(_combo_ghost_b, "position", COMBO_HOME, 0.32)
-	_ghost_tween.tween_property(_combo_ghost_a, "modulate:a", 0.0, 0.32)
-	_ghost_tween.tween_property(_combo_ghost_b, "modulate:a", 0.0, 0.32)
-
-
-func _flash_burst(combo: int) -> void:
-	var c := _live_color(randf())
-	c.a = 0.75
-	_flash.color = c
-	if _flash_tween != null and _flash_tween.is_valid():
-		_flash_tween.kill()
-	_flash_tween = create_tween()
-	_flash_tween.tween_property(_flash, "color:a", 0.0, 0.3).set_trans(Tween.TRANS_QUAD)
+	_ghost_tween.tween_property(_rank_ghost_a, "position", COMBO_HOME, 0.32)
+	_ghost_tween.tween_property(_rank_ghost_b, "position", COMBO_HOME, 0.32)
+	_ghost_tween.tween_property(_rank_ghost_a, "modulate:a", 0.0, 0.32)
+	_ghost_tween.tween_property(_rank_ghost_b, "modulate:a", 0.0, 0.32)
 
 
 func _edge_strike(combo: int) -> void:
 	var c := _live_color(0.1)
 	_edge_glow.color = Color(c.r, c.g, c.b, 0.98)
 	var tween := create_tween()
-	tween.tween_property(_edge_glow, "color:a", 0.14 + 0.4 * _meter, 0.38)
+	tween.tween_property(_edge_glow, "color:a", 0.14 + 0.4 * _fill, 0.38)
 
 
 func _milestone_pulse(combo: int) -> void:
@@ -547,6 +522,10 @@ func _milestone_pulse(combo: int) -> void:
 
 
 func _spawn_point_popup(points: int, combo: int) -> void:
+	# 连击不再是分数倍率之后，翻开格子这类动作只涨连击、不得分，
+	# 这时候飘一个「+0」出去比什么都不飘更难看。
+	if points <= 0:
+		return
 	var popup := _make_label("+%d" % points, 42 + mini(combo * 2, 30), _live_color(0.15))
 	popup.add_theme_color_override("font_outline_color", Color("1a1008"))
 	popup.add_theme_constant_override("outline_size", 10)

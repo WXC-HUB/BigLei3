@@ -2,6 +2,14 @@ class_name PlayerStatus
 extends Control
 
 const HEART_TEXTURE := preload("res://my_asset/heart.png")
+const HEART_SIZE := 48.0
+## 血量上限超过 4 之后，心不再一颗一颗往右排——超出的部分并进前面的摞里，最多 4 摞、
+## 每摞最多 3 颗。一摞里的心朝右上错开 `HEART_STACK_STEP`，看着就是一叠而不是四颗散心。
+const HEART_STACK_SLOTS := 4
+const HEART_STACK_MAX := 3
+const HEART_STACK_STEP := 9.0
+## 血条在 HUD 叶子底板上的设计宽度：排不下就整排等比缩小，绝不往底板外面长。
+const HEART_ROW_WIDTH := 220.0
 
 @onready var health_bar: HBoxContainer = %HealthHearts
 @onready var gold_label: Label = %GoldLabel
@@ -97,6 +105,13 @@ func hero_head_center() -> Vector2:
 	return hero_head.global_position
 
 
+## 钱袋读数的屏幕位置——连击奖金的金币要飞到这里落袋。
+func gold_center() -> Vector2:
+	if gold_label == null:
+		return global_position + size * 0.5
+	return gold_label.global_position + gold_label.size * 0.5
+
+
 ## Damage reads on the portrait first: it flashes red, takes a squash, and
 ## shakes itself back to rest. Re-hits restart from the resting pose instead of
 ## drifting, because overlapping tweens would leave the head off its anchor.
@@ -157,15 +172,60 @@ func _rebuild_hearts(maximum: int) -> void:
 		_count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		health_bar.add_child(_count_label)
 		return
-	for index in range(maxi(maximum, 0)):
-		var heart := _make_heart()
-		health_bar.add_child(heart)
-		_hearts.append(heart)
+	var plan := _heart_stack_plan(maximum)
+	var stacked_layout := false
+	for stacked in plan:
+		stacked_layout = stacked_layout or stacked > 1
+	# 叠起来之后摞与摞之间要拉开，否则 9px 的错位和 7px 的间距看着一样，四摞心会糊成一条。
+	var separation := 14.0 if stacked_layout else 7.0
+	# 叠放已经省了一大半横向空间，但上限再往上堆（12 颗要四摞三高）还是会顶出叶子底板。
+	# 溢出多少就整排等比缩多少，血条永远不越过 `HEART_ROW_WIDTH` 这条设计宽度。
+	var shrink := minf(1.0, HEART_ROW_WIDTH / maxf(_heart_row_width(plan, separation), 1.0))
+	var heart_size := HEART_SIZE * shrink
+	var step := HEART_STACK_STEP * shrink
+	health_bar.add_theme_constant_override("separation", roundi(separation * shrink))
+	for stacked in plan:
+		var slot := Control.new()
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# 摞底对齐：矮的一摞贴着行底摆，几摞心的底边才在同一条线上。
+		slot.size_flags_vertical = Control.SIZE_SHRINK_END
+		var span := (stacked - 1) * step
+		slot.custom_minimum_size = Vector2(heart_size + span, heart_size + span)
+		health_bar.add_child(slot)
+		for index in range(stacked):
+			var heart := _make_heart(heart_size)
+			heart.position = Vector2(index * step, span - index * step)
+			heart.size = Vector2(heart_size, heart_size)
+			slot.add_child(heart)
+			# `_hearts` 始终是「先掉哪颗」的顺序：一摞里从左下往右上填，掉血先灭右上那颗。
+			_hearts.append(heart)
 
 
-func _make_heart() -> TextureRect:
+func _heart_row_width(plan: Array[int], separation: float) -> float:
+	var width := separation * maxf(plan.size() - 1, 0)
+	for stacked in plan:
+		width += HEART_SIZE + (stacked - 1) * HEART_STACK_STEP
+	return width
+
+
+## 把 `maximum` 颗心分成几摞。4 颗以内一颗一摞（维持原来的样子）；再多就先摊成 4 摞、
+## 把余数平摊上去（6 → 2+2+1+1），摞满 3 颗还装不下才继续加摞（13 → 3+3+3+2+2）。
+func _heart_stack_plan(maximum: int) -> Array[int]:
+	var total := maxi(maximum, 0)
+	if total <= 0:
+		return []
+	var slots := maxi(mini(total, HEART_STACK_SLOTS), ceili(float(total) / HEART_STACK_MAX))
+	var plan: Array[int] = []
+	var base := total / slots
+	var remainder := total % slots
+	for index in range(slots):
+		plan.append(base + (1 if index < remainder else 0))
+	return plan
+
+
+func _make_heart(heart_size := HEART_SIZE) -> TextureRect:
 	var heart := TextureRect.new()
-	heart.custom_minimum_size = Vector2(48, 48)
+	heart.custom_minimum_size = Vector2(heart_size, heart_size)
 	heart.texture = HEART_TEXTURE
 	heart.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	heart.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

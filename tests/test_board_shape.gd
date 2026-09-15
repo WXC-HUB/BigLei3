@@ -67,11 +67,11 @@ func _check_stage_boards_resolve() -> void:
 			var cfg := StageTable.board_at(id, round_index)
 			assert(not cfg.is_empty(), "%s 第 %d 盘缺失" % [id, round_index])
 			assert(BoardShape.has_shape(String(cfg["shape"])), "%s 第 %d 盘形状无效" % [id, round_index])
-	assert(StageTable.board_at("grass_1", 1)["shape"] == "rect_2x1", "教学关第一盘应是 2x1")
-	assert(StageTable.STAGES.size() == 6, "精简后应为 6 关")
+	assert(StageTable.board_at("grass_1", 1)["shape"] == "rect_5x4", "教学关第一盘应是 5x4 强引导盘")
+	assert(StageTable.STAGES.size() == 7, "6 关手写盘 + 1 关无尽应为 7 关")
 	var non_tutorial_boards := 0
 	for stage in StageTable.STAGES:
-		if bool(stage.get("teaches", false)):
+		if bool(stage.get("teaches", false)) or bool(stage.get("endless", false)):
 			continue
 		var id := String(stage["id"])
 		var n := StageTable.target_round_of(id)

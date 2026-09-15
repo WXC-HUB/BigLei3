@@ -42,17 +42,24 @@ func _ready() -> void:
 func present(stage_name: String, round_index_value: int, total_rounds: int) -> void:
 	_presentation_count += 1
 	var token := _presentation_count
-	var current := clampi(round_index_value, 1, maxi(total_rounds, 1))
-	var total := maxi(total_rounds, 1)
+	# total_rounds <= 0 = 无尽关：没有目标盘数，只报第几盘，进度条改画难度爬升、不摆分段点。
+	var endless := total_rounds <= 0
+	var current := maxi(round_index_value, 1) if endless else clampi(round_index_value, 1, maxi(total_rounds, 1))
+	var total := 0 if endless else maxi(total_rounds, 1)
 	var name_text := stage_name.strip_edges()
 	if name_text == "":
 		name_text = "本关"
 
 	title.text = name_text
 	round_index.text = str(current)
-	round_suffix.text = "/ %d 盘" % total
-	subtitle.text = "第 %d / %d 盘" % [current, total]
-	eyebrow.text = "本关进度"
+	if endless:
+		round_suffix.text = "/ ∞ 盘"
+		subtitle.text = "第 %d 盘 · 无尽" % current
+		eyebrow.text = "无尽 · 越打越难"
+	else:
+		round_suffix.text = "/ %d 盘" % total
+		subtitle.text = "第 %d / %d 盘" % [current, total]
+		eyebrow.text = "本关进度"
 	_rebuild_segments(total)
 	_stop_pulse()
 
@@ -97,7 +104,7 @@ func present(stage_name: String, round_index_value: int, total_rounds: int) -> v
 	# 3) 进度条 + 分段点
 	track.modulate.a = 1.0
 	segments.modulate.a = 1.0
-	var fill_ratio := float(current) / float(total)
+	var fill_ratio := maxf(StageTable.endless_difficulty_fraction(current), 0.04) if endless else float(current) / float(total)
 	var target_w := track.size.x * fill_ratio
 	var bar := create_tween()
 	bar.set_parallel(true)
@@ -106,7 +113,12 @@ func present(stage_name: String, round_index_value: int, total_rounds: int) -> v
 	await _animate_pips(token, current)
 	if token != _presentation_count:
 		return
-	await bar.finished
+	# 分段点逐个亮起要过 total 个 SceneTreeTimer，每个都会被帧长向上取整；帧率一低
+	# （约 50 fps 打 11～12 盘、30 fps 打 8 盘以内），进度条那 0.4 秒的 tween 会先跑完。
+	# Godot 里 await 一个已经结束的 tween 永远不会返回——横幅就此盖在棋盘上再也不收，
+	# 玩家看到的就是"卡在开始界面"。所以只在它还活着时才等。
+	if bar.is_valid() and bar.is_running():
+		await bar.finished
 	if token != _presentation_count:
 		return
 

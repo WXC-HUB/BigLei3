@@ -13,13 +13,22 @@ func _run() -> void:
 	var game := (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
 	await process_frame
-	game.set("_run_number", 5)
+	game.set("_run_number", 6)
 	game.call("_start_game")
 	var board: MinesweeperBoard = game.get("_board")
 	board.ensure_mines_placed(0)
+	# 3×3 里混进道具牌会把这两条断言都带偏（疗愈鸟回血、长尾山雀再送一次点击），
+	# 那就测不出「这一下有没有挡住雷」了。挑一块只有雷、没有牌的区域。
 	var mine_index := -1
 	for index in range(board.width * board.height):
-		if board.is_monster_core(index):
+		if not board.is_monster_core(index):
+			continue
+		var clean := true
+		for target in game.call("_area_3x3_targets", index):
+			if board.item_at(target) != MinesweeperBoard.ItemType.NONE:
+				clean = false
+				break
+		if clean:
 			mine_index = index
 			break
 	assert(mine_index >= 0, "Could not find a mine for enlarge invincibility test")
@@ -34,6 +43,6 @@ func _run() -> void:
 	assert(int(game.get("_player_hp")) == 1, "Enlarge click did not prevent mine damage")
 	assert(int(game.get("_enlarge_mark_charges")) == 0, "Enlarge click did not consume one charge")
 	assert(not bool(game.get("_enlarge_click_invincible")), "Enlarge invincibility remained after the click")
-	assert(board.state_at(mine_index) == MinesweeperBoard.CellState.REVEALED, "Enlarge did not reveal the selected mine")
+	assert(board.state_at(mine_index) == MinesweeperBoard.CellState.FLAGGED, "Enlarge detonated the mine instead of marking it")
 	print("Enlarge: next area reveal is invincible passed")
 	quit()

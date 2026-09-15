@@ -14,11 +14,13 @@ func _run() -> void:
 	root.add_child(game)
 	await process_frame
 
-	game.set("_run_number", 4)
+	# 教学段长度以 main.gd 的常量为准：最后一盘教学打完，下一盘才是第一盘正式关。
+	var tutorial_count := int(game.get("TUTORIAL_LEVEL_COUNT"))
+	game.set("_run_number", tutorial_count)
 	game.set("_player_hp", 1)
 	game.call("_start_game")
 	await process_frame
-	assert(int(game.get("_run_number")) == 5, "Test did not enter the first normal level")
+	assert(int(game.get("_run_number")) == tutorial_count + 1, "Test did not enter the first normal level")
 	assert(
 		int(game.get("_player_hp")) == int(game.get("_player_max_hp")),
 		"Finishing the tutorial did not restore full health"
@@ -27,7 +29,7 @@ func _run() -> void:
 	game.set("_player_hp", 1)
 	game.call("_start_game")
 	await process_frame
-	assert(int(game.get("_run_number")) == 6, "Test did not enter the second normal level")
+	assert(int(game.get("_run_number")) == tutorial_count + 2, "Test did not enter the second normal level")
 	assert(int(game.get("_player_hp")) == 1, "Later normal levels incorrectly restored health")
 
 	(game.get_node("BGM") as AudioStreamPlayer).stop()

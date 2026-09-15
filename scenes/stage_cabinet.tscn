@@ -1,0 +1,6 @@
+[gd_scene format=4]
+
+[ext_resource type="Script" path="res://scripts/ui/stage_cabinet.gd" id="1_cabinet"]
+
+[node name="StageCabinet" type="Node3D"]
+script = ExtResource("1_cabinet")

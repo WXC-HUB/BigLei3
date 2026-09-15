@@ -7,6 +7,10 @@
 		"enabled": true,
 		"head_sampling_rate": 1
 	},
+	"triggers": {
+		// 每天北京时间 04:17 清理 30 天前的每日榜数据
+		"crons": ["17 20 * * *"]
+	},
 	"d1_databases": [
 		{
 			"binding": "DB",

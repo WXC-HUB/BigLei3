@@ -8,6 +8,9 @@ signal clear_save_requested
 signal abandon_run_requested
 signal duel_host_requested
 signal duel_join_requested
+signal custom_requested
+signal workshop_requested
+signal bird_codex_requested
 
 const ButtonMotion := preload("res://scripts/ui/button_motion.gd")
 const TextCoaster := preload("res://scripts/ui/text_coaster.gd")
@@ -70,6 +73,9 @@ const BANNER_PULSE_SPEED := 2.4
 var abandon_run_button: Button
 var duel_host_button: Button
 var duel_join_button: Button
+var custom_button: Button
+var workshop_button: Button
+var bird_codex_button: Button
 
 ## 有存档时开始按钮整颗换成绿色：金色=开新局，绿色=接着上次。两套只差底色和描边，
 ## 形状／圆角／投影都是从场景那套复制出来的。
@@ -124,8 +130,12 @@ func _ready() -> void:
 	ButtonMotion.bind(credits_button, credits_button, -1.0)
 	ButtonMotion.bind(clear_save_button, clear_save_button, 0.8)
 	ButtonMotion.bind(abandon_run_button, abandon_run_button, 0.8)
+	ButtonMotion.bind(bird_codex_button, bird_codex_button, 1.1)
 	ButtonMotion.bind(duel_host_button, duel_host_button, -1.0)
 	ButtonMotion.bind(duel_join_button, duel_join_button, 0.9)
+	ButtonMotion.bind(custom_button, custom_button, -0.9)
+	if workshop_button != null:
+		ButtonMotion.bind(workshop_button, workshop_button, 0.9)
 	ButtonMotion.bind(clear_confirm_button, clear_confirm_button, 0.8)
 	ButtonMotion.bind(clear_cancel_button, clear_cancel_button, -0.8)
 	_build_start_button_palettes()
@@ -195,8 +205,12 @@ func _build_abandon_run_button() -> Button:
 	return button
 
 
-## 在菜单列末尾接一排对战入口。样式整套抄「制作人员」那颗按钮，免得手写一份主题
-## 又和标题页跑偏。Menu 是 VBoxContainer，往里加一个槽位是安全操作。
+## 在菜单列末尾接一排次级入口：鸟类图鉴、两个对战入口、自定义关卡。样式整套抄
+## 「制作人员」那颗按钮，免得手写一份主题又和标题页跑偏。Menu 是 VBoxContainer，
+## 往里加一个槽位是安全操作。
+##
+## 这一排是横着长的：多一个入口就把四颗按钮挤窄一点，而不是再占一行——菜单列已经
+## 从标题一路排到屏幕底，纵向再加一格就要顶出去了。
 func _build_duel_slot() -> void:
 	var credits_slot := $Menu/CreditsSlot as Control
 	var slot := Control.new()
@@ -207,16 +221,48 @@ func _build_duel_slot() -> void:
 	var row := HBoxContainer.new()
 	row.name = "DuelRow"
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 18)
+	row.add_theme_constant_override("separation", 16)
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(row)
 
+	bird_codex_button = _build_duel_button("BirdCodexButton", "鸟类图鉴", "认识队里的每一只鸟：本事、外号，和还没加入的那几只")
 	duel_host_button = _build_duel_button("DuelHostButton", "创建对战", "生成房间码并等待对手输入同一串码连入")
 	duel_join_button = _build_duel_button("DuelJoinButton", "加入对战", "输入房主的房间码，对上了才能连")
+	custom_button = _build_duel_button("CustomButton", "自定义", "自己画地图、配初始道具，一个包能放多张图")
+	# 创意工坊没开时整颗按钮不建：开关在 WorkshopApi.ENABLED，开发完再翻成 true。
+	if WorkshopApi.ENABLED:
+		workshop_button = _build_duel_button("WorkshopButton", "创意工坊", "看看别人做的关卡包，点赞、下载来玩")
+	row.add_child(bird_codex_button)
 	row.add_child(duel_host_button)
 	row.add_child(duel_join_button)
+	row.add_child(custom_button)
+	if workshop_button != null:
+		row.add_child(workshop_button)
+	bird_codex_button.pressed.connect(func() -> void:
+		if not _closing:
+			bird_codex_requested.emit()
+	)
 	duel_host_button.pressed.connect(func() -> void: duel_host_requested.emit())
 	duel_join_button.pressed.connect(func() -> void: duel_join_requested.emit())
+	custom_button.pressed.connect(func() -> void:
+		if not _closing:
+			custom_requested.emit()
+	)
+	if workshop_button != null:
+		workshop_button.pressed.connect(func() -> void:
+			if not _closing:
+				workshop_requested.emit()
+		)
+
+
+## 图鉴按钮的副标题只写在提示气泡里：按钮脸上就四个字，进度不占地方。
+func set_bird_codex_progress(unlocked: int, total: int) -> void:
+	if bird_codex_button == null:
+		return
+	bird_codex_button.tooltip_text = (
+		"已收录 %d/%d —— 认识队里的每一只鸟：本事、外号，和还没加入的那几只"
+		% [unlocked, total]
+	)
 
 
 func _build_duel_button(node_name: String, text: String, tip: String) -> Button:
@@ -225,7 +271,7 @@ func _build_duel_button(node_name: String, text: String, tip: String) -> Button:
 	button.text = text
 	button.tooltip_text = tip
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	button.custom_minimum_size = Vector2(240, 62)
+	button.custom_minimum_size = Vector2(236, 62)
 	for state in ["normal", "hover", "pressed"]:
 		button.add_theme_stylebox_override(state, credits_button.get_theme_stylebox(state))
 	for color_name in ["font_color", "font_hover_color", "font_outline_color"]:

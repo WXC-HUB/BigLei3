@@ -1,10 +1,9 @@
 extends SceneTree
 
-const CHAIN_MARKER := preload("res://assets/sprites/generated/marker_chain_special.png")
-const TUTORIAL_LEVEL_COUNT := 4
+const TUTORIAL_LEVEL_COUNT := 8
+## 连携不在这张表里：它买到的是「本盘多一颗连携雷」，不是多一张埋在草地下的牌。
 const TACTICAL_ITEMS := [
 	MinesweeperBoard.ItemType.XRAY,
-	MinesweeperBoard.ItemType.CHAIN,
 	MinesweeperBoard.ItemType.ENLARGE,
 ]
 
@@ -34,13 +33,14 @@ func _run() -> void:
 	var baseline: Dictionary = {}
 	for item_type in TACTICAL_ITEMS:
 		baseline[item_type] = board.item_count(item_type)
+	var chain_baseline := board.chain_mine_total()
 
 	game.set("_gold", 15)
 	game.call("_choose_shop_offer", 10)
 	game.call("_choose_shop_offer", 11)
 	game.call("_choose_shop_offer", 12)
 	assert(int(game.get("_xray_bonus")) == 1, "Shop did not add an x-ray")
-	assert(int(game.get("_chain_bonus")) == 1, "Shop did not add a chain item")
+	assert(int(game.get("_chain_bonus")) == 1, "Shop did not add a chain mine")
 	assert(int(game.get("_enlarge_bonus")) == 1, "Shop did not add an enlarge item")
 	game.call("_start_game")
 	board = game.get("_board")
@@ -52,23 +52,19 @@ func _run() -> void:
 			"Purchased tactical item was not added to the next board"
 		)
 
-	# 连携的标记点 A 是道具牌自己的格子，所以角标要画在那张已翻开的牌上。
-	var chain_index := -1
-	for index in range(board.width * board.height):
-		if board.item_at(index) == MinesweeperBoard.ItemType.CHAIN:
-			chain_index = index
-			break
+	# 连携买到的是「本盘多一颗连携雷」：组变大，盘上依旧没有连携的道具牌。
 	assert(
-		chain_index >= 0 and not board.reveal_exact_forced_safe(chain_index).is_empty(),
-		"Could not prepare a chain anchor cell"
+		board.chain_mine_total() == chain_baseline + 1,
+		"Purchased chain upgrade did not grow the chain mine group"
 	)
-	var chain_anchors: Array[int] = game.get("_chain_anchors")
-	chain_anchors.append(chain_index)
-	game.call("_refresh_cell", chain_index)
-	var cells: Array[MineCell] = game.get("_cells")
-	var marker := cells[chain_index].get("_marker") as TextureRect
-	assert(marker.visible and marker.texture == CHAIN_MARKER, "Chain anchor did not show the special marker")
-	assert(marker.modulate == Color.WHITE and marker.material == null, "Chain marker was grayed out")
+	assert(
+		board.covered_chain_mines().size() == chain_baseline + 1,
+		"Chain group was not actually laid onto the board"
+	)
+	assert(
+		board.item_count(MinesweeperBoard.ItemType.CHAIN) == 0,
+		"Chain upgrade dealt an item card instead of marking mines"
+	)
 	GameSave.clear()
-	print("Tactical shop inventory and special chain marker passed")
+	print("Tactical shop inventory: bought cards land on the next board, chain upgrade grows the mine group")
 	quit()

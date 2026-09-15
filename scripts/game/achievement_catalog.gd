@@ -15,6 +15,12 @@ const MAP_HEALTH_CHECK := "map_health_check"
 const MAP_PIGEON_BUFFET := "map_pigeon_buffet"
 const MAP_GET_DAZE := "map_get_daze"
 const MAP_HERON_BREAD := "map_heron_bread"
+const MAP_MOSQUITO_TRIO := "map_mosquito_trio"
+const MAP_FUR_HARVEST := "map_fur_harvest"
+const TIT_TANGYUAN := "tit_tangyuan"
+const MAGPIE_SENPAI := "magpie_senpai"
+const CROW_CHASED_BY_PANDA := "crow_chased_by_panda"
+const DOVE_SNATCHED := "dove_snatched"
 
 ## 顺序就是成就页里的排列顺序。
 const ENTRIES: Array[Dictionary] = [
@@ -89,6 +95,42 @@ const ENTRIES: Array[Dictionary] = [
 		"title": "我的了！",
 		"description": "关卡选择界面，被夜鹭吃掉5块面包",
 		"icon": preload("res://my_asset/birds/black_idle_2.png"),
+	},
+	{
+		"id": MAP_MOSQUITO_TRIO,
+		"title": "三振出局",
+		"description": "关卡选择界面，一口气拍死 3 只蚊子",
+		"icon": preload("res://assets/sprites/generated/mosquito/mosquito_icon.png"),
+	},
+	{
+		"id": MAP_FUR_HARVEST,
+		"title": "薅遍四野",
+		"description": "关卡选择界面，薅到 3 种动物的毛",
+		"icon": preload("res://my_asset/crow_fur_tuft.png"),
+	},
+	{
+		"id": TIT_TANGYUAN,
+		"title": "一碗汤圆",
+		"description": "长尾山雀解锁页，把一群团子撩成一碗汤圆",
+		"icon": preload("res://my_asset/tangyuan_bowl.png"),
+	},
+	{
+		"id": MAGPIE_SENPAI,
+		"title": "幻视学姐",
+		"description": "灰喜鹊解锁页，撩到虚焦、戴上眼镜之后看见的不是鸟",
+		"icon": preload("res://my_asset/magpie_glasses_icon.png"),
+	},
+	{
+		"id": CROW_CHASED_BY_PANDA,
+		"title": "薅到熊猫头上",
+		"description": "小嘴乌鸦解锁页，一路薅到熊猫，被追着满屏幕跑",
+		"icon": preload("res://my_asset/crow_fur_icon.png"),
+	},
+	{
+		"id": DOVE_SNATCHED,
+		"title": "好吃",
+		"description": "斑鸠解锁页，窝还没搭利索就被红隼叼走了",
+		"icon": preload("res://my_asset/dove_nest_icon.png"),
 	},
 ]
 

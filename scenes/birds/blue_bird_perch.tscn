@@ -25,18 +25,12 @@ find_frames = Array[Texture2D]([ExtResource("7_find1"), ExtResource("8_find2")])
 find_yes_texture = ExtResource("9_yes")
 find_no_texture = ExtResource("10_no")
 
-[node name="Tree" type="TextureRect" parent="." unique_id=1106680400]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -154.0
-offset_top = 346.0
-offset_right = 388.6667
-offset_bottom = 753.0
-grow_horizontal = 2
-grow_vertical = 2
-scale = Vector2(0.7752055, 0.7752055)
+[node name="Tree" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 11.4
+offset_top = 524.9
+offset_right = 412.3
+offset_bottom = 825.6
 mouse_filter = 2
 texture = ExtResource("2_tree")
 expand_mode = 1

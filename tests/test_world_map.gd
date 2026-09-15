@@ -17,6 +17,7 @@ func _run() -> void:
 	map.heron_events = false
 	map.kestrel_events = false
 	map.redstart_events = false
+	map.mosquito_events = false
 	root.add_child(map)
 	await process_frame
 
@@ -31,6 +32,7 @@ func _run() -> void:
 	await _check_redstart_photo(map)
 	await _check_click_without_drag(map)
 	await _check_region_readout(map)
+	await _check_mosquito(map)
 
 	map.queue_free()
 	await process_frame
@@ -59,23 +61,23 @@ func _check_scene_wiring(map: WorldMap) -> void:
 		assert(StageTable.has_stage(id), "场景里的 %s 在关卡表里查不到" % id)
 		assert(not seen.has(id), "场景里有两个节点都挂着 %s" % id)
 		seen[id] = true
-	for stage in StageTable.STAGES:
+	for stage in _map_stages():
 		assert(seen.has(String(stage["id"])), "关卡表里的 %s 在地图上没有节点" % String(stage["id"]))
 	map_marker_count = markers.get_child_count()
-	assert(map.marker_count() == StageTable.STAGES.size(), "WorldMap 认领的关卡数与关卡表不符")
+	assert(map.marker_count() == _map_stages().size(), "WorldMap 认领的关卡数与关卡表不符")
 
 	# 关卡应按序号形成一条可读路径（前左 → 后右），相邻间距合理。
 	var ordered: Array[Node3D] = []
-	for stage in StageTable.STAGES:
+	for stage in _map_stages():
 		var sid := String(stage["id"])
 		for child in markers.get_children():
 			if String(child.get_meta("stage_id", "")) == sid:
 				ordered.append(child as Node3D)
 				break
-	assert(ordered.size() == StageTable.STAGES.size(), "按序号收集关卡节点失败")
+	assert(ordered.size() == _map_stages().size(), "按序号收集关卡节点失败")
 	var path := map.get_node_or_null("StagePath")
 	assert(path != null, "缺少关卡行进路径 StagePath")
-	assert(path.get_child_count() == StageTable.STAGES.size() - 1, "路径段数应为关卡数-1")
+	assert(path.get_child_count() == _map_stages().size() - 1, "路径段数应为关卡数-1")
 	for i in range(ordered.size() - 1):
 		var a: Vector3 = ordered[i].global_position
 		var b: Vector3 = ordered[i + 1].global_position
@@ -132,14 +134,58 @@ func _check_scene_wiring(map: WorldMap) -> void:
 			assert(gap >= 2.6, "树木间距过近会穿模：%f" % gap)
 		tree_pos.append(p)
 	assert(tree_pos.size() >= 10, "可种的树太少：%d" % tree_pos.size())
+	# 陈列柜画风：奶油色平底，不用天空盒、不打雾、不泛光；光柱与深绿底板全部收掉。
 	var env := (map.get_node("MapEnv") as WorldEnvironment).environment
-	assert(env != null and env.background_mode == Environment.BG_SKY, "应使用天空盒背景")
-	assert(env.sky != null and env.sky.sky_material is ProceduralSkyMaterial, "天空盒材质不对")
-	assert((env.sky.sky_material as ProceduralSkyMaterial).sky_cover != null, "天空盒缺少云层贴图")
-	var bed := map.get_node_or_null("SkyBed") as MeshInstance3D
-	assert(bed != null, "缺少天空底面")
-	var bed_mat := bed.get_surface_override_material(0) as StandardMaterial3D
-	assert(bed_mat != null and bed_mat.albedo_texture != null, "天空底面没有贴图")
+	assert(env != null and env.background_mode == Environment.BG_COLOR, "应使用纯色台面背景")
+	assert(env.background_color.is_equal_approx(WorldMap.BACKDROP), "台面底色应为奶油色")
+	assert(not env.fog_enabled and not env.glow_enabled, "陈列柜画风不该有雾或泛光")
+	var bed := map.get_node_or_null("SkyBed") as Node3D
+	assert(bed == null or not bed.visible, "天空底面应收起")
+	var rays := terrain.get_node_or_null("Atmosphere") as Node3D
+	assert(rays == null or not rays.visible, "光柱/静态云应收起")
+	var fill := terrain.get_node_or_null("GroundFill") as Node3D
+	assert(fill == null or not fill.visible, "深绿底板应收起")
+	for child in grove.get_children():
+		assert(not String(child.name).begins_with("Grass_"), "草丛应整批收掉：%s" % child.name)
+	var cam := map.get_node("MapCamera") as Camera3D
+	map.present([], "", 0)
+	await process_frame
+	assert(cam.projection == Camera3D.PROJECTION_ORTHOGONAL, "选关图相机应为正交投影")
+	assert(cam.size > 4.0, "正交尺寸没有随视距算出来：%f" % cam.size)
+	# 体素地面：六边地格藏起来，方格地块铺出一块带缺口的矩形岛，关卡附近是石板。
+	var voxels := map.get_node_or_null("VoxelFloor") as Node3D
+	assert(voxels != null, "缺少体素地面 VoxelFloor")
+	var cells := 0
+	var cobble := 0
+	for child in voxels.get_children():
+		if not String(child.name).begins_with("Cell_"):
+			continue
+		cells += 1
+		var kind := int(child.get_meta("voxel_kind", -1))
+		if kind == WorldMap.VoxelKind.COBBLE or kind == WorldMap.VoxelKind.SOIL or kind == WorldMap.VoxelKind.PLANK:
+			cobble += 1
+	assert(cells >= 200, "体素地块太少：%d" % cells)
+	assert(cobble >= 30, "关卡广场（石板/田土/木板）与石板路太少：%d" % cobble)
+	assert(voxels.get_node_or_null("VoxelWater") is MeshInstance3D, "体素地面缺少水面")
+	# 每关一副布景：广场旁有配楼/道具，且至少出现田土与木板两种主题地面。
+	var dressing := voxels.get_node_or_null("Dressing") as Node3D
+	assert(dressing != null and dressing.get_child_count() >= 10, "关卡布景道具太少")
+	var kinds := {}
+	for child in voxels.get_children():
+		if String(child.name).begins_with("Cell_"):
+			kinds[int(child.get_meta("voxel_kind", -1))] = true
+	assert(kinds.has(WorldMap.VoxelKind.SOIL) and kinds.has(WorldMap.VoxelKind.PLANK), "主题地面（田土/木板）没有铺出来")
+	for child in hex_floor.get_children():
+		if String(child.name).begins_with("hex_"):
+			assert(not (child as Node3D).visible, "六边地格应藏起来：%s" % child.name)
+	for tile in map.all_tiles():
+		var lifted: Array[Node3D] = map._hover_lift_targets(tile)
+		var has_cell := false
+		for node in lifted:
+			if String(node.name).begins_with("Cell_"):
+				has_cell = true
+				break
+		assert(has_cell, "关卡格 %s 悬停时没有带动脚下的体素地块" % tile.name)
 
 
 func _check_drift_clouds(map: WorldMap) -> void:
@@ -278,7 +324,7 @@ func _check_camera(map: WorldMap) -> void:
 	)
 
 	# 每块地格都必须有碰撞体 + 外描边。
-	assert(map.tile_count() == StageTable.STAGES.size(), "原木落点数应等于关卡数：%d" % map.tile_count())
+	assert(map.tile_count() == _map_stages().size(), "原木落点数应等于关卡数：%d" % map.tile_count())
 	var pick_count := 0
 	for tile in map.all_tiles():
 		assert(tile.get_node_or_null("TileOutline") != null, "地格 %s 缺少外描边" % tile.name)
@@ -290,7 +336,7 @@ func _check_camera(map: WorldMap) -> void:
 	assert(pick_count == map.tile_count(), "碰撞体数量 (%d) 与地格数 (%d) 不一致" % [pick_count, map.tile_count()])
 
 	# 每个关卡都应绑到一格地格。
-	for stage in StageTable.STAGES:
+	for stage in _map_stages():
 		var stage_id := String(stage["id"])
 		var tile := map.bound_tile_for(stage_id)
 		assert(tile != null, "关卡 %s 没有绑定地格" % stage_id)
@@ -355,9 +401,14 @@ func _check_camera(map: WorldMap) -> void:
 	var locked_distance := map.camera_distance()
 	assert(map.camera_pivot() == locked_pivot, "整图框定后镜头中心应保持不动")
 	assert(is_equal_approx(map.camera_distance(), locked_distance), "整图框定后视距应保持不动")
+	# 陈列柜视角：比正俯视侧一些，方块侧面与建筑立面读得出来，又不至于让牌子叠成一排。
 	assert(
-		absf(WorldMap.CAMERA_PITCH_DEG) >= 50.0 and absf(WorldMap.CAMERA_PITCH_DEG) <= 72.0,
-		"俯视选关图俯角应在 50–72 度：%f" % WorldMap.CAMERA_PITCH_DEG
+		absf(WorldMap.CAMERA_PITCH_DEG) >= 38.0 and absf(WorldMap.CAMERA_PITCH_DEG) <= 56.0,
+		"体素选关图俯角应在 38–56 度：%f" % WorldMap.CAMERA_PITCH_DEG
+	)
+	assert(
+		absf(WorldMap.CAMERA_YAW_DEG) >= 8.0 and absf(WorldMap.CAMERA_YAW_DEG) <= 30.0,
+		"体素选关图应斜一个角看（8–30 度）：%f" % WorldMap.CAMERA_YAW_DEG
 	)
 
 
@@ -646,8 +697,34 @@ func _check_region_readout(map: WorldMap) -> void:
 	all_btn.pressed.emit()
 	assert(not opened.is_empty(), "点全部排行榜没有发出信号")
 
-	var last_id := String(StageTable.STAGES[StageTable.STAGES.size() - 1]["id"])
+	var last_id := String(_map_stages()[_map_stages().size() - 1]["id"])
 	assert(
 		map.badge_for(last_id).current_state() == StageBadge.State.LOCKED,
 		"空存档下末关应当仍锁定"
 	)
+
+
+## 蚊子挂在 UI 层里、不吃鼠标；present 时飞进来，dismiss 时停掉。飞行与拍死细节见 test_map_mosquito。
+func _check_mosquito(map: WorldMap) -> void:
+	var bug := map.get_node_or_null("WorldMapUi/Mosquito") as MapMosquito
+	assert(bug != null, "UI 层里没有 Mosquito")
+	assert(map.mosquito() == bug, "mosquito() 没返回 UI 层里的那只")
+	assert(bug.mouse_filter == Control.MOUSE_FILTER_IGNORE, "蚊子层会挡住地图点击")
+	map.mosquito_events = true
+	map.present([], "", 0)
+	await process_frame
+	bug.spawn_now()
+	await process_frame
+	assert(bug.is_flying(), "present 之后蚊子没在飞")
+	map.dismiss()
+	assert(not bug.is_flying(), "dismiss 之后蚊子还在飞")
+	map.mosquito_events = false
+
+
+## 老地图上有节点的关：关卡表去掉无尽关（第 7 关只在陈列柜里，老壳层没给它摆地格）。
+func _map_stages() -> Array:
+	var out: Array = []
+	for stage in StageTable.STAGES:
+		if not bool(stage.get("endless", false)):
+			out.append(stage)
+	return out

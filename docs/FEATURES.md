@@ -19,6 +19,7 @@
 | [FEAT-001](features/FEAT-001-pvp-duel-core.md) | pvp-duel-core | Netplay | 🟣 待收尾 | 2026-08-24 | - |
 | [FEAT-002](features/FEAT-002-level-select-hexmap.md) | level-select-hexmap | WorldMap | 🟣 待收尾 | 2026-08-24 | - |
 | [FEAT-003](features/FEAT-003-duel-split-screen-fog.md) | duel-split-screen-fog | SplitScreen | 🟣 待收尾 | 2026-08-25 | - |
+| [FEAT-005](features/FEAT-005-stage-cabinet.md) | stage-cabinet | WorldMap | 🟣 待收尾 | 2026-09-11 | - |
 
 ## 已完成
 

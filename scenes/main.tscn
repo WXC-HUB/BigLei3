@@ -27,6 +27,10 @@
 [ext_resource type="PackedScene" uid="uid://b415v5m3dtpen" path="res://scenes/birds/black_bird_perch.tscn" id="25_black_bird"]
 [ext_resource type="PackedScene" uid="uid://dvr3h2ugw60ic" path="res://scenes/birds/attacker_bird_perch.tscn" id="26_attacker_bird"]
 [ext_resource type="PackedScene" uid="uid://ov0pdby6lwfx" path="res://scenes/birds/eg_bird_perch.tscn" id="27_eg_bird"]
+[ext_resource type="PackedScene" path="res://scenes/birds/tit_bird_perch.tscn" id="27_tit_bird"]
+[ext_resource type="PackedScene" path="res://scenes/birds/magpie_bird_perch.tscn" id="27_magpie_bird"]
+[ext_resource type="PackedScene" path="res://scenes/birds/crow_bird_perch.tscn" id="27_crow_bird"]
+[ext_resource type="PackedScene" path="res://scenes/birds/dove_bird_perch.tscn" id="27_dove_bird"]
 [ext_resource type="Texture2D" uid="uid://bcpdub8c5uow3" path="res://my_asset/tree_bg.png" id="27_tree_bg"]
 [ext_resource type="AudioStream" uid="uid://8284dvt0vyua" path="res://assets/audio/card_reveal_crack.wav" id="28_reveal_sfx"]
 [ext_resource type="AudioStream" uid="uid://cl488lyb4eudr" path="res://assets/audio/correct_flag.wav" id="29_correct_flag_sfx"]
@@ -180,49 +184,157 @@ expand_mode = 1
 stretch_mode = 5
 
 [node name="BlueBirdPerch" parent="." unique_id=2046049682 instance=ExtResource("22_blue_bird")]
-z_index = 50
-layout_mode = 0
-offset_left = -85.0
-offset_top = 35.0
-offset_right = 363.0
-offset_bottom = 371.0
-scale = Vector2(0.9, 0.9)
+grow_vertical = 1
+grow_horizontal = 1
+anchor_bottom = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_left = 0.0
+anchors_preset = -1
+z_index = 51
+layout_mode = 1
+offset_left = -54.9
+offset_top = 1.4
+offset_right = 393.1
+offset_bottom = 337.4
+scale = Vector2(0.663, 0.663)
+
 
 [node name="RedBirdPerch" parent="." unique_id=1542616541 instance=ExtResource("24_red_bird")]
-z_index = 50
-layout_mode = 0
-offset_left = 1500.0
-offset_top = 620.0
-offset_right = 1948.0
-offset_bottom = 956.0
-scale = Vector2(0.9, 0.9)
+grow_vertical = 1
+grow_horizontal = 0
+anchor_bottom = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_left = 1.0
+anchors_preset = -1
+z_index = 56
+layout_mode = 1
+offset_left = -470.7
+offset_top = 254.1
+offset_right = -22.7
+offset_bottom = 590.1
+scale = Vector2(0.890, 0.890)
+
 
 [node name="BlackBirdPerch" parent="." unique_id=1277760466 instance=ExtResource("25_black_bird")]
-z_index = 50
-layout_mode = 0
-offset_left = -82.0
-offset_top = 350.0
-offset_right = 366.0
-offset_bottom = 686.0
-scale = Vector2(0.9, 0.9)
+grow_vertical = 0
+grow_horizontal = 1
+anchor_bottom = 1.0
+anchor_top = 1.0
+anchor_right = 0.0
+anchor_left = 0.0
+anchors_preset = -1
+z_index = 52
+layout_mode = 1
+offset_left = 67.7
+offset_top = -989.8
+offset_right = 515.7
+offset_bottom = -653.8
+scale = Vector2(0.965, 0.965)
+
 
 [node name="AttackerBirdPerch" parent="." unique_id=1368654424 instance=ExtResource("26_attacker_bird")]
-z_index = 50
-layout_mode = 0
-offset_left = 1500.0
-offset_top = 35.0
-offset_right = 1948.0
-offset_bottom = 371.0
-scale = Vector2(0.9, 0.9)
+grow_vertical = 1
+grow_horizontal = 0
+anchor_bottom = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_left = 1.0
+anchors_preset = -1
+z_index = 55
+layout_mode = 1
+offset_left = -506.4
+offset_top = 133.0
+offset_right = -58.4
+offset_bottom = 469.0
+scale = Vector2(0.718, 0.718)
+
 
 [node name="EgBirdPerch" parent="." unique_id=24600169 instance=ExtResource("27_eg_bird")]
-z_index = 50
-layout_mode = 0
-offset_left = 810.0
-offset_top = 825.0
-offset_right = 1110.0
-offset_bottom = 1085.0
-scale = Vector2(0.8, 0.8)
+grow_vertical = 0
+grow_horizontal = 0
+anchor_bottom = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_left = 1.0
+anchors_preset = -1
+z_index = 57
+layout_mode = 1
+offset_left = -785.1
+offset_top = -626.0
+offset_right = -485.1
+offset_bottom = -366.0
+scale = Vector2(0.454, 0.454)
+
+
+[node name="TitBirdPerch" parent="." instance=ExtResource("27_tit_bird")]
+grow_vertical = 0
+grow_horizontal = 1
+anchor_bottom = 1.0
+anchor_top = 1.0
+anchor_right = 0.0
+anchor_left = 0.0
+anchors_preset = -1
+z_index = 53
+layout_mode = 1
+offset_left = -104.3
+offset_top = -364.3
+offset_right = 343.7
+offset_bottom = -28.3
+scale = Vector2(0.901, 0.901)
+
+
+[node name="MagpieBirdPerch" parent="." instance=ExtResource("27_magpie_bird")]
+grow_vertical = 0
+grow_horizontal = 0
+anchor_bottom = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_left = 1.0
+anchors_preset = -1
+z_index = 58
+layout_mode = 1
+offset_left = -349.6
+offset_top = -360.5
+offset_right = 98.4
+offset_bottom = -24.5
+scale = Vector2(0.891, 0.891)
+
+
+[node name="CrowBirdPerch" parent="." instance=ExtResource("27_crow_bird")]
+grow_vertical = 0
+grow_horizontal = 0
+anchor_bottom = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_left = 1.0
+anchors_preset = -1
+z_index = 59
+layout_mode = 1
+offset_left = -473.1
+offset_top = -171.5
+offset_right = -25.1
+offset_bottom = 164.5
+scale = Vector2(0.726, 0.726)
+
+
+[node name="DoveBirdPerch" parent="." instance=ExtResource("27_dove_bird")]
+grow_vertical = 0
+grow_horizontal = 1
+anchor_bottom = 1.0
+anchor_top = 1.0
+anchor_right = 0.0
+anchor_left = 0.0
+anchors_preset = -1
+z_index = 54
+layout_mode = 1
+offset_left = 58.7
+offset_top = -157.7
+offset_right = 506.7
+offset_bottom = 178.3
+scale = Vector2(0.841, 0.841)
+
 
 [node name="BoardPlatform" type="TextureRect" parent="." unique_id=689903562]
 visible = false

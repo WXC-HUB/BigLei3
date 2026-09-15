@@ -12,9 +12,9 @@ extends Button
 signal hover_changed(entered: bool)
 signal leaderboard_requested(stage_id: String)
 
-const WIDTH := 184.0
-const HEIGHT := 108.0
-const TAIL_HEIGHT := 13.0
+const WIDTH := 168.0
+const HEIGHT := 100.0
+const TAIL_HEIGHT := 12.0
 const HOVER_SCALE := 1.14
 const HOVER_ROTATION_DEG := -3.4
 const HOVER_DURATION := 0.14
@@ -27,19 +27,22 @@ const STATE_WORDS := {
 	State.LOCKED: "未解锁",
 	State.IN_PROGRESS: "进行中",
 }
+## 四态强调色：都往灰里收一档，白卡上只作小圆徽与描边，不铺大面。
 const STATE_ACCENTS := {
-	State.CLEARED: Color(0.294, 0.486, 0.180),
-	State.AVAILABLE: Color(0.906, 0.588, 0.078),
-	State.LOCKED: Color(0.435, 0.478, 0.529),
-	State.IN_PROGRESS: Color(0.180, 0.408, 0.729),
+	State.CLEARED: Color(0.36, 0.55, 0.30),
+	State.AVAILABLE: Color(0.85, 0.58, 0.16),
+	State.LOCKED: Color(0.64, 0.63, 0.60),
+	State.IN_PROGRESS: Color(0.30, 0.48, 0.70),
 }
 
-const PAPER := Color(0.973, 0.961, 0.925)
-const PAPER_EDGE := Color(0.784, 0.722, 0.604)
+## 和 world_map.gd 同一套「陈列柜」纸色：白卡、暖灰细边、墨字。
+const PAPER := Color(1.0, 0.996, 0.988)
+const PAPER_EDGE := Color(0.820, 0.792, 0.735)
 const INK := Color(0.184, 0.165, 0.125)
 const INK_SOFT := Color(0.478, 0.427, 0.349)
-const CHIP := Color(0.898, 0.863, 0.776)
+const CHIP := Color(0.945, 0.935, 0.910)
 const SCORE_INK := Color(0.545, 0.365, 0.090)
+const CARD_SHADOW := Color(0.18, 0.16, 0.12, 0.12)
 
 var stage_id := ""
 
@@ -54,6 +57,11 @@ var _dim: ColorRect
 var _hover_tween: Tween
 var _hovering := false
 var _high_score := 0
+## 无尽关的牌子：盘数芯片写「无尽」，记录行写「最远 N 盘」。
+var _best_round := 0
+var _endless := false
+## 教学关没有榜：记录行不写「右键看榜」，右键也不发信号。
+var _ranked := true
 
 
 func _init() -> void:
@@ -80,7 +88,7 @@ func _ready() -> void:
 
 func _on_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
-		if stage_id != "":
+		if stage_id != "" and _ranked:
 			leaderboard_requested.emit(stage_id)
 		accept_event()
 
@@ -92,43 +100,51 @@ func _build_styles() -> void:
 		var box := StyleBoxFlat.new()
 		box.bg_color = PAPER
 		box.border_color = PAPER_EDGE
-		box.set_border_width_all(3)
-		box.set_corner_radius_all(11)
+		box.set_border_width_all(2)
+		box.set_corner_radius_all(14)
 		box.content_margin_bottom = TAIL_HEIGHT
+		box.shadow_color = CARD_SHADOW
+		box.shadow_size = 10
+		box.shadow_offset = Vector2(0.0, 4.0)
 		match state_name:
 			"hover":
-				box.bg_color = Color(1.0, 0.992, 0.965)
+				box.bg_color = Color(1.0, 1.0, 1.0)
+				box.shadow_size = 16
+				box.shadow_offset = Vector2(0.0, 7.0)
 			"pressed":
-				box.bg_color = Color(0.933, 0.914, 0.867)
+				box.bg_color = Color(0.955, 0.945, 0.920)
+				box.shadow_size = 4
+				box.shadow_offset = Vector2(0.0, 2.0)
 			"disabled":
-				box.bg_color = PAPER.darkened(0.08)
+				box.bg_color = Color(0.965, 0.958, 0.940)
+				box.shadow_size = 4
 		add_theme_stylebox_override(state_name, box)
 
 
 func _build_children() -> void:
 	_tail = Tail.new()
-	_tail.position = Vector2(WIDTH * 0.5 - 12.0, HEIGHT - 2.0)
-	_tail.size = Vector2(24.0, TAIL_HEIGHT + 2.0)
+	_tail.position = Vector2(WIDTH * 0.5 - 11.0, HEIGHT - 2.0)
+	_tail.size = Vector2(22.0, TAIL_HEIGHT + 2.0)
 	add_child(_tail)
 
 	_icon = StateIcon.new()
-	_icon.position = Vector2(11.0, 10.0)
-	_icon.size = Vector2(34.0, 34.0)
+	_icon.position = Vector2(11.0, 9.0)
+	_icon.size = Vector2(30.0, 30.0)
 	add_child(_icon)
 
 	_name_label = Label.new()
 	_name_label.name = "BadgeNameLabel"
-	_name_label.position = Vector2(52.0, 7.0)
-	_name_label.size = Vector2(124.0, 36.0)
+	_name_label.position = Vector2(48.0, 6.0)
+	_name_label.size = Vector2(112.0, 34.0)
 	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_name_label.add_theme_font_size_override("font_size", 21)
+	_name_label.add_theme_font_size_override("font_size", 20)
 	_name_label.add_theme_color_override("font_color", INK)
 	add_child(_name_label)
 
 	var chip := Panel.new()
 	chip.name = "RoundChip"
-	chip.position = Vector2(11.0, 48.0)
-	chip.size = Vector2(88.0, 32.0)
+	chip.position = Vector2(11.0, 44.0)
+	chip.size = Vector2(80.0, 28.0)
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var chip_box := StyleBoxFlat.new()
 	chip_box.bg_color = CHIP
@@ -138,36 +154,37 @@ func _build_children() -> void:
 
 	_round_label = Label.new()
 	_round_label.name = "BadgeRoundLabel"
-	_round_label.position = Vector2(11.0, 48.0)
-	_round_label.size = Vector2(88.0, 32.0)
+	_round_label.position = Vector2(11.0, 44.0)
+	_round_label.size = Vector2(80.0, 28.0)
 	_round_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_round_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_round_label.add_theme_font_size_override("font_size", 20)
+	_round_label.add_theme_font_size_override("font_size", 18)
 	_round_label.add_theme_color_override("font_color", INK)
 	add_child(_round_label)
 
 	_status_label = Label.new()
 	_status_label.name = "BadgeStatusLabel"
-	_status_label.position = Vector2(106.0, 48.0)
-	_status_label.size = Vector2(70.0, 32.0)
+	_status_label.position = Vector2(98.0, 44.0)
+	_status_label.size = Vector2(64.0, 28.0)
 	_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_status_label.add_theme_font_size_override("font_size", 16)
+	_status_label.add_theme_font_size_override("font_size", 15)
 	_status_label.add_theme_color_override("font_color", INK_SOFT)
 	add_child(_status_label)
 
 	_score_label = Label.new()
 	_score_label.name = "BadgeHighScoreLabel"
-	_score_label.position = Vector2(11.0, 80.0)
-	_score_label.size = Vector2(162.0, 22.0)
+	_score_label.position = Vector2(11.0, 74.0)
+	_score_label.size = Vector2(150.0, 20.0)
 	_score_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_score_label.add_theme_font_size_override("font_size", 15)
+	_score_label.add_theme_font_size_override("font_size", 14)
 	_score_label.add_theme_color_override("font_color", SCORE_INK)
 	add_child(_score_label)
 	_refresh_score_label()
 
+	# 锁定态不压黑：罩一层台面色的毛玻璃，牌子退成"未开封"的浅印，灰度下也能分辨。
 	_dim = ColorRect.new()
 	_dim.name = "BadgeLockOverlay"
-	_dim.color = Color(0.043, 0.071, 0.125, 0.58)
+	_dim.color = Color(0.929, 0.918, 0.886, 0.52)
 	_dim.position = Vector2.ZERO
 	_dim.size = Vector2(WIDTH, HEIGHT)
 	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -178,14 +195,22 @@ func _build_children() -> void:
 ## 把关卡表里的一条记录贴到牌子上。名字与目标盘数只在这里写一次——它们不会在运行中变。
 func bind(stage: Dictionary) -> void:
 	stage_id = String(stage.get("id", ""))
+	_endless = bool(stage.get("endless", false))
+	_ranked = StageTable.has_leaderboard(stage_id)
 	if _name_label == null:
 		# 还没进场景树就被 bind 的情况：先记下来，_ready 之后再补。
 		await ready
 	_name_label.text = "%d · %s" % [int(stage.get("order", 0)), String(stage.get("name", ""))]
-	_round_label.text = "%d 盘" % int(stage.get("target_round", 0))
-	tooltip_text = "%s · 打完全部 %d 盘即通关" % [
-		String(stage.get("name", "")), int(stage.get("target_round", 0))
-	]
+	if _endless:
+		# 无尽关没有目标盘数：芯片写「无尽」，右键看榜的提示挪进 tooltip（记录行要腾给最远盘数）。
+		_round_label.text = "无尽"
+		tooltip_text = "%s · 盘面随机、越打越难，没有终点；右键看榜" % String(stage.get("name", ""))
+	else:
+		_round_label.text = "%d 盘" % int(stage.get("target_round", 0))
+		tooltip_text = "%s · 打完全部 %d 盘即通关" % [
+			String(stage.get("name", "")), int(stage.get("target_round", 0))
+		]
+	_refresh_score_label()
 
 
 func set_high_score(value: int) -> void:
@@ -193,14 +218,31 @@ func set_high_score(value: int) -> void:
 	_refresh_score_label()
 
 
+## 无尽关专用：最远打到第几盘。其他关忽略。
+func set_best_round(value: int) -> void:
+	_best_round = maxi(value, 0)
+	_refresh_score_label()
+
+
 func _refresh_score_label() -> void:
 	if _score_label == null:
 		return
+	if _endless:
+		var round_text := ("最远 %d 盘" % _best_round) if _best_round > 0 else "最远 —"
+		var best_text := ("最高 %s" % _format_score(_high_score)) if _high_score > 0 else "最高 —"
+		_score_label.add_theme_font_size_override("font_size", 13)
+		_score_label.text = "%s · %s" % [round_text, best_text]
+		_score_label.add_theme_color_override(
+			"font_color", SCORE_INK if (_best_round > 0 or _high_score > 0) else INK_SOFT
+		)
+		return
+	_score_label.add_theme_font_size_override("font_size", 14)
+	var hint := " · 右键看榜" if _ranked else ""
 	if _high_score > 0:
-		_score_label.text = "最高 %s · 右键看榜" % _format_score(_high_score)
+		_score_label.text = "最高 %s%s" % [_format_score(_high_score), hint]
 		_score_label.add_theme_color_override("font_color", SCORE_INK)
 	else:
-		_score_label.text = "最高 — · 右键看榜"
+		_score_label.text = "最高 —%s" % hint
 		_score_label.add_theme_color_override("font_color", INK_SOFT)
 
 
@@ -226,10 +268,16 @@ func set_stage_state(state: int) -> void:
 	_dim.visible = state == State.LOCKED
 	# 未解锁的牌子交给 Button 自己吃掉点击，不用在回调里再判一次。
 	disabled = state == State.LOCKED
+	# 描边只在「等你来点」的两态上色（可挑战 / 进行中）；已通关、未解锁都退回暖灰细边，
+	# 一屏六张牌里只有该动手的那几张在说话。
+	var loud := state == State.AVAILABLE or state == State.IN_PROGRESS
 	for state_name in ["normal", "hover", "pressed", "disabled"]:
 		var box := get_theme_stylebox(state_name) as StyleBoxFlat
 		if box != null:
-			box.border_color = accent if state != State.LOCKED else PAPER_EDGE
+			box.border_color = accent if loud else PAPER_EDGE
+	if _tail != null:
+		_tail.edge = accent if loud else PAPER_EDGE
+		_tail.queue_redraw()
 
 
 func current_state() -> int:
@@ -267,6 +315,8 @@ func is_hovering() -> bool:
 ## 牌子底下那根指向地格的小尖角。单独一个节点是为了让它画到牌体矩形之外，
 ## 又不参与 Button 的点击区。
 class Tail extends Control:
+	var edge := StageBadge.PAPER_EDGE
+
 	func _init() -> void:
 		name = "BadgeTail"
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -276,8 +326,8 @@ class Tail extends Control:
 		var left := Vector2(0.0, 0.0)
 		var right := Vector2(size.x, 0.0)
 		draw_colored_polygon([left, right, tip], StageBadge.PAPER)
-		draw_line(left, tip, StageBadge.PAPER_EDGE, 4.0)
-		draw_line(right, tip, StageBadge.PAPER_EDGE, 4.0)
+		draw_line(left, tip, edge, 2.5)
+		draw_line(right, tip, edge, 2.5)
 
 
 ## 四态图标。全部用几何图形画：对勾两笔、实心三角、锁（方块+半环）、时钟（圆环+两针）。

@@ -1,8 +1,9 @@
 class_name StageTable
 extends RefCounted
-## 关卡表。单片连续地图上的 6 关；第 1 关含教程，其后每关手写盘列表。
+## 关卡表。单片连续地图上的 7 关；第 1 关含教程，第 2～6 关每关手写盘列表，
+## 第 7 关「无尽远海」没有盘列表：每盘由 `endless_board()` 按盘序现生成，越打越难、没有终点。
 ## 解锁按关卡序号链式推进（打通上一关才开下一关）。
-## 每关只用一族形状讲一种地形，不再从总阶梯切片。
+## 每关只用一族形状讲一种地形，不再从总阶梯切片；无尽关把全部形状族都放进抽签池。
 
 const REGIONS := [
 	{"id": "habitat", "name": "栖息地", "theme": "grass", "unlock_after": {}},
@@ -10,6 +11,21 @@ const REGIONS := [
 
 ## 非教程关：第 2 关起 10 盘，之后每关 +1。
 const NON_TUTORIAL_BOARD_BASE := 10
+
+## --- 无尽关（第 7 关）---
+## 无尽关的 id。它没有目标盘数（`target_round` 派生为 0），`_stage_complete()` 永不成立，
+## 只有血量归零才收场；成绩看「最远打到第几盘」与本局累计分。
+const ENDLESS_STAGE_ID := "endless"
+## 难度曲线：每 ENDLESS_ROUNDS_PER_SIZE 盘盘面放大一号（7 → 10 封顶）；雷密度（占可玩格）
+## 每盘 +ENDLESS_DENSITY_STEP，从 ENDLESS_START_DENSITY 爬到 ENDLESS_MAX_DENSITY 封顶。
+## 对照：第 2 关开局约 0.155、第 6 关收尾约 0.25；经典专家局 99/480 ≈ 0.206。
+const ENDLESS_START_SIZE := 7
+const ENDLESS_MAX_SIZE := 10
+const ENDLESS_ROUNDS_PER_SIZE := 3
+const ENDLESS_START_DENSITY := 0.13
+const ENDLESS_DENSITY_STEP := 0.008
+const ENDLESS_MAX_DENSITY := 0.28
+const ENDLESS_MIN_MINES := 4
 
 ## 每关允许的形状前缀。测试用它锁主题，避免再混进下一关才该出现的伤。
 const THEME_SHAPE_PREFIXES := {
@@ -19,16 +35,22 @@ const THEME_SHAPE_PREFIXES := {
 	"river_1": ["notch_gate_", "notch_bridge_", "notch_bend_"],
 	"river_2": ["hole_lagoon_", "holes_twin_"],
 	"coast_1": ["notch_c_", "notch_u_", "notch_bite_", "hole_lagoon_", "holes_scatter_", "holes_reef_"],
+	## 无尽关：全部形状族都进抽签池，靠尺寸与雷密度而不是形状讲难度。
+	"endless": ["rect_", "notch_", "hole_", "holes_"],
 }
 
 const STAGES := [
 	{
 		"id": "grass_1", "order": 1, "name": "青草坡", "region": "habitat", "teaches": true,
 		"boards": [
-			{"shape": "rect_2x1", "mines": 1},
+			## 第一盘是强引导：形状与雷数必须跟 GuidedTutorial 的写死布局一致。
+			{"shape": "rect_5x4", "mines": 3},
 			{"shape": "rect_4", "mines": 3},
 			{"shape": "rect_5", "mines": 4},
 			{"shape": "rect_5", "mines": 4},
+			{"shape": "rect_6", "mines": 6},
+			{"shape": "rect_6", "mines": 6},
+			{"shape": "rect_6", "mines": 6},
 			{"shape": "rect_6", "mines": 6},
 		],
 	},
@@ -117,6 +139,12 @@ const STAGES := [
 			{"shape": "holes_reef_10", "mines": 21},
 		],
 	},
+	{
+		## 第 7 关 · 无尽：没有手写盘列表，每盘由 endless_board(round, seed) 现抽形状、按曲线配雷；
+		## target_round 派生为 0，`_stage_complete()` 永不成立，只有血量归零才收场。
+		"id": ENDLESS_STAGE_ID, "order": 7, "name": "无尽远海", "region": "habitat", "endless": true,
+		"boards": [],
+	},
 ]
 
 
@@ -147,6 +175,22 @@ static func region(region_id: String) -> Dictionary:
 
 static func has_stage(stage_id: String) -> bool:
 	return not stage(stage_id).is_empty()
+
+
+## 教学关不进排行榜。那 8 盘是写死的固定布局、还带着强引导，用时几乎只反映「读没读
+## 提示」，跟别人的分没有可比性；榜上排出来的是谁跳得快，不是谁排得好。
+static func has_leaderboard(stage_id: String) -> bool:
+	var entry := stage(stage_id)
+	return not entry.is_empty() and not bool(entry.get("teaches", false))
+
+
+## 上榜关卡，按关卡序。榜页的分页与「全部排行榜」的落点都走这一份。
+static func leaderboard_stages() -> Array:
+	var out := []
+	for entry in STAGES:
+		if not bool(entry.get("teaches", false)):
+			out.append(entry)
+	return out
 
 
 static func stages_in_region(region_id: String) -> Array:
@@ -180,7 +224,11 @@ static func shape_fits_theme(stage_id: String, shape_id: String) -> bool:
 	return false
 
 
-static func board_at(stage_id: String, round_index: int) -> Dictionary:
+## 某关第 round_index 盘的形状与雷数。无尽关没有盘列表，按盘序与种子现生成；
+## `level_seed` 只对无尽关有意义（同一局里同一盘抽到同一个形状），其他关忽略。
+static func board_at(stage_id: String, round_index: int, level_seed: int = 0) -> Dictionary:
+	if is_endless(stage_id):
+		return endless_board(round_index, level_seed)
 	var boards := boards_of(stage_id)
 	if round_index < 1 or round_index > boards.size():
 		return {}
@@ -196,6 +244,64 @@ static func expected_board_count_for_order(order: int) -> int:
 	if order <= 1:
 		return 0
 	return NON_TUTORIAL_BOARD_BASE + (order - 2)
+
+
+# --- 无尽关 ---
+
+
+static func is_endless(stage_id: String) -> bool:
+	for entry in STAGES:
+		if String(entry["id"]) == stage_id:
+			return bool(entry.get("endless", false))
+	return false
+
+
+## 无尽关第 round_index 盘的盘面边长：每 ENDLESS_ROUNDS_PER_SIZE 盘放大一号，到上限封顶。
+static func endless_size_for(round_index: int) -> int:
+	var steps := maxi(round_index - 1, 0) / ENDLESS_ROUNDS_PER_SIZE
+	return mini(ENDLESS_START_SIZE + steps, ENDLESS_MAX_SIZE)
+
+
+## 无尽关第 round_index 盘的目标雷密度（占可玩格的比例），线性爬升到上限封顶。
+static func endless_density_for(round_index: int) -> float:
+	var climbed := ENDLESS_START_DENSITY + ENDLESS_DENSITY_STEP * float(maxi(round_index - 1, 0))
+	return minf(climbed, ENDLESS_MAX_DENSITY)
+
+
+## 0～1 的难度进度：雷密度封顶时为 1。给进度横幅画「越打越难」的条。
+static func endless_difficulty_fraction(round_index: int) -> float:
+	var span := ENDLESS_MAX_DENSITY - ENDLESS_START_DENSITY
+	if span <= 0.0:
+		return 1.0
+	return clampf((endless_density_for(round_index) - ENDLESS_START_DENSITY) / span, 0.0, 1.0)
+
+
+## 边长为 size 的全部形状（rect / notch / hole / holes 各族都在），按 id 排序保证抽签可复现。
+static func endless_shape_pool(size: int) -> PackedStringArray:
+	var pool := PackedStringArray()
+	var suffix := "_%d" % size
+	for shape_id in BoardShape.all_ids():
+		var id := String(shape_id)
+		if id.ends_with(suffix) and shape_fits_theme(ENDLESS_STAGE_ID, id):
+			pool.append(id)
+	return pool
+
+
+## 无尽关第 round_index 盘：从当前尺寸的形状池里按 (level_seed, 盘序) 抽一个，
+## 雷数 = 可玩格 × 密度，夹在 ENDLESS_MIN_MINES 与该形状的雷上限之间。
+## 同一种子同一盘永远抽到同一个结果，所以一局之内可复现、不同局之间形状会换。
+static func endless_board(round_index: int, level_seed: int = 0) -> Dictionary:
+	var round_number := maxi(round_index, 1)
+	var size := endless_size_for(round_number)
+	var pool := endless_shape_pool(size)
+	assert(not pool.is_empty(), "形状库里没有边长 %d 的形状" % size)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([level_seed, round_number])
+	var shape_id := String(pool[rng.randi_range(0, pool.size() - 1)])
+	var density := endless_density_for(round_number)
+	var active := BoardShape.active_count_of(shape_id)
+	var mines := clampi(roundi(float(active) * density), ENDLESS_MIN_MINES, BoardShape.max_mines_for(shape_id))
+	return {"shape": shape_id, "mines": mines, "size": size, "density": density}
 
 
 static func cleared_count_in_region(region_id: String, cleared: Array) -> int:
@@ -237,6 +343,11 @@ static func is_stage_unlocked(stage_id: String, cleared: Array) -> bool:
 
 static func region_progress(region_id: String, cleared: Array) -> Dictionary:
 	var stage_list := stages_in_region(region_id)
+	# 无尽关没有「通关」，不计入总数，否则读数永远停在 6 / 7。
+	var clearable := 0
+	for entry in stage_list:
+		if not bool(entry.get("endless", false)):
+			clearable += 1
 	var done := cleared_count_in_region(region_id, cleared)
 	var next_id := ""
 	var remaining := 0
@@ -248,7 +359,7 @@ static func region_progress(region_id: String, cleared: Array) -> Dictionary:
 			break
 	return {
 		"cleared": done,
-		"total": stage_list.size(),
+		"total": clearable,
 		"next_region": next_id,
 		"next_region_name": String(region(next_id).get("name", "")) if next_id != "" else "",
 		"remaining_for_next": remaining,

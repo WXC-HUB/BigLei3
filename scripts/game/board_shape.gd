@@ -120,6 +120,8 @@ static func _ensure() -> void:
 	if not _shapes.is_empty():
 		return
 	_register_rect("rect_2x1", ["##"])
+	# 新手强引导盘：5 宽 4 高，雷位由 GuidedTutorial 写死。
+	_register_rect("rect_5x4", ["#####", "#####", "#####", "#####"])
 	_register_rect("rect_4", _filled(4))
 	_register_rect("rect_5", _filled(5))
 	_register_rect("rect_6", _filled(6))

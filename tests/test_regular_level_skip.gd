@@ -10,10 +10,15 @@ func _run() -> void:
 		push_error("Regular level skip test timed out")
 		quit(2)
 	)
+	# 用自己的存档槽：借真实存档的话，上一局/上一条测试留下的进度会把盘序顶到教学段之后。
+	GameSave.save_path = "user://test_regular_level_skip_save.json"
+	GameSave.clear()
 	var game := (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
 	await process_frame
-	game.set("_run_number", 4)
+	# 写死盘号会随教学关变长而失效：从常量推出「第一盘正式关」。
+	var first_regular := int(game.get("TUTORIAL_LEVEL_COUNT")) + 1
+	game.set("_run_number", first_regular - 1)
 	game.call("_start_game")
 	await process_frame
 	game.set("_gold", 7)
@@ -37,13 +42,13 @@ func _run() -> void:
 	assert((skip_ui.get_node("Confirmation/Center/Card") as PanelContainer).get_theme_stylebox("panel") is StyleBoxFlat, "Skip confirmation has no production card styling")
 	cancel.pressed.emit()
 	await create_timer(0.2).timeout
-	assert(not modal.visible and int(game.get("_run_number")) == 5, "Cancelling skip changed the current level")
+	assert(not modal.visible and int(game.get("_run_number")) == first_regular, "Cancelling skip changed the current level")
 
 	skip_button.pressed.emit()
 	await process_frame
 	confirm.pressed.emit()
 	await create_timer(0.22).timeout
-	assert(int(game.get("_run_number")) == 6, "Confirming skip did not enter the next level")
+	assert(int(game.get("_run_number")) == first_regular + 1, "Confirming skip did not enter the next level")
 	assert(int(game.get("_gold")) == 7, "Skipping a level incorrectly awarded or spent gold")
 	assert(not (game.get("_shop_layer") as ShopOverlay).visible, "Skipping a level opened the shop")
 	assert(not (game.get("_level_bill") as LevelBill).visible, "Skipping a level opened the level bill")
@@ -53,4 +58,5 @@ func _run() -> void:
 	game.queue_free()
 	await process_frame
 	print("Regular-level skip confirmation and no-gold transition passed")
+	GameSave.clear()
 	quit()

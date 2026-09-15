@@ -97,12 +97,14 @@ func _check_partial_save_fallback() -> void:
 
 ## 标题页点「开始」进的是世界地图，不是棋盘。
 func _check_start_goes_to_map(game: Node) -> void:
-	# 有推图战绩 → 跳过开场演出，直奔地图。
+	# 开场演出已经放过 → 跳过它，直奔地图。判据是落盘的 intro_played，不再是「有推图战绩」
+	# （那条老判据会让有进度的存档永远看不到开场，见 tests/test_opening_intro_gate.gd）。
 	game.set("_cleared_stages", [String(StageTable.STAGES[0]["id"])])
+	game.set("_intro_played", true)
 	game.call("_on_start_game_requested")
 	await process_frame
 	await process_frame
-	var map := game.get("_world_map") as WorldMap
+	var map := game.get("_world_map") as StageCabinet
 	assert(map != null, "点开始之后世界地图没有建起来")
 	assert(map.visible, "点开始之后世界地图没有显示")
 	assert(not bool(game.get("_started")), "点开始之后直接开了棋盘")
@@ -130,7 +132,7 @@ func _check_teaching_stage(game: Node) -> void:
 		"目标盘数没从关卡表取"
 	)
 	var board = game.get("_board")
-	assert(board.width == 2 and board.height == 1, "教学关的第一盘不是 2×1 的教程盘")
+	assert(board.width == GuidedTutorial.WIDTH and board.height == GuidedTutorial.HEIGHT, "教学关的第一盘不是 5×4 的强引导盘")
 	assert(bool(game.get("_blue_bird_unlocked")), "蓝鸟没解锁")
 	assert(not bool(game.get("_red_bird_unlocked")), "教学关起手就送了红尾水鸲")
 	assert(not bool(game.get("_night_heron_unlocked")), "教学关起手就送了夜鹭")
@@ -151,7 +153,8 @@ func _check_normal_stage(game: Node) -> void:
 	game.call("_enter_stage", normal, false)
 	await process_frame
 
-	var tutorial_count := 4
+	# 教学盘数从 main.gd 现取：写死过 4，而它一路长到了 8。
+	var tutorial_count: int = (game.get_script() as GDScript).get_script_constant_map()["TUTORIAL_LEVEL_COUNT"]
 	assert(
 		int(game.get("_run_number")) == tutorial_count + 1,
 		"非教学关没有跳过教程段，全局盘序是 %d" % int(game.get("_run_number"))
@@ -208,7 +211,7 @@ func _check_stage_cleared(game: Node) -> void:
 	assert(String(game.get("_resume_stage_id")) == "", "通关后续局槽没清掉")
 	assert(String(game.get("_stage_id")) == "", "通关后还留在关卡里")
 	assert(int(game.get("_resume_level")) == 1, "通关后盘序没有归位")
-	var map := game.get("_world_map") as WorldMap
+	var map := game.get("_world_map") as StageCabinet
 	assert(map != null and map.visible, "通关后没有回到世界地图")
 	# 上榜点穿会走 `_enter_stage(本关)`；结算锁必须挡住，否则榜一关就是第一盘。
 	game.call("_enter_stage", "grass_2", false)
@@ -252,7 +255,7 @@ func _check_death_returns_to_map(game: Node) -> void:
 	game.set("_player_hp", 0)
 	game.call("_on_game_over_return")
 	await process_frame
-	var map := game.get("_world_map") as WorldMap
+	var map := game.get("_world_map") as StageCabinet
 	assert(map.visible, "死亡返回后没有回到世界地图")
 	assert(game.get("_start_screen") == null, "死亡返回跑回了标题页")
 	assert(String(game.get("_resume_stage_id")) == "", "死亡后仍保留续局槽")
@@ -288,7 +291,7 @@ func _check_resume(game: Node) -> void:
 
 	game.call("_return_to_world_map")
 	await process_frame
-	assert((game.get("_world_map") as WorldMap).visible, "离开关卡后没回到地图")
+	assert((game.get("_world_map") as StageCabinet).visible, "离开关卡后没回到地图")
 
 	# 走一遍真实的"重开游戏读档"路径。
 	game.call("_return_to_main_menu")

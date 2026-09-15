@@ -9,6 +9,7 @@ const NightMasterFishPopupView := preload("res://scenes/ui/night_master_fish_pop
 const VictoryBannerView := preload("res://scenes/ui/victory_banner.tscn")
 const StageProgressBannerView := preload("res://scenes/ui/stage_progress_banner.tscn")
 const StageProgressBannerScript := preload("res://scripts/ui/stage_progress_banner.gd")
+const RoundIntroBannerScript := preload("res://scripts/ui/round_intro_banner.gd")
 const HeadphoneNoticeView := preload("res://scenes/ui/headphone_notice.tscn")
 const OpeningStoryView := preload("res://scenes/ui/opening_story.tscn")
 const CreditsScreenView := preload("res://scenes/ui/credits_screen.tscn")
@@ -21,6 +22,10 @@ const NightHeronUnlockView := preload("res://scenes/ui/night_heron_unlock.tscn")
 const RedstartUnlockView := preload("res://scenes/ui/redstart_unlock.tscn")
 const AttackerUnlockView := preload("res://scenes/ui/attacker_unlock.tscn")
 const KestrelUnlockView := preload("res://scenes/ui/kestrel_unlock.tscn")
+const TitUnlockView := preload("res://scenes/ui/tit_unlock.tscn")
+const MagpieUnlockView := preload("res://scenes/ui/magpie_unlock.tscn")
+const CrowUnlockView := preload("res://scenes/ui/crow_unlock.tscn")
+const DoveUnlockView := preload("res://scenes/ui/dove_unlock.tscn")
 const MusicBreakNoticeView := preload("res://scenes/ui/music_break_notice.tscn")
 const StartScreenView := preload("res://scenes/ui/start_screen.tscn")
 const TutorialSkipButtonView := preload("res://scenes/ui/tutorial_skip_button.tscn")
@@ -30,19 +35,26 @@ const CursorFxView := preload("res://scripts/ui/cursor_fx.gd")
 const TUTORIAL_GUIDE_TEXTURE := preload("res://my_asset/guide.png")
 const TUTORIAL_GUIDE_2_TEXTURE := preload("res://my_asset/guide_2.png")
 const AchievementCatalogData := preload("res://scripts/game/achievement_catalog.gd")
+const BirdCatalogData := preload("res://scripts/game/bird_catalog.gd")
+const BirdCodexScreenScript := preload("res://scripts/ui/bird_codex_screen.gd")
 const GameSaveData := preload("res://scripts/game/game_save.gd")
 const ScoreComboTrackerScript := preload("res://scripts/game/score_combo.gd")
 const ComboScoreHudScript := preload("res://scripts/ui/combo_score_hud.gd")
+const ComboBoardFxScript := preload("res://scripts/ui/combo_board_fx.gd")
 const LeaderboardApiScript := preload("res://scripts/game/leaderboard_api.gd")
 const LeaderboardPanelScript := preload("res://scripts/ui/leaderboard_panel.gd")
 const DuelSessionScript := preload("res://scripts/net/duel_session.gd")
 const DuelHudScript := preload("res://scripts/ui/duel_hud.gd")
 const DuelLobbyScript := preload("res://scripts/ui/duel_lobby.gd")
+const CustomLevelEditorScript := preload("res://scripts/ui/custom_level_editor.gd")
+const WorkshopPanelScript := preload("res://scripts/ui/workshop_panel.gd")
 const ACHIEVEMENT_START_GAME := AchievementCatalogData.START_GAME
 const ACHIEVEMENT_NIGHT_MASTER_FISH := AchievementCatalogData.NIGHT_MASTER_FISH
 
 const START_BOARD_SIZE := 6
-const TUTORIAL_LEVEL_COUNT := 4
+const TUTORIAL_LEVEL_COUNT := 8
+## 新手第 1 盘强引导：遮罩挖洞在目标格外留的边距。
+const GUIDED_HOLE_PADDING := 12.0
 ## 打到非教程第五关的时候插播一次「该换首音乐了」，然后把制作人名单拉起来放歌。
 ## 每局只演一次，回主菜单重开会重置。
 const MUSIC_BREAK_LEVEL := TUTORIAL_LEVEL_COUNT + 5
@@ -51,15 +63,19 @@ const MAX_BOARD_SIZE := 10
 const MINE_DENSITY := 0.16
 const MEDICAL_KIT_COUNT := 1
 const XRAY_COUNT := 1
-const CHAIN_COUNT := 0
-const ENLARGE_COUNT := 0
+## 一盘里被串成一组的连携雷颗数。商店的「连携雷 +1」在这个基数上继续加。
+const CHAIN_COUNT := 2
+const ENLARGE_COUNT := 1
 const DETECT_COUNT := 0
 const SUPER_LUCK_CLICKS_PER_ITEM := 1
 const CELL_SIZE := 88.0
 const CELL_GAP := 7.0
 ## 分屏几何。以设计分辨率 1920×1080 为准：左半屏放我的棋盘，右半屏放对手棋盘位。
 ## SPLIT_HUD_BAND 是顶部让给 HUD 的高度（自身状态 + 读数行 / 对手面板都在这条带里）。
-const SPLIT_VIEWPORT := Vector2(1920.0, 1080.0)
+## 版式一律按设计分辨率算而不是读 get_viewport_rect()：stretch=canvas_items 下两者
+## 本该一致，但 headless 里视口高度会被报成 1920，照它排就全乱了。
+const DESIGN_VIEWPORT := Vector2(1920.0, 1080.0)
+const SPLIT_VIEWPORT := DESIGN_VIEWPORT
 const SPLIT_CENTER_SHIFT := 480.0
 const SPLIT_MARGIN := 40.0
 const SPLIT_HUD_BAND := 160.0
@@ -69,11 +85,32 @@ const SPLIT_PANEL_PADDING := 24.0
 const SPLIT_STATUS_SCALE := 0.72
 const BOARD_VERTICAL_LIFT := 32.0
 const BOARD_VERTICAL_SHIFT := CELL_SIZE - 36.0
-# 棋盘上方读数：剩余雷与分列道具上下两行叠放。
-const MINE_COUNTER_SIZE := Vector2(224, 58)
+# 棋盘上方读数：剩余雷与分列道具上下两行叠放，最上面再压一行关卡名。
+const MINE_COUNTER_HEIGHT := 58.0
+const MINE_COUNTER_SIZE := Vector2(224.0, MINE_COUNTER_HEIGHT)
 const ITEM_COUNTER_HEIGHT := 58.0
 const ITEM_CHIP_WIDTH := 70.0
 const BOARD_COUNTER_GAP := 16.0
+const STAGE_BOARD_LABEL_WIDTH := 260.0
+const STAGE_BOARD_LABEL_HEIGHT := 34.0
+const STAGE_BOARD_LABEL_GAP := 8.0
+## 读数叠底边与棋盘上沿之间的空隙。
+const BOARD_COUNTER_STACK_GAP := 14.0
+## 读数叠占的总高。一律按最高一档（关卡名 + 剩余雷 + 分列道具）算：这几行是逐关
+## 变的，跟着变会让相邻两盘的格子大小来回跳一下。
+const BOARD_COUNTER_STACK_HEIGHT := (
+	BOARD_COUNTER_STACK_GAP + ITEM_COUNTER_HEIGHT + BOARD_COUNTER_GAP
+	+ MINE_COUNTER_HEIGHT + STAGE_BOARD_LABEL_GAP + STAGE_BOARD_LABEL_HEIGHT
+)
+## 单机版式给画布上下左右留的边。见 _apply_solo_board_fit。
+const BOARD_FIT_TOP_MARGIN := 12.0
+const BOARD_FIT_BOTTOM_MARGIN := 12.0
+const BOARD_FIT_SIDE_MARGIN := 28.0
+## 开局洗牌：从第一张牌起飞到最后一张起飞之间的总时长。单张的飞行时间在
+## MineCell.DEAL_FLIGHT_TIME，两者相加才是整段发牌的长度。
+const BOARD_DEAL_TOTAL_TIME := 0.62
+## 甩出去时那点歪劲；相邻两张朝相反方向歪，看着才像一叠牌被拨开。
+const BOARD_DEAL_SPIN := 16.0
 const ITEM_TYPE_ORDER: Array[int] = [
 	1, ## LANTERN
 	2, ## COMPASS
@@ -101,19 +138,76 @@ const HITSTOP_MINE_SECONDS := 0.07
 ## How long the flag pose gets before the confirmed mine's card shatters away.
 const FLAG_SHATTER_DELAY := 0.17
 const HITSTOP_MONSTER_SECONDS := 0.09
+## 正确标雷时棋盘的回弹：底噪很轻，靠热度往上加，封顶还是比踩雷小一圈。
+const COMBO_SHAKE_BASE := 1.6
+const COMBO_SHAKE_HEAT_GAIN := 5.2
+const COMBO_SHAKE_STEPS := 4
 const TARGET_GUIDE_Z := 40
 const BIRD_FLYOVER_Z := 52
 const BIRD_DROPPED_PROP_Z := 51
 const PLAYER_START_MAX_HP := 3
+## 商店基础价。刷新一直按这个价收，商品则按「同一件买过几次」逐次涨价。
 const SHOP_ITEM_COST := 5
+## 重复购买的涨价系数：同一件商品第 n 次（n 从 0 起）的价格 = 基础价 × 1.2ⁿ 向上取整，
+## 也就是 5 / 6 / 8 / 9 / 11 / 13…。囤同一件东西越来越贵，逼玩家把钱摊开花。
+const SHOP_PRICE_GROWTH := 1.2
+## 单关通关奖励：打完一盘固定进账这么多，在账单上和标雷、吃鱼、连击各占一行。
+const LEVEL_CLEAR_GOLD := 3
+## 上限商品：红隼最多 3 只，长尾山雀最多 2 张（含每关自带的那一张）。买满之后整轮 run
+## 里都不再上架——这两件是滚雪球最快的两张牌，堆多了关卡就没有威胁了。
+const KESTREL_ITEM_LIMIT := 3
+const TIT_ITEM_LIMIT := 2
 const BIG_MONSTER_MAX_HP := 30
 const MINE_ATTACK_DELAY := 3
 const MINE_DAMAGE := 1
+
+## --- 奖励盘 ---
+## 一盘里的雷被提前清空、结算队列却还压着牌时，那些牌本来会落空。改成自动展开一张
+## 同尺寸的【奖励盘】：只有雷、不发新牌（不发新牌是硬要求，否则队列会自己养自己、
+## 一盘接一盘停不下来），剩下的伙伴牌在它上面继续结算，结算完照常进本该进的下一盘。
+## 玩家不操作奖励盘，盘上标出的雷照常算金币与得分。
+const BONUS_BOARD_LIMIT := 3
+## 整盘压成暖金，和普通盘一眼分得开。
+const BONUS_BOARD_TINT := Color(1.22, 1.0, 0.58)
+const BONUS_BOARD_TINT_TIME := 0.3
+## 光环亮起、标题弹出之后停一拍，再开始往上落牌。
+const BONUS_BOARD_INTRO_HOLD := 0.5
 ## Marking a safe cell costs the same as stepping on a mine.
 const WRONG_FLAG_DAMAGE := 1
 const SMALL_MINE_ATTACK_DAMAGE := 10
 const ITEM_SETTLEMENT_LAUNCH_INTERVAL := 0.14
 const BIRD_DEPARTURE_QUEUE_INTERVAL := 0.09
+## 长尾山雀从栖枝摔到目标格要飞多久、趴在地上多久再翻 3×3、翻开后多久顺势掉出屏幕、
+## 掉出去多久后回到枝头。离场不等这一轮翻出的其他道具结算，只跟牌面翻开的节奏走。
+const TIT_FALL_DURATION := 0.58
+const TIT_CRASH_HOLD := 0.16
+const TIT_TAKEOFF_DELAY := 0.28
+const TIT_TUMBLE_DURATION := 0.5
+const TIT_REAPPEAR_DELAY := 0.35
+## 灰喜鹊接手连携：飞到起点多久、一格一格走每步多久、每步抬多高、走到头摆姿势各停多久。
+## 连携：每只分身飞多久、彼此错开多久、弧线拐多远、翅膀几秒一帧、落地停多久再淡出。
+## 同组的两颗连携雷之间可能隔着大半张盘，一格一格跳太慢，改成直接飞过去。
+const MAGPIE_LINK_FLY_TIME := 0.38
+const MAGPIE_LINK_STAGGER := 0.07
+const MAGPIE_LINK_ARC := 42.0
+const MAGPIE_FLAP_TIME := 0.09
+const MAGPIE_LAND_HOLD := 0.12
+const MAGPIE_VANISH_TIME := 0.22
+## 小嘴乌鸦接手透视：飞到那格要多久、内容亮几秒、被撞见后僵多久、飞出屏幕多久。
+const CROW_FLY_IN_TIME := 0.36
+const XRAY_PEEK_SECONDS := 3.0
+## 掀开之后原地顿一下就走，别杵在棋盘上挡着玩家看。
+const CROW_PEEK_BEAT := 0.18
+const CROW_VANISH_TIME := 0.2
+## 斑鸠接手治愈：每程飞多久、翅膀几秒一帧、叼起枝停多久、递完多久淡掉、落点相对牌心偏多少。
+const DOVE_FLY_TIME := 0.42
+const DOVE_FLAP_TIME := 0.1
+const DOVE_VANISH_TIME := 0.2
+const DOVE_FLAP_CYCLE: Array[int] = [2, 3]
+## 停在血条正上方一点，别糊住爱心本身。
+const DOVE_HEAL_OFFSET := Vector2(0.0, -46.0)
+## 偷看时乌鸦相对那一格中心站在哪：右上方一格多，让喙正好垂到格子上而身子不压住内容。
+const CROW_PEEK_OFFSET := Vector2(CELL_SIZE * 1.25, -CELL_SIZE * 0.55)
 
 const COLOR_BG := Color("172119")
 const COLOR_PANEL_DARK := Color("1c281b")
@@ -135,10 +229,10 @@ const LANTERN_TEXTURE := preload("res://assets/sprites/generated/bird_items/item
 const COMPASS_TEXTURE := preload("res://assets/sprites/generated/bird_items/item_bird_compass.png")
 const ORBITAL_STRIKE_TEXTURE := preload("res://assets/sprites/generated/bird_items/item_bird_orbital.png")
 const SUPER_LUCK_TEXTURE := preload("res://assets/sprites/generated/bird_items/item_bird_super_luck.png")
-const MEDICAL_KIT_TEXTURE := preload("res://assets/sprites/generated/potion_heal_green.png")
-const XRAY_TEXTURE := preload("res://assets/sprites/generated/item_treasure_map.png")
-const CHAIN_TEXTURE := preload("res://assets/sprites/generated/item_rope.png")
-const ENLARGE_TEXTURE := preload("res://assets/sprites/generated/potion_star_purple.png")
+const MEDICAL_KIT_TEXTURE := preload("res://assets/sprites/generated/bird_items/item_bird_dove.png")
+const XRAY_TEXTURE := preload("res://assets/sprites/generated/bird_items/item_bird_crow.png")
+const CHAIN_TEXTURE := preload("res://assets/sprites/generated/bird_items/item_bird_magpie.png")
+const ENLARGE_TEXTURE := preload("res://assets/sprites/generated/bird_items/item_bird_tit.png")
 const DETECT_TEXTURE := preload("res://assets/sprites/generated/tool_metal_detector.png")
 const ITEM_COUNTER_TEXTURE := preload("res://assets/sprites/generated/item_backpack.png")
 const RED_FLY_TEXTURE := preload("res://my_asset/birds/red_fly_fx_only.png")
@@ -186,6 +280,36 @@ enum ShopOffer {
 	ENLARGE_CACHE,
 }
 
+## --- 无尽关的槽位制商店（鸟窝）---
+## 无尽关没有终点，「买到的强化永久叠加」那套会越滚越离谱。改成鸟窝：一格住一只
+## 伙伴，每盘按窝里的鸟往棋盘上埋牌。窝满了还想买，就得请走一只换上去。
+## 占格子的商品 → 它加的那个数值位。**鸟窝是这七个数的唯一真相**，改完窝就照着窝
+## 重算（`_sync_bonuses_from_slots()`），所以替换 / 撤下永远不会算歪。
+## 不在这张表里的是永久强化（血量上限、无敌步数、十字啄击……），不占格子。
+const SLOT_OFFER_BONUS := {
+	ShopOffer.LANTERN_CACHE: "_lantern_bonus",
+	ShopOffer.COMPASS_CACHE: "_compass_bonus",
+	ShopOffer.ORBITAL_STRIKE_CACHE: "_orbital_strike_bonus",
+	ShopOffer.SUPER_LUCK_CACHE: "_super_luck_bonus",
+	ShopOffer.XRAY_CACHE: "_xray_bonus",
+	ShopOffer.CHAIN_CACHE: "_chain_bonus",
+	ShopOffer.ENLARGE_CACHE: "_enlarge_bonus",
+}
+## 起手 6 格：`_prepare_stage_run()` 送的四只鸟先占掉 4 格，留 2 格给前两次采购。
+const ENDLESS_SLOT_START := 6
+const ENDLESS_SLOT_PER_EXPANSION := 3
+## 三次扩建的价钱，越扩越贵；数组长度就是「最多扩几次」，窝最大 6 + 3×3 = 15 格。
+const ENDLESS_SLOT_EXPANSION_COSTS := [12, 22, 36]
+## 鸟窝里的空格。
+const ENDLESS_SLOT_EMPTY := -1
+
+## ============ 临时：无尽关的调试起手 ============
+## 只为手测奖励盘 / 鸟窝而存在：进无尽关时鸟窝直接扩满塞满、强化拉满、金币管够。
+## **发版前把这一行翻回 false**，起手就完全恢复正常（4 只鸟 + 6 格窝）。
+## 写成变量而不是常量，是因为测试要把它关掉——它们校的是正式起手。
+var endless_debug_loadout := true
+## ===============================================
+
 var _board: MinesweeperBoard
 var _cells: Array[MineCell] = []
 var _grid: Control
@@ -213,12 +337,18 @@ var _restart_button: Button
 var _shop_layer: ShopOverlay
 var _victory_banner: VictoryBanner
 var _stage_progress_banner: StageProgressBannerScript
+## 洗完牌之后亮一次的「这盘埋了什么」横幅。
+var _round_intro_banner: RoundIntroBannerScript
 var _headphone_notice: HeadphoneNotice
 var _opening_story
 var _music_break_notice
 var _music_break_played := false
+## 开场演出（耳机提示 + 开场剧情）是否已经放过。落盘，所以整个存档周期内只放一次；
+## 老档没有这个键，读出来是 false，于是会补放一次。
+var _intro_played := false
 var _credits_screen: CreditsScreen
 var _achievements_screen: AchievementsScreen
+var _bird_codex_screen: BirdCodexScreen
 var _achievement_toast: AchievementToast
 var _wrong_flag_guide_banner: WrongFlagGuideBanner
 var _wrong_flag_damage_guide_shown := false
@@ -231,6 +361,10 @@ var _night_heron_unlock: NightHeronUnlock
 var _redstart_unlock: RedstartUnlock
 var _attacker_unlock: AttackerUnlock
 var _kestrel_unlock: KestrelUnlock
+var _tit_unlock: TitUnlock
+var _magpie_unlock: MagpieUnlock
+var _crow_unlock: CrowUnlock
+var _dove_unlock: DoveUnlock
 var _cursor_fx: CursorFx
 var _board_panel: PanelContainer
 var _board_interface_shown := false
@@ -253,24 +387,55 @@ var _stage_round := 0
 var _cleared_stages: Array = []
 ## 每关历史最高分：stage_id → int。跨 run 保留，放弃本轮也不清。
 var _stage_high_scores: Dictionary = {}
+## 无尽关（第 7 关）最远打到第几盘：只在打赢一盘时更新，跨 run 保留，放弃本轮也不清。
+var _endless_best_round := 0
+## 鸟窝：每格一个 ShopOffer，ENDLESS_SLOT_EMPTY = 空格。只有无尽关读它。
+var _endless_slots: Array[int] = []
+## 已扩建次数，上限 ENDLESS_SLOT_EXPANSION_COSTS.size()。
+var _endless_slot_expansions := 0
+## 窝满时按下的那件商品，等玩家点一格来换；-1 = 没有待定的替换。钱在玩家点格子
+## 那一刻才扣，所以中途取消 / 关店都不会白花钱。
+var _pending_slot_offer := -1
 ## 上榜昵称（本地记住，下次上榜预填）。
 var _leaderboard_name := ""
 var _leaderboard_panel
 ## 当前关卡 run 的得分/连击表（纯数值）。
 var _score_combo
 var _combo_hud
+## 棋盘上的连击表现层（热度边框、能量槽、光波），常驻在格子网格里。
+var _combo_board_fx
 ## 本盘已计入连击的雷格，防止撤旗再标重复加分。
 var _combo_scored_cells: Dictionary = {}
-## >0 时连击能量槽冻结（翻牌/碎牌/道具飞入等演出进行中）。
-var _combo_decay_holds := 0
+## 奖励盘（见 BONUS_BOARD_LIMIT）：正展着的那张、本盘已经开过几张。
+var _bonus_board_active := false
+var _bonus_boards_this_round := 0
+## 换上奖励盘之前，这一盘已经标对 / 已经计分的雷数。账单要把前后几块加起来，
+## 否则旧盘那笔会被新盘直接顶掉。
+var _banked_flagged_mines := 0
+var _banked_scored_mines := 0
+var _bonus_aura: BonusBoardAura
+## 换盘请求的合流闸：正在换的时候后来者只等、不重复换。
+var _bonus_board_opening := false
+## 停在换盘闸前面的牌数。它们还挂在 `_active_item_settlements` 上，但已经停在生效
+## 之前、碰不到盘面，所以算「等待换盘是否安全」时要把它们减掉。
+var _bonus_board_waiters := 0
 ## 本盘连击收束累计的额外金币（仅计入 combo > 2 的收束）。
 var _combo_bonus_gold := 0
 ## 唯一那个续局槽属于哪一关；空串 = 没有打到一半的关卡。
 var _resume_stage_id := ""
-var _world_map: WorldMap
+## 选关界面：陈列柜（StageCabinet）。变量名沿用「world_map」，接口和老地图一样。
+var _world_map: StageCabinet
 var _duel: DuelSession
 var _duel_hud: DuelHud
 var _duel_lobby
+## 自定义模式：编辑器懒建；`_custom_level` 非空即处于自定义局中（类比 `_stage_id`）。
+## `_custom_level` 是一个**关卡包**：多张图按顺序打，`_custom_map_index` 是打到第几张
+## （0 基）。图与图之间走单机那套账单 + 商店，所以多图包才有"连续、有商店"的玩法。
+var _custom_editor
+var _custom_level: Dictionary = {}
+var _custom_map_index := 0
+var _workshop_panel
+var _workshop_http: HTTPRequest
 var _duel_play_started := false
 var _duel_leaving := false
 ## 入站的标雷伤害先排队。收到时本地可能正卡在结算锁、红隼模态或连携挂起里，
@@ -278,8 +443,9 @@ var _duel_leaving := false
 var _duel_pending_damage := 0
 var _duel_frozen := false
 var _duel_self_cleared := false
-## 当前格子边长。单机恒为 CELL_SIZE；分屏时按左半屏可用宽高算，只有最大的
-## 10×10 会真的缩（到约 79.3），6×6 到 9×9 仍是 88。
+## 当前格子边长，上限恒为 CELL_SIZE，只缩不放。单机按「读数叠 + 棋盘」这一整块
+## 能不能塞进画布来算（9×9 起开始微收，10×10 约 78）；分屏则按左半屏的可用宽高
+## 算（只有 10×10 会缩到约 79.3，6×6 到 9×9 仍是 88）。
 var _cell_size := CELL_SIZE
 ## 棋盘整体相对视口中心的位移。棋盘和它的读数、教程图、震屏都锚在中心，
 ## 挪到左半屏就是给所有 offset 写入点统一加上这一个量。
@@ -289,6 +455,13 @@ var _red_bird_unlocked := false
 var _night_heron_unlocked := false
 var _attacker_bird_unlocked := false
 var _lucky_bird_unlocked := false
+var _tit_bird_unlocked := false
+## 灰喜鹊接手连携道具；教学第 6 盘打完解锁。
+var _magpie_bird_unlocked := false
+## 小嘴乌鸦接手透视道具；教学第 7 盘打完解锁。
+var _crow_bird_unlocked := false
+## 斑鸠接手治愈道具；教学第 8 盘打完解锁。
+var _dove_bird_unlocked := false
 var _lantern_bonus := 0
 var _compass_bonus := 0
 var _orbital_strike_bonus := 0
@@ -317,12 +490,16 @@ var _super_luck_click_fly_count := 0
 var _super_luck_activation_count := 0
 var _super_luck_hover_index := -1
 var _gold := 0
+## 本轮 run 里每件商品各买过几次（offer → 次数），只用来算涨价。跟着存档走，续局回来
+## 价格接着涨，不会因为回一趟标题就重新便宜。
+var _offer_purchase_counts: Dictionary = {}
 var _gold_rewarded_this_run := false
+## 本盘的用时奖励是否已经结算过。和 _gold_rewarded_this_run 同进同退。
+var _time_bonus_awarded_this_run := false
 var _night_master_fish_count := 0
 ## 已经落地、还在等搭档的「连携」标记点 A（道具牌自己的格子）。
-var _chain_anchors: Array[int] = []
+var _chain_pending_triggers: Array[int] = []
 ## 标记点 A 落地之后被标出的雷，排队等着当标记点 B。
-var _chain_pending_partners: Array[int] = []
 ## 连携翻牌会把新道具翻出来、进而触发新的连携，用这个标志把递归压平成一层循环。
 var _chain_flush_active := false
 var _enlarge_mark_charges := 0
@@ -332,10 +509,22 @@ var _last_detect_target := -1
 var _enlarge_hover_generation := 0
 var _tutorial_first_reveal_pending := false
 var _tutorial_night_heron_edge_index := -1
+## 新手第 1 盘的强引导：当前步序（-1 = 没在引导），演出层见 GuidedTutorialOverlay。
+var _guided_step := -1
+var _guided_overlay: GuidedTutorialOverlay
+## 当前这盘走哪套强引导脚本（GuidedTutorial / GuidedItemLesson）；null = 不在强引导里。
+var _guided_lesson: GDScript
+var _item_guide_screen: ItemGuideScreen
 var _woodpecker_demo_pending := false
 var _woodpecker_demo_index := -1
 var _kestrel_demo_pending := false
 var _kestrel_demo_index := -1
+var _tit_demo_pending := false
+var _tit_demo_index := -1
+var _crow_demo_pending := false
+var _crow_demo_index := -1
+var _dove_demo_pending := false
+var _dove_demo_index := -1
 var _active_mines: Dictionary = {}
 var _defeated_mines: Dictionary = {}
 var _wrong_flagged_cells: Dictionary = {}
@@ -393,6 +582,10 @@ var _last_lantern_fish_count := 0
 @onready var _black_bird: BirdPerch = $BlackBirdPerch
 @onready var _attacker_bird: BirdPerch = $AttackerBirdPerch
 @onready var _eg_bird: BirdPerch = $EgBirdPerch
+@onready var _tit_bird: BirdPerch = $TitBirdPerch
+@onready var _magpie_bird: BirdPerch = $MagpieBirdPerch
+@onready var _crow_bird: BirdPerch = $CrowBirdPerch
+@onready var _dove_bird: BirdPerch = $DoveBirdPerch
 
 
 func _ready() -> void:
@@ -404,12 +597,14 @@ func _ready() -> void:
 	_build_duel()
 	_build_progression_interface()
 	_build_tutorial_skip_interface()
+	_build_guided_tutorial_overlay()
 	_build_regular_skip_interface()
 	_build_headphone_notice()
 	_build_opening_story()
 	_build_music_break_notice()
 	_build_credits_screen()
 	_build_achievements_screen()
+	_build_bird_codex_screen()
 	_build_achievement_toast()
 	_build_wrong_flag_guide_banner()
 	_build_night_master_fish_guide_banner()
@@ -512,6 +707,18 @@ func _build_achievements_screen() -> void:
 	canvas.add_child(_achievements_screen)
 
 
+## 鸟类图鉴。和成就页一样只是个展示器：解锁位仍然存在 Main 手里，
+## `_apply_bird_unlock_visibility()` 每次跑都会把最新状态推给它。
+func _build_bird_codex_screen() -> void:
+	var canvas := CanvasLayer.new()
+	canvas.layer = 160
+	add_child(canvas)
+	_bird_codex_screen = BirdCodexScreenScript.new()
+	_bird_codex_screen.name = "BirdCodexScreen"
+	_bird_codex_screen.back_requested.connect(_on_bird_codex_back_requested)
+	canvas.add_child(_bird_codex_screen)
+
+
 func _build_achievement_toast() -> void:
 	# Above every presentation layer so an unlock can be announced at any time.
 	var canvas := CanvasLayer.new()
@@ -584,9 +791,9 @@ func _refresh_achievement_banner() -> void:
 
 
 func _save_progress() -> void:
-	if _is_duel():
-		# 对战不写存档。这一条挡在最外层，是因为成就解锁和商店购买都会绕道进来，
-		# 逐个调用点去堵迟早会漏一个，然后单机那一槽就被对战进度污染了。
+	if _is_duel() or _is_custom():
+		# 对战和自定义都不写存档。这一条挡在最外层，是因为成就解锁和商店购买都会绕道
+		# 进来，逐个调用点去堵迟早会漏一个，然后单机那一槽就被别的模式污染了。
 		return
 	GameSaveData.write({
 		"current_level": maxi(_resume_level, 1),
@@ -599,6 +806,10 @@ func _save_progress() -> void:
 		"night_heron_unlocked": _night_heron_unlocked,
 		"attacker_bird_unlocked": _attacker_bird_unlocked,
 		"lucky_bird_unlocked": _lucky_bird_unlocked,
+		"tit_bird_unlocked": _tit_bird_unlocked,
+		"magpie_bird_unlocked": _magpie_bird_unlocked,
+		"crow_bird_unlocked": _crow_bird_unlocked,
+		"dove_bird_unlocked": _dove_bird_unlocked,
 		"lantern_bonus": _lantern_bonus,
 		"compass_bonus": _compass_bonus,
 		"orbital_strike_bonus": _orbital_strike_bonus,
@@ -612,6 +823,8 @@ func _save_progress() -> void:
 		"xray_bonus": _xray_bonus,
 		"chain_bonus": _chain_bonus,
 		"enlarge_bonus": _enlarge_bonus,
+		# 商店涨价的计数器。JSON 只有字符串键，读回来时统一转成 int。
+		"offer_purchase_counts": _offer_purchase_counts.duplicate(),
 		"achievements": _unlocked_achievements.keys(),
 		# --- FEAT-002 · schema v2 ---
 		"cleared_stages": _cleared_stages.duplicate(),
@@ -620,7 +833,12 @@ func _save_progress() -> void:
 		# 换歌插播原本只活在内存里，于是每次重开游戏都会再放一次。落盘后它在整个存档
 		# 周期内只放一次——非教学关起点是第 4 盘，多数关都会经过触发点第 9 盘。
 		"music_break_played": _music_break_played,
+		"intro_played": _intro_played,
 		"stage_high_scores": _stage_high_scores.duplicate(),
+		"endless_best_round": _endless_best_round,
+		# 鸟窝：无尽关续局要原样接上。别的关卡这两项是空窝，读回来也没人看。
+		"endless_slots": _endless_slots.duplicate(),
+		"endless_slot_expansions": _endless_slot_expansions,
 		"leaderboard_name": _leaderboard_name,
 	})
 	_refresh_title_save_state()
@@ -629,6 +847,7 @@ func _save_progress() -> void:
 func _load_saved_progress() -> bool:
 	var data := GameSaveData.load_data()
 	if data.is_empty():
+		_reset_persistent_progress()
 		return false
 	_resume_level = maxi(int(data.get("current_level", 1)), 1)
 	if bool(data.get("tutorial_completed", false)):
@@ -661,6 +880,7 @@ func _load_saved_progress() -> bool:
 		if board_count > 0:
 			_stage_round = clampi(_stage_round, 0, board_count - 1)
 	_music_break_played = bool(data.get("music_break_played", false))
+	_intro_played = bool(data.get("intro_played", false))
 	_stage_high_scores.clear()
 	var high_scores = data.get("stage_high_scores", {})
 	if high_scores is Dictionary:
@@ -668,6 +888,23 @@ func _load_saved_progress() -> bool:
 			var id := String(stage_id)
 			if StageTable.has_stage(id):
 				_stage_high_scores[id] = maxi(int(high_scores[stage_id]), 0)
+	_endless_best_round = maxi(int(data.get("endless_best_round", 0)), 0)
+	_endless_slot_expansions = clampi(
+		int(data.get("endless_slot_expansions", 0)), 0, ENDLESS_SLOT_EXPANSION_COSTS.size()
+	)
+	_endless_slots.clear()
+	var saved_slots = data.get("endless_slots", [])
+	if saved_slots is Array:
+		for entry in saved_slots:
+			var slot_offer := int(entry)
+			_endless_slots.append(slot_offer if _is_slot_offer(slot_offer) else ENDLESS_SLOT_EMPTY)
+	# 格子数必须和扩建次数对得上：档里多了就截掉，少了补空格，免得窝凭空长出或缩水。
+	var slot_capacity := _slot_capacity()
+	while _endless_slots.size() > slot_capacity:
+		_endless_slots.pop_back()
+	while _endless_slots.size() < slot_capacity:
+		_endless_slots.append(ENDLESS_SLOT_EMPTY)
+	_pending_slot_offer = -1
 	_leaderboard_name = LeaderboardApiScript.normalize_name(String(data.get("leaderboard_name", "")))
 	_gold = maxi(int(data.get("gold", 0)), 0)
 	_player_max_hp = maxi(int(data.get("player_max_hp", PLAYER_START_MAX_HP)), PLAYER_START_MAX_HP)
@@ -677,6 +914,11 @@ func _load_saved_progress() -> bool:
 	_night_heron_unlocked = bool(data.get("night_heron_unlocked", false))
 	_attacker_bird_unlocked = bool(data.get("attacker_bird_unlocked", false))
 	_lucky_bird_unlocked = bool(data.get("lucky_bird_unlocked", false))
+	# 老存档没有这一位：教学已完成的老玩家直接视为已解锁，别让他们再看不到鸟。
+	_tit_bird_unlocked = bool(data.get("tit_bird_unlocked", bool(data.get("tutorial_completed", false))))
+	_magpie_bird_unlocked = bool(data.get("magpie_bird_unlocked", bool(data.get("tutorial_completed", false))))
+	_crow_bird_unlocked = bool(data.get("crow_bird_unlocked", bool(data.get("tutorial_completed", false))))
+	_dove_bird_unlocked = bool(data.get("dove_bird_unlocked", bool(data.get("tutorial_completed", false))))
 	_lantern_bonus = maxi(int(data.get("lantern_bonus", 0)), 0)
 	_compass_bonus = maxi(int(data.get("compass_bonus", 0)), 0)
 	_orbital_strike_bonus = maxi(int(data.get("orbital_strike_bonus", 0)), 0)
@@ -690,6 +932,20 @@ func _load_saved_progress() -> bool:
 	_xray_bonus = maxi(int(data.get("xray_bonus", 0)), 0)
 	_chain_bonus = maxi(int(data.get("chain_bonus", 0)), 0)
 	_enlarge_bonus = maxi(int(data.get("enlarge_bonus", 0)), 0)
+	# 缺席按空字典读：老档没有这一项，回来时价格从基础价重新起算。
+	_offer_purchase_counts.clear()
+	var saved_counts = data.get("offer_purchase_counts", {})
+	if saved_counts is Dictionary:
+		for offer_key in saved_counts:
+			var offer_index := int(offer_key)
+			if offer_index >= 0 and offer_index < ShopOffer.size():
+				_offer_purchase_counts[offer_index] = maxi(int(saved_counts[offer_key]), 0)
+	# v4 及更早的档没有鸟窝那两项，但那七个数值位就是当时的真相：照着它们把鸟摆回
+	# 窝里，并补足够的扩建把窝撑到装得下——不然续无尽局时会凭空少掉一窝鸟。
+	# 只能放在这里：数值位到上一行才读完。
+	var had_saved_nest: bool = saved_slots is Array and not (saved_slots as Array).is_empty()
+	if not had_saved_nest and StageTable.is_endless(_resume_stage_id):
+		_rebuild_slots_from_bonuses()
 	_unlocked_achievements.clear()
 	for achievement_id in data.get("achievements", []):
 		var id := str(achievement_id)
@@ -700,6 +956,8 @@ func _load_saved_progress() -> bool:
 			var id := str(entry["id"])
 			_achievements_screen.set_unlocked(id, _unlocked_achievements.has(id))
 	_shop_layer.set_offer_owned(ShopOffer.ORBITAL_CROSS, _orbital_cross_unlocked)
+	_sync_shop_offer_limits()
+	_shop_layer.set_offer_prices(_offer_price_table())
 	_refresh_health_bar()
 	_refresh_gold_display()
 	return true
@@ -716,6 +974,48 @@ func _on_achievements_requested() -> void:
 func _on_achievements_back_requested() -> void:
 	if _achievements_screen != null:
 		await _achievements_screen.dismiss()
+
+
+func _on_bird_codex_requested() -> void:
+	if _bird_codex_screen == null:
+		return
+	_refresh_bird_codex()
+	_bird_codex_screen.present()
+
+
+func _on_bird_codex_back_requested() -> void:
+	if _bird_codex_screen != null:
+		await _bird_codex_screen.dismiss()
+
+
+## 图鉴里的解锁状态和栖枝上那几只鸟同源：这一份名单就是两边唯一的映射。
+func _bird_unlock_states() -> Dictionary:
+	return {
+		BirdCatalogData.BLUE: _blue_bird_unlocked,
+		BirdCatalogData.NIGHT_HERON: _night_heron_unlocked,
+		BirdCatalogData.REDSTART: _red_bird_unlocked,
+		BirdCatalogData.WOODPECKER: _attacker_bird_unlocked,
+		BirdCatalogData.KESTREL: _lucky_bird_unlocked,
+		BirdCatalogData.TIT: _tit_bird_unlocked,
+		BirdCatalogData.MAGPIE: _magpie_bird_unlocked,
+		BirdCatalogData.CROW: _crow_bird_unlocked,
+		BirdCatalogData.DOVE: _dove_bird_unlocked,
+	}
+
+
+## 把解锁位推给图鉴页和标题页上那颗按钮的提示气泡。挂在
+## `_apply_bird_unlock_visibility()` 里，所以每一次送鸟、读盘、跳过教学都会带上它。
+func _refresh_bird_codex() -> void:
+	var states := _bird_unlock_states()
+	if _bird_codex_screen != null:
+		for bird_id in states:
+			_bird_codex_screen.set_unlocked(String(bird_id), bool(states[bird_id]))
+	if _start_screen != null and _start_screen.has_method("set_bird_codex_progress"):
+		var unlocked := 0
+		for bird_id in states:
+			if bool(states[bird_id]):
+				unlocked += 1
+		_start_screen.set_bird_codex_progress(unlocked, BirdCatalogData.ENTRIES.size())
 
 
 func _on_credits_requested() -> void:
@@ -745,9 +1045,13 @@ func _build_start_screen() -> void:
 	_start_screen.connect("abandon_run_requested", _on_abandon_run_requested)
 	_start_screen.connect("duel_host_requested", _on_duel_host_requested)
 	_start_screen.connect("duel_join_requested", _on_duel_join_requested)
+	_start_screen.connect("custom_requested", _on_custom_requested)
+	_start_screen.connect("workshop_requested", _on_workshop_requested)
+	_start_screen.connect("bird_codex_requested", _on_bird_codex_requested)
 	canvas.add_child(_start_screen)
 	_refresh_title_save_state()
 	_refresh_achievement_banner()
+	_refresh_bird_codex()
 
 
 ## 标题页上有两组和存档有关的东西：「清除存档」看文件在不在，「继续游戏／放弃本
@@ -783,7 +1087,9 @@ func _on_abandon_run_requested() -> void:
 		"resume_stage_id": "",
 		"stage_round": 0,
 		"music_break_played": _music_break_played,
+		"intro_played": _intro_played,
 		"stage_high_scores": _stage_high_scores.duplicate(),
+		"endless_best_round": _endless_best_round,
 		"leaderboard_name": _leaderboard_name,
 	})
 	_return_to_main_menu()
@@ -796,14 +1102,17 @@ func _on_start_game_requested() -> void:
 	_start_screen = null
 	if is_instance_valid(screen) and screen.get_parent() != null:
 		screen.get_parent().queue_free()
-	# Intro pages only belong to a fresh first level, not a resumed checkpoint.
-	# FEAT-002：判据从"盘序还在 0"改成"地图上一片空白"——盘序在关卡之间会重置，
-	# 单看它会让每次回标题再开始都重放一遍开场。
-	var show_intro := _cleared_stages.is_empty() and _resume_stage_id == ""
-	if show_intro and _headphone_notice != null:
-		await _headphone_notice.present()
-	if show_intro and _opening_story != null:
-		await _opening_story.present()
+	# 开场演出（耳机提示 + 开场剧情）每份存档放一次。
+	# FEAT-002 一度把判据改成"地图上一片空白"，于是只要通关过任何一关就再也看不到了；
+	# 现在按落盘的 `intro_played` 走：老档补放一次，放完记账，回标题再开始不会重放。
+	var show_intro := not _intro_played
+	if show_intro:
+		if _headphone_notice != null:
+			await _headphone_notice.present()
+		if _opening_story != null:
+			await _opening_story.present()
+		_intro_played = true
+		_save_progress()
 	# 「开始」不再直接开棋盘，而是进世界地图选关（FEAT-002 共识 1）。
 	_show_world_map()
 
@@ -811,14 +1120,6 @@ func _on_start_game_requested() -> void:
 func _process(delta: float) -> void:
 	if _is_duel():
 		_tick_duel()
-	if (
-		_score_combo != null
-		and _started
-		and _board != null
-		and not _board.game_over
-		and not _is_combo_decay_frozen()
-	):
-		_score_combo.tick(delta)
 	if _started and not _board.game_over:
 		_elapsed += delta
 		_time_label.text = "%03d" % mini(int(_elapsed), 999)
@@ -919,6 +1220,9 @@ func _build_interface() -> void:
 	_stage_board_label.add_theme_color_override("font_outline_color", Color(0.97, 0.94, 0.88, 0.95))
 	_stage_board_label.add_theme_constant_override("outline_size", 6)
 	_stage_board_label.z_index = 8
+	# 读数面板都是居中锚点 + 对称偏移；这条标签的偏移同样是围着中心算的，锚点不居中
+	# 就会被甩到左上角外面去。
+	_stage_board_label.set_anchors_preset(Control.PRESET_CENTER)
 	board_stage.add_child(_stage_board_label)
 
 	# 道具卡按类型分列：图标 + 剩余/总数，本关没有的类型不占位。
@@ -931,6 +1235,7 @@ func _build_interface() -> void:
 	_grid.custom_minimum_size = grid_size
 	board_panel.add_child(_grid)
 	_build_super_luck_watermark(board_panel)
+	_build_combo_board_fx(board_panel)
 
 	# Keep player health and gold as a fixed top-left HUD. It must not participate
 	# in the stage VBox, otherwise showing it would push the board downward.
@@ -1033,6 +1338,17 @@ func _build_board_counter(
 	row.add_child(value)
 
 	return [panel, value, caption]
+
+
+## 连击表现层和超幸运水印一样挂在棋盘面板上：PanelContainer 会把每个子节点都摊成
+## 同一块内容矩形，所以它的矩形就是格子区，烟花按这个矩形往外找盘沿。
+## 挂面板而不是挂网格，是因为换盘时网格的子节点会被整批 queue_free；
+## 挂在面板里还有一个好处——棋盘抖动时烟花跟着一起晃，不会和盘面脱开。
+## 它自己把 z_index 设成负值，所以画在面板和格子**背后**。
+func _build_combo_board_fx(board_panel: PanelContainer) -> void:
+	_combo_board_fx = ComboBoardFxScript.new()
+	_combo_board_fx.name = "ComboBoardFx"
+	board_panel.add_child(_combo_board_fx)
 
 
 func _build_super_luck_watermark(board_panel: PanelContainer) -> void:
@@ -1432,6 +1748,9 @@ func _build_shop_interface() -> void:
 	_shop_layer.refresh_requested.connect(_on_shop_refresh_requested)
 	_shop_layer.continue_pressed.connect(_on_shop_continue)
 	_shop_layer.ready_pressed.connect(_on_duel_ready_pressed)
+	_shop_layer.slot_replace_chosen.connect(_on_shop_slot_replace_chosen)
+	_shop_layer.slot_replace_cancelled.connect(_on_shop_slot_replace_cancelled)
+	_shop_layer.expand_slots_requested.connect(_on_shop_expand_slots)
 	_shop_layer.visible = false
 	shop_canvas.add_child(_shop_layer)
 
@@ -1465,26 +1784,38 @@ func _build_progression_interface() -> void:
 	add_child(progression_canvas)
 	_victory_banner = VictoryBannerView.instantiate()
 	_stage_progress_banner = StageProgressBannerView.instantiate()
+	_round_intro_banner = RoundIntroBannerScript.new()
+	_round_intro_banner.name = "RoundIntroBanner"
 	_level_bill = LevelBillView.instantiate()
 	_game_over_overlay = GameOverOverlayView.instantiate()
 	_night_heron_unlock = NightHeronUnlockView.instantiate()
 	_redstart_unlock = RedstartUnlockView.instantiate()
 	_attacker_unlock = AttackerUnlockView.instantiate()
 	_kestrel_unlock = KestrelUnlockView.instantiate()
+	_tit_unlock = TitUnlockView.instantiate()
+	_magpie_unlock = MagpieUnlockView.instantiate()
+	_crow_unlock = CrowUnlockView.instantiate()
+	_dove_unlock = DoveUnlockView.instantiate()
 	_game_over_overlay.return_requested.connect(_on_game_over_return)
-	# 四个解锁页里的彩蛋各自对应一条成就，触发时由页面自己报上来。
+	# 六个解锁页里的彩蛋各自对应一条成就，触发时由页面自己报上来。
 	for unlock_page in [
-		_night_heron_unlock, _redstart_unlock, _attacker_unlock, _kestrel_unlock
+		_night_heron_unlock, _redstart_unlock, _attacker_unlock, _kestrel_unlock, _tit_unlock,
+		_magpie_unlock, _crow_unlock, _dove_unlock
 	]:
 		unlock_page.easter_egg_triggered.connect(_unlock_achievement)
 	progression_canvas.add_child(_victory_banner)
 	progression_canvas.add_child(_stage_progress_banner)
+	progression_canvas.add_child(_round_intro_banner)
 	progression_canvas.add_child(_level_bill)
 	progression_canvas.add_child(_game_over_overlay)
 	progression_canvas.add_child(_night_heron_unlock)
 	progression_canvas.add_child(_redstart_unlock)
 	progression_canvas.add_child(_attacker_unlock)
 	progression_canvas.add_child(_kestrel_unlock)
+	progression_canvas.add_child(_tit_unlock)
+	progression_canvas.add_child(_magpie_unlock)
+	progression_canvas.add_child(_crow_unlock)
+	progression_canvas.add_child(_dove_unlock)
 	_build_leaderboard_ui(progression_canvas)
 
 
@@ -1493,15 +1824,24 @@ func _build_leaderboard_ui(_parent: Node) -> void:
 	_leaderboard_panel = LeaderboardPanelScript.new()
 	_leaderboard_panel.name = "LeaderboardPanel"
 	add_child(_leaderboard_panel)
+	_leaderboard_panel.name_remembered.connect(_on_leaderboard_name_remembered)
 
 
 func _choose_shop_offer(offer: ShopOffer) -> void:
 	if _player_hp <= 0:
 		return
-	if _gold < SHOP_ITEM_COST:
-		_shop_layer.show_insufficient_gold(_gold, SHOP_ITEM_COST)
+	if _offer_sold_out(offer):
 		return
-	_gold -= SHOP_ITEM_COST
+	var price := _offer_price(offer)
+	if _gold < price:
+		_shop_layer.show_insufficient_gold(_gold, price)
+		return
+	# 鸟窝满了还要买这只鸟：这一步只挂起，等玩家点一格说换谁，那时才扣钱。
+	if _is_slot_shop() and _is_slot_offer(offer) and _free_slot_index() < 0:
+		_pending_slot_offer = offer
+		_shop_layer.begin_slot_replacement(offer)
+		return
+	_gold -= price
 	_refresh_gold_display()
 	match offer:
 		ShopOffer.MAX_HEALTH:
@@ -1518,7 +1858,7 @@ func _choose_shop_offer(offer: ShopOffer) -> void:
 			_orbital_strike_bonus += 1
 		ShopOffer.ORBITAL_CROSS:
 			if _orbital_cross_unlocked:
-				_gold += SHOP_ITEM_COST
+				_gold += price
 				_refresh_gold_display()
 				return
 			_orbital_cross_unlocked = true
@@ -1537,12 +1877,249 @@ func _choose_shop_offer(offer: ShopOffer) -> void:
 			_chain_bonus += 1
 		ShopOffer.ENLARGE_CACHE:
 			_enlarge_bonus += 1
+	# 无尽关：这只鸟要住进窝里的空格。上面 match 刚把数值位 +1，落窝之后再照窝重算
+	# 一遍，两边算出来是同一个数——窝始终是唯一真相。
+	if _is_slot_shop() and _is_slot_offer(offer):
+		if _place_in_free_slot(offer):
+			_sync_bonuses_from_slots()
+		else:
+			push_warning("鸟窝没有空格，这笔购买没落进窝里：%d" % int(offer))
+		_sync_shop_slots()
+	_offer_purchase_counts[int(offer)] = int(_offer_purchase_counts.get(int(offer), 0)) + 1
+	_sync_shop_offer_limits()
+	_shop_layer.set_offer_prices(_offer_price_table())
 	_shop_layer.mark_offer_sold_out(offer)
 	_shop_layer.update_gold(_gold, SHOP_ITEM_COST)
 	if _is_duel():
 		# Q7 选了全公开：买了什么要立刻让对面看见。
 		_duel.report_upgrade(offer)
 		_duel.report_state(_player_hp, _player_max_hp, _gold)
+	_save_progress()
+
+
+## 同一件商品的第 n 次售价。次数记在 `_offer_purchase_counts` 里，跨关卡累计，直到这一
+## 轮 run 结束才归零。
+func _offer_price(offer: int) -> int:
+	var bought := int(_offer_purchase_counts.get(int(offer), 0))
+	return ceili(SHOP_ITEM_COST * pow(SHOP_PRICE_GROWTH, bought))
+
+
+func _offer_price_table() -> Dictionary:
+	var prices := {}
+	for offer in range(ShopOffer.size()):
+		prices[offer] = _offer_price(offer)
+	return prices
+
+
+## 关内红隼张数 = 商店买的（教学第 4 盘先送 1 只）；长尾山雀每关自带一张，所以要把
+## `ENLARGE_COUNT` 也算进去，否则"最多 2 只"会变成"能买 2 只、实际拿 3 只"。
+func _kestrel_item_count() -> int:
+	return _super_luck_bonus
+
+
+func _tit_item_count() -> int:
+	return ENLARGE_COUNT + _enlarge_bonus
+
+
+func _offer_sold_out(offer: int) -> bool:
+	# 无尽关用鸟窝格子当上限（买第 4 只红隼要挤掉窝里的谁），不再叠这一层单品上限。
+	if _is_slot_shop():
+		return false
+	if offer == ShopOffer.SUPER_LUCK_CACHE:
+		return _kestrel_item_count() >= KESTREL_ITEM_LIMIT
+	if offer == ShopOffer.ENLARGE_CACHE:
+		return _tit_item_count() >= TIT_ITEM_LIMIT
+	return false
+
+
+## 把上限状态同步给商店。买满的那件会从抽取池里摘掉，货架上也不再出现。
+func _sync_shop_offer_limits() -> void:
+	if _shop_layer == null:
+		return
+	for offer in [ShopOffer.SUPER_LUCK_CACHE, ShopOffer.ENLARGE_CACHE]:
+		_shop_layer.set_offer_exhausted(offer, _offer_sold_out(offer))
+
+
+# --- 槽位制商店（鸟窝 · 无尽关）---
+
+
+## 这一关的商店是不是鸟窝制。目前只有无尽关。
+func _is_slot_shop() -> bool:
+	return _is_endless_stage()
+
+
+func _is_slot_offer(offer: int) -> bool:
+	return SLOT_OFFER_BONUS.has(offer)
+
+
+func _slot_capacity() -> int:
+	return ENDLESS_SLOT_START + _endless_slot_expansions * ENDLESS_SLOT_PER_EXPANSION
+
+
+func _slot_expansions_left() -> int:
+	return maxi(ENDLESS_SLOT_EXPANSION_COSTS.size() - _endless_slot_expansions, 0)
+
+
+## 下一次扩建的价钱；扩到头了返回 0。
+func _slot_expand_cost() -> int:
+	if _slot_expansions_left() <= 0:
+		return 0
+	return int(ENDLESS_SLOT_EXPANSION_COSTS[_endless_slot_expansions])
+
+
+func _free_slot_index() -> int:
+	return _endless_slots.find(ENDLESS_SLOT_EMPTY)
+
+
+func _place_in_free_slot(offer: int) -> bool:
+	var index := _free_slot_index()
+	if index < 0:
+		return false
+	_endless_slots[index] = offer
+	return true
+
+
+## 照七个数值位把鸟摆回窝里（老档升级用）。窝不够大就补扩建，最多三次；
+## 真超过 15 只（老档能叠出来）就只能割舍多出来的那几只。
+func _rebuild_slots_from_bonuses() -> void:
+	var birds: Array[int] = []
+	for offer in SLOT_OFFER_BONUS:
+		for _i in maxi(int(get(String(SLOT_OFFER_BONUS[offer]))), 0):
+			birds.append(int(offer))
+	var overflow := maxi(birds.size() - ENDLESS_SLOT_START, 0)
+	_endless_slot_expansions = clampi(
+		ceili(float(overflow) / float(ENDLESS_SLOT_PER_EXPANSION)),
+		0,
+		ENDLESS_SLOT_EXPANSION_COSTS.size()
+	)
+	_endless_slots.clear()
+	for _i in _slot_capacity():
+		_endless_slots.append(ENDLESS_SLOT_EMPTY)
+	for index in mini(birds.size(), _endless_slots.size()):
+		_endless_slots[index] = birds[index]
+
+
+## **临时**（见 `endless_debug_loadout`）：无尽关的调试起手。鸟窝一步扩满并塞满各族
+## 伙伴，于是每盘埋一大堆牌，奖励盘很容易被顶出来；不占格子的那几项强化一并拉满。
+## 把那个常量翻成 false，这个函数就没人调了，删掉它也不影响任何正式逻辑。
+func _apply_endless_debug_loadout() -> void:
+	_endless_slot_expansions = ENDLESS_SLOT_EXPANSION_COSTS.size()
+	_endless_slots.clear()
+	var roster := [
+		ShopOffer.LANTERN_CACHE, ShopOffer.COMPASS_CACHE, ShopOffer.ORBITAL_STRIKE_CACHE,
+		ShopOffer.SUPER_LUCK_CACHE, ShopOffer.XRAY_CACHE, ShopOffer.CHAIN_CACHE,
+		ShopOffer.ENLARGE_CACHE,
+	]
+	for slot in range(_slot_capacity()):
+		_endless_slots.append(int(roster[slot % roster.size()]))
+	_sync_bonuses_from_slots()
+	_lantern_target_bonus = 3
+	_compass_mark_bonus = 3
+	_healing_power_bonus = 3
+	_super_luck_click_bonus = 3
+	_medical_kit_bonus = 2
+	_orbital_cross_unlocked = true
+	_player_max_hp = 9
+	_player_hp = _player_max_hp
+	_gold = 999
+	_offer_purchase_counts.clear()
+	print("【调试】无尽关起手按调试配置发放：鸟窝 %d 格全满、强化拉满、金币 %d。"
+		% [_slot_capacity(), _gold]
+		+ "关掉请把 main.gd 的 endless_debug_loadout 翻成 false。")
+
+
+## 清空鸟窝，回到起手的 6 个空格。
+func _reset_endless_slots() -> void:
+	_endless_slots.clear()
+	_endless_slot_expansions = 0
+	_pending_slot_offer = -1
+	for _i in ENDLESS_SLOT_START:
+		_endless_slots.append(ENDLESS_SLOT_EMPTY)
+
+
+## 进无尽关：`_prepare_stage_run()` 送的那四只鸟直接住进窝里，于是起手就是 4 / 6。
+func _seed_endless_slots() -> void:
+	_reset_endless_slots()
+	for offer in [
+		ShopOffer.LANTERN_CACHE, ShopOffer.COMPASS_CACHE,
+		ShopOffer.ORBITAL_STRIKE_CACHE, ShopOffer.SUPER_LUCK_CACHE,
+	]:
+		_place_in_free_slot(offer)
+	_sync_bonuses_from_slots()
+
+
+## 照着鸟窝重算那七个数值位。窝是唯一真相，所以任何改动之后调它一次就够。
+func _sync_bonuses_from_slots() -> void:
+	if not _is_slot_shop():
+		return
+	var counts := {}
+	for offer in SLOT_OFFER_BONUS:
+		counts[offer] = 0
+	for offer in _endless_slots:
+		if counts.has(offer):
+			counts[offer] = int(counts[offer]) + 1
+	for offer in counts:
+		set(String(SLOT_OFFER_BONUS[offer]), int(counts[offer]))
+
+
+## 把鸟窝现状灌给商店。非无尽关就把整个面板关掉。
+func _sync_shop_slots() -> void:
+	if _shop_layer == null:
+		return
+	_shop_layer.set_nest_shop(_is_slot_shop())
+	if not _is_slot_shop():
+		return
+	_shop_layer.set_slots(
+		_endless_slots, _slot_expand_cost(), _slot_expansions_left(), ENDLESS_SLOT_PER_EXPANSION
+	)
+
+
+## 窝满时买鸟：玩家点了第 slot_index 格。到这一步才扣钱。
+func _on_shop_slot_replace_chosen(slot_index: int) -> void:
+	var offer := _pending_slot_offer
+	if offer < 0 or not _is_slot_shop():
+		return
+	if slot_index < 0 or slot_index >= _endless_slots.size():
+		return
+	_pending_slot_offer = -1
+	var price := _offer_price(offer)
+	if _gold < price:
+		# 挂起期间钱少了（对战报价同步之类）：作废这笔，别扣成负数。
+		_shop_layer.end_slot_replacement()
+		_shop_layer.show_insufficient_gold(_gold, price)
+		return
+	_gold -= price
+	_refresh_gold_display()
+	_endless_slots[slot_index] = offer
+	_sync_bonuses_from_slots()
+	_offer_purchase_counts[int(offer)] = int(_offer_purchase_counts.get(int(offer), 0)) + 1
+	_shop_layer.end_slot_replacement()
+	_sync_shop_slots()
+	_shop_layer.set_offer_prices(_offer_price_table())
+	_shop_layer.mark_offer_sold_out(offer)
+	_shop_layer.update_gold(_gold, SHOP_ITEM_COST)
+	_save_progress()
+
+
+func _on_shop_slot_replace_cancelled() -> void:
+	_pending_slot_offer = -1
+
+
+## 花钱扩建鸟窝：一次 +2 格，最多三次。
+func _on_shop_expand_slots() -> void:
+	if not _is_slot_shop() or _slot_expansions_left() <= 0:
+		return
+	var price := _slot_expand_cost()
+	if _gold < price:
+		_shop_layer.show_insufficient_gold(_gold, price)
+		return
+	_gold -= price
+	_refresh_gold_display()
+	_endless_slot_expansions += 1
+	for _i in ENDLESS_SLOT_PER_EXPANSION:
+		_endless_slots.append(ENDLESS_SLOT_EMPTY)
+	_sync_shop_slots()
+	_shop_layer.update_gold(_gold, SHOP_ITEM_COST)
 	_save_progress()
 
 
@@ -1556,6 +2133,8 @@ func _on_shop_refresh_requested() -> void:
 		return
 	_gold -= SHOP_ITEM_COST
 	_refresh_gold_display()
+	_sync_shop_offer_limits()
+	_shop_layer.set_offer_prices(_offer_price_table())
 	_shop_layer.refresh_offers(_gold, SHOP_ITEM_COST)
 	_save_progress()
 
@@ -1577,8 +2156,9 @@ func _start_game() -> void:
 	_clear_inference_highlights()
 	_clear_inference_hover_preview()
 	_gold_rewarded_this_run = false
+	_time_bonus_awarded_this_run = false
 	_night_master_fish_count = 0
-	_reset_score_combo_meter()
+	_reset_score_combo_board()
 	_run_number += 1
 	_resume_level = _run_number
 	# 本关内的盘计数和全局盘序分开走：教学关从 0 起、其余关卡从 TUTORIAL_LEVEL_COUNT
@@ -1594,13 +2174,15 @@ func _start_game() -> void:
 	var later_tutorial := _run_number >= 3 and _run_number <= TUTORIAL_LEVEL_COUNT
 	var normal_level_number := maxi(_run_number - TUTORIAL_LEVEL_COUNT, 0)
 	var growth_steps := maxi(normal_level_number - BOARD_SIZE_HOLD_LEVELS, 0)
-	var board_width := 2 if first_tutorial else (4 if second_tutorial else (5 if later_tutorial else mini(START_BOARD_SIZE + growth_steps, MAX_BOARD_SIZE)))
-	var board_height := 1 if first_tutorial else board_width
-	var mine_count := 1 if first_tutorial else maxi(3, roundi(board_width * board_height * MINE_DENSITY))
+	# 第 1 盘是强引导盘：尺寸与雷数跟 GuidedTutorial 写死的布局走。
+	var board_width := GuidedTutorial.WIDTH if first_tutorial else (4 if second_tutorial else (5 if later_tutorial else mini(START_BOARD_SIZE + growth_steps, MAX_BOARD_SIZE)))
+	var board_height := GuidedTutorial.HEIGHT if first_tutorial else board_width
+	var mine_count := GuidedTutorial.MINES.size() if first_tutorial else maxi(3, roundi(board_width * board_height * MINE_DENSITY))
 	var active_mask := PackedByteArray()
 	# 关卡通路：每盘形状与雷数走关卡表。对战仍用上面的尺寸曲线，不进异形。
 	if _is_stage_run() and not _is_duel():
-		var board_cfg := StageTable.board_at(_stage_id, _stage_round)
+		# 无尽关按 (盘序, 本盘种子) 现抽形状与雷数；有盘列表的关忽略第三个参数。
+		var board_cfg := StageTable.board_at(_stage_id, _stage_round, _level_seed_for_current_round())
 		if board_cfg.is_empty():
 			# 跳过末盘后盘序会 +1 越界；当作通关结算，别静默扔回地图。
 			push_warning("关卡 %s 第 %d 盘没有配置，按通关结算" % [_stage_id, _stage_round])
@@ -1621,29 +2203,67 @@ func _start_game() -> void:
 		mine_count = int(board_cfg["mines"])
 		active_mask = shape["mask"]
 	var bird_only_tutorial := _run_number <= TUTORIAL_LEVEL_COUNT
+	var lanterns := _lantern_bonus
+	var compasses := _compass_bonus
+	var orbital_strikes := _orbital_strike_bonus
+	var super_lucks := _super_luck_bonus
+	var medical_kits := 0 if bird_only_tutorial else MEDICAL_KIT_COUNT + _medical_kit_bonus
+	var xrays := 0 if bird_only_tutorial else XRAY_COUNT + _xray_bonus
+	var chains := 0 if bird_only_tutorial else CHAIN_COUNT + _chain_bonus
+	var enlarges := 0 if bird_only_tutorial else ENLARGE_COUNT + _enlarge_bonus
+	var detects := 0 if bird_only_tutorial else DETECT_COUNT
+	# 自定义模式：形状、雷数、每种道具的数量全部照编辑器里填的来，不走任何曲线。
+	if _is_custom():
+		# 形状和雷数跟着**当前这张图**走；道具数量一律读 `*_bonus`——那是
+		# `_prepare_custom_run` 用作者填的初始道具铺好的底，商店在图与图之间买到的加成
+		# 直接叠在同一批变量上，所以后面几张图才拿得到玩家买的东西。
+		var custom_map := CustomLevel.map_at(_custom_level, _custom_map_index)
+		board_width = int(custom_map.get("width", 8))
+		board_height = int(custom_map.get("height", 6))
+		mine_count = int(custom_map.get("mines", 1))
+		active_mask = (custom_map.get("mask", PackedByteArray()) as PackedByteArray).duplicate()
+		lanterns = _lantern_bonus
+		compasses = _compass_bonus
+		orbital_strikes = _orbital_strike_bonus
+		super_lucks = _super_luck_bonus
+		medical_kits = _medical_kit_bonus
+		xrays = _xray_bonus
+		chains = _chain_bonus
+		enlarges = _enlarge_bonus
+		detects = CustomLevel.item_count(_custom_level, "detect")
 	var level_seed := _level_seed_for_current_round()
 	_board = BoardModel.new(
 		board_width,
 		board_height,
 		mine_count,
 		level_seed,
-		_lantern_bonus,
-		_compass_bonus,
-		_orbital_strike_bonus,
-		_super_luck_bonus,
-		0 if bird_only_tutorial else MEDICAL_KIT_COUNT + _medical_kit_bonus,
-		0 if bird_only_tutorial else XRAY_COUNT + _xray_bonus,
-		CHAIN_COUNT + _chain_bonus,
-		ENLARGE_COUNT + _enlarge_bonus,
-		0 if bird_only_tutorial else DETECT_COUNT,
+		lanterns,
+		compasses,
+		orbital_strikes,
+		super_lucks,
+		medical_kits,
+		xrays,
+		chains,
+		enlarges,
+		detects,
 		active_mask
 	)
+	# 强引导盘不布随机雷：雷位是步骤表的一部分，玩家每一步指向的格子都得是确定的。
+	var fixed_layout := first_tutorial and not _is_duel() and not _is_custom() and board_width == GuidedTutorial.WIDTH and board_height == GuidedTutorial.HEIGHT
+	if fixed_layout:
+		_board.place_fixed_mines(PackedInt32Array(GuidedTutorial.MINES))
 	_player_hp = clampi(_player_hp, 0, _player_max_hp)
 	_shop_layer.visible = false
 	_resize_board_layout(board_width, board_height)
 	_active_mines.clear()
 	_defeated_mines.clear()
 	_wrong_flagged_cells.clear()
+	_close_bonus_board(true)
+	_bonus_boards_this_round = 0
+	_bonus_board_opening = false
+	_bonus_board_waiters = 0
+	_banked_flagged_mines = 0
+	_banked_scored_mines = 0
 	_invincible_until_msec = 0
 	_pending_invincible_duration_msec = 0
 	_invincible_was_active = false
@@ -1672,8 +2292,7 @@ func _start_game() -> void:
 	_last_dashed_line_target_count = 0
 	_last_compass_flyover_count = 0
 	_last_lantern_fish_count = 0
-	_chain_anchors.clear()
-	_chain_pending_partners.clear()
+	_chain_pending_triggers.clear()
 	_chain_flush_active = false
 	_enlarge_mark_charges = 0
 	_enlarge_click_invincible = false
@@ -1682,10 +2301,18 @@ func _start_game() -> void:
 	_last_detect_target = -1
 	_tutorial_first_reveal_pending = second_tutorial
 	_tutorial_night_heron_edge_index = -1
+	_end_guided_tutorial()
 	_woodpecker_demo_pending = _run_number == 4 and _attacker_bird_unlocked and _orbital_strike_bonus > 0
 	_woodpecker_demo_index = -1
 	_kestrel_demo_pending = _run_number == 5 and _lucky_bird_unlocked and _super_luck_bonus > 0
 	_kestrel_demo_index = -1
+	# 教学最后一关送完长尾山雀，第一盘正式关首次翻开的区域里必定有一张它的牌。
+	_tit_demo_pending = _run_number == TUTORIAL_LEVEL_COUNT + 1 and _tit_bird_unlocked
+	_tit_demo_index = -1
+	_crow_demo_pending = _run_number == TUTORIAL_LEVEL_COUNT + 1 and _crow_bird_unlocked
+	_crow_demo_index = -1
+	_dove_demo_pending = _run_number == TUTORIAL_LEVEL_COUNT + 1 and _dove_bird_unlocked
+	_dove_demo_index = -1
 	_hovered_cell_index = -1
 	_item_tooltip.visible = false
 	_started = false
@@ -1702,7 +2329,7 @@ func _start_game() -> void:
 	_refresh_stage_board_label()
 	_refresh_health_bar()
 	_refresh_gold_display()
-	for bird in [_blue_bird, _red_bird, _black_bird, _attacker_bird, _eg_bird]:
+	for bird in [_blue_bird, _red_bird, _black_bird, _attacker_bird, _eg_bird, _tit_bird, _magpie_bird, _crow_bird, _dove_bird]:
 		bird.reset_to_idle()
 	_apply_bird_unlock_visibility()
 	for child in _grid.get_children():
@@ -1735,6 +2362,11 @@ func _start_game() -> void:
 		_cells.append(cell)
 	if boot != _run_boot_generation:
 		return
+	# 强引导那一盘每一步指哪点哪，洗牌和开局横幅都会打断它的节奏；对战两边各自
+	# 一张半屏盘，开局格由种子直接点出来，也没有发牌的位置。这两种情况都跳过。
+	var deal_cards := not _is_duel() and not _is_guided_tutorial_round()
+	if deal_cards:
+		_prepare_board_deal()
 	_reveal_board_interface()
 	_update_tutorial_skip_visibility()
 	_update_regular_skip_visibility()
@@ -1748,8 +2380,12 @@ func _start_game() -> void:
 		if opening >= 0:
 			_resolve_turn(opening)
 		return
+	# 这一盘的起点状态到这里已经齐了，先落盘再演开局横幅：横幅是一长串 await，
+	# 中途玩家关游戏（或演出本身出问题）时，存档里记的仍是这一盘的开头，而不是
+	# 上一盘——否则重开后会被退回去重打一盘，看起来就像"进度没了"。
+	_save_progress()
 	# 关卡每一盘开局先报进度，让玩家知道「还剩几盘」。
-	if _is_stage_run() and _stage_progress_banner != null and _stage_target_round > 0:
+	if _is_stage_run() and _stage_progress_banner != null and (_stage_target_round > 0 or _is_endless_stage()):
 		var stage := StageTable.stage(_stage_id)
 		await _stage_progress_banner.present(
 			String(stage.get("name", _stage_id)),
@@ -1758,8 +2394,23 @@ func _start_game() -> void:
 		)
 		if boot != _run_boot_generation:
 			return
+	if deal_cards:
+		# 发牌到横幅收走这一段棋盘不接受点击，免得玩家在牌还在飞的时候就点下去。
+		_set_board_interactable(false)
+		await _play_board_deal_shuffle()
+		if boot != _run_boot_generation:
+			return
+		if _round_intro_banner != null:
+			await _round_intro_banner.present(
+				_round_intro_entries(), "", _round_intro_banner_top()
+			)
+			if boot != _run_boot_generation:
+				return
+		if not _resolving:
+			_set_board_interactable(true)
 	_unlock_achievement(ACHIEVEMENT_START_GAME)
-	_save_progress()
+	if _is_guided_tutorial_round():
+		_begin_guided_tutorial(boot)
 
 
 func _resize_board_layout(columns: int, rows: int) -> void:
@@ -1781,8 +2432,7 @@ func _resize_board_layout(columns: int, rows: int) -> void:
 ## 算出这一关的格子边长与棋盘位移。单机走原来的居中全屏，分屏才收缩并左移。
 func _apply_split_layout(columns: int, rows: int) -> void:
 	if not _is_duel():
-		_cell_size = CELL_SIZE
-		_board_center_offset = Vector2.ZERO
+		_apply_solo_board_fit(columns, rows)
 		if _player_status != null:
 			_player_status.scale = Vector2.ONE
 			if _player_status.has_method("set_compact_hearts"):
@@ -1804,6 +2454,35 @@ func _apply_split_layout(columns: int, rows: int) -> void:
 		_player_status.scale = Vector2.ONE * SPLIT_STATUS_SCALE
 		if _player_status.has_method("set_compact_hearts"):
 			_player_status.set_compact_hearts(true)
+
+
+## 单机的格子边长与棋盘位移。棋盘锚在屏幕正中，读数叠挂在它头顶：盘一大（10×10
+## 时「读数叠 + 棋盘」高 1155px，比 1080 的画布还高），这叠东西就被顶出屏幕，玩家
+## 看不见还剩多少雷。这里把读数叠和棋盘当成一整块来量：先只往下挪，挪不开才把格子
+## 等比收一档（10×10 约 0.89，小到美术看不出来），再把整块摆进上下留白之间。
+## 装得下的小盘一格都不动，仍是原来的居中版式。
+func _apply_solo_board_fit(columns: int, rows: int) -> void:
+	# 一整块能用的高度 = 画布 - 上下留白 - 头顶那叠读数。
+	var band := (
+		DESIGN_VIEWPORT.y - BOARD_FIT_TOP_MARGIN - BOARD_FIT_BOTTOM_MARGIN
+		- BOARD_COUNTER_STACK_HEIGHT
+	)
+	# 格子之外的固定开销：格间距 + 棋盘边框内衬。
+	var extra_height := CELL_GAP * float(maxi(rows - 1, 0)) + SPLIT_PANEL_PADDING
+	var extra_width := CELL_GAP * float(maxi(columns - 1, 0)) + SPLIT_PANEL_PADDING
+	var fit_height := (band - extra_height) / float(maxi(rows, 1))
+	var fit_width := (
+		(DESIGN_VIEWPORT.x - BOARD_FIT_SIDE_MARGIN * 2.0 - extra_width) / float(maxi(columns, 1))
+	)
+	# 只缩不放：牌面美术是按 88 调的，放大就露馅。
+	_cell_size = maxf(minf(CELL_SIZE, minf(fit_width, fit_height)), 1.0)
+	var panel_height := _cell_size * rows + extra_height
+	# 默认版式下这一整块的顶沿（读数叠最上边）落在哪；超出画布多少就往下挪多少。
+	var rest_top := (
+		DESIGN_VIEWPORT.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT
+		- panel_height * 0.5 - BOARD_COUNTER_STACK_HEIGHT
+	)
+	_board_center_offset = Vector2(0.0, maxf(BOARD_FIT_TOP_MARGIN - rest_top, 0.0))
 
 
 func _set_centered_board_panel_rect(panel: Control, panel_size: Vector2) -> void:
@@ -1829,7 +2508,7 @@ func _position_board_counters(board_panel_size: Vector2) -> void:
 		return
 	var stack_bottom := (
 		-board_panel_size.y * 0.5 - BOARD_VERTICAL_LIFT + BOARD_VERTICAL_SHIFT
-		+ _board_center_offset.y - 14.0
+		+ _board_center_offset.y - BOARD_COUNTER_STACK_GAP
 	)
 	if _is_duel():
 		# 分屏下读数贴在左半屏棋盘上方，避开顶部自身 HUD 带。
@@ -1856,9 +2535,9 @@ func _position_board_counters(board_panel_size: Vector2) -> void:
 	_mine_counter_panel.offset_top = mine_top
 	_mine_counter_panel.offset_bottom = mine_bottom
 	if _stage_board_label != null:
-		var label_h := 34.0
-		var label_w := 260.0
-		var label_bottom := mine_top - 8.0
+		var label_h := STAGE_BOARD_LABEL_HEIGHT
+		var label_w := STAGE_BOARD_LABEL_WIDTH
+		var label_bottom := mine_top - STAGE_BOARD_LABEL_GAP
 		var label_left := stack_left + (stack_width - label_w) * 0.5
 		_stage_board_label.offset_left = label_left
 		_stage_board_label.offset_right = label_left + label_w
@@ -1903,14 +2582,25 @@ func _board_interface_nodes() -> Array[Control]:
 func _refresh_stage_board_label() -> void:
 	if _stage_board_label == null:
 		return
-	if not _is_stage_run() or _is_duel() or _stage_target_round <= 0:
+	if _is_custom():
+		var custom_total := CustomLevel.map_count(_custom_level)
+		var custom_progress := " · %d/%d" % [_custom_map_index + 1, custom_total] if custom_total > 1 else ""
+		_stage_board_label.text = "自定义 · %s%s" % [
+			String(_custom_level.get("name", "")), custom_progress
+		]
+		_stage_board_label.visible = _board_interface_shown
+		return
+	if not _is_stage_run() or _is_duel() or (_stage_target_round <= 0 and not _is_endless_stage()):
 		_stage_board_label.visible = false
 		return
 	var stage := StageTable.stage(_stage_id)
 	var stage_name := String(stage.get("name", ""))
-	_stage_board_label.text = "%s · 第 %d / %d 盘" % [
-		stage_name, _stage_round, _stage_target_round
-	]
+	if _is_endless_stage():
+		_stage_board_label.text = "%s · 第 %d 盘 · 无尽" % [stage_name, _stage_round]
+	else:
+		_stage_board_label.text = "%s · 第 %d / %d 盘" % [
+			stage_name, _stage_round, _stage_target_round
+		]
 	_stage_board_label.visible = _board_interface_shown
 
 
@@ -1945,21 +2635,27 @@ func _reveal_board_interface() -> void:
 
 
 func _apply_bird_unlock_visibility() -> void:
+	# 图鉴跟着同一批解锁位走，挂在最前面：底下那条对战早退的分支不该让它漏掉一次刷新。
+	_refresh_bird_codex()
 	# Each perch scene owns both its bird and its branch. Hiding the root keeps
 	# the whole locked partner silhouette out of the gameplay composition.
 	# 对战分屏里左右都是棋盘，外围栖枝会压住半屏；道具飞入仍走特效层，不受影响。
 	if _is_duel():
-		for bird in [_blue_bird, _red_bird, _black_bird, _attacker_bird, _eg_bird]:
+		for bird in [_blue_bird, _red_bird, _black_bird, _attacker_bird, _eg_bird, _tit_bird, _magpie_bird, _crow_bird, _dove_bird]:
 			bird.visible = true
 			bird.set_stowed(true)
 		return
-	for bird in [_blue_bird, _red_bird, _black_bird, _attacker_bird, _eg_bird]:
+	for bird in [_blue_bird, _red_bird, _black_bird, _attacker_bird, _eg_bird, _tit_bird, _magpie_bird, _crow_bird, _dove_bird]:
 		bird.set_stowed(false)
 	_blue_bird.visible = _blue_bird_unlocked
 	_red_bird.visible = _red_bird_unlocked
 	_black_bird.visible = _night_heron_unlocked
 	_attacker_bird.visible = _attacker_bird_unlocked
 	_eg_bird.visible = _lucky_bird_unlocked
+	_tit_bird.visible = _tit_bird_unlocked
+	_magpie_bird.visible = _magpie_bird_unlocked
+	_crow_bird.visible = _crow_bird_unlocked
+	_dove_bird.visible = _dove_bird_unlocked
 
 
 func _update_tutorial_skip_visibility() -> void:
@@ -1972,11 +2668,13 @@ func _update_tutorial_skip_visibility() -> void:
 				TUTORIAL_GUIDE_2_TEXTURE if _run_number >= 3
 				else TUTORIAL_GUIDE_TEXTURE
 			)
-		_tutorial_guide.visible = tutorial_active
+		# 第 1 盘由强引导逐步讲，静态说明图从第 2 盘起再出现。
+		_tutorial_guide.visible = tutorial_active and not _is_guided_tutorial_round()
 
 
 func _update_regular_skip_visibility() -> void:
 	if _regular_skip_control != null:
+		_regular_skip_control.set_return_destination("编辑器" if _is_custom() else "主界面")
 		# 对战里跳过/返回会单端拆盘，且是单机控件残留。
 		_regular_skip_control.set_available(
 			not _is_duel()
@@ -2053,6 +2751,9 @@ func _confirm_return_to_main_menu() -> void:
 		return
 	_started = false
 	_set_board_interactable(false)
+	if _is_custom():
+		_return_to_custom_editor()
+		return
 	_return_to_main_menu()
 
 
@@ -2066,10 +2767,15 @@ func _skip_all_tutorials() -> void:
 	):
 		return
 	_tutorial_skip_button.set_available(false)
+	_end_guided_tutorial()
 	_night_heron_unlocked = true
 	_red_bird_unlocked = true
 	_attacker_bird_unlocked = true
 	_lucky_bird_unlocked = true
+	_tit_bird_unlocked = true
+	_magpie_bird_unlocked = true
+	_crow_bird_unlocked = true
+	_dove_bird_unlocked = true
 	_lantern_bonus = maxi(_lantern_bonus, 1)
 	_compass_bonus = maxi(_compass_bonus, 1)
 	_orbital_strike_bonus = maxi(_orbital_strike_bonus, 1)
@@ -2079,12 +2785,225 @@ func _skip_all_tutorials() -> void:
 	_tutorial_night_heron_edge_index = -1
 	_woodpecker_demo_pending = false
 	_woodpecker_demo_index = -1
+	_tit_demo_pending = false
+	_tit_demo_index = -1
+	_crow_demo_pending = false
+	_crow_demo_index = -1
+	_dove_demo_pending = false
+	_dove_demo_index = -1
 	_run_number = TUTORIAL_LEVEL_COUNT
 	_start_game()
 
 
+## --- 新手强引导 (GuidedTutorial / GuidedItemLesson) ---
+## 第 1 盘：棋盘布局与步骤表在 scripts/game/guided_tutorial.gd；第 2 盘：伙伴牌课在
+## scripts/game/guided_item_lesson.gd（含伙伴图鉴内容）。演出层在 scripts/ui/guided_tutorial_overlay.gd，
+## 图鉴页在 scripts/ui/item_guide_screen.gd；这里只做编排：什么时候进下一步、放行哪一次点击。
+func _build_guided_tutorial_overlay() -> void:
+	_guided_overlay = GuidedTutorialOverlay.new()
+	_guided_overlay.name = "GuidedTutorialOverlay"
+	_guided_overlay.next_pressed.connect(_on_guided_tutorial_next)
+	add_child(_guided_overlay)
+	_item_guide_screen = ItemGuideScreen.new()
+	_item_guide_screen.name = "ItemGuideScreen"
+	_item_guide_screen.closed.connect(_on_item_guide_closed)
+	add_child(_item_guide_screen)
+
+
+## 只有单机流程的前两盘走强引导：第 1 盘教操作，第 2 盘（夜鹭刚解锁）教伙伴牌。
+## 对战与自定义的盘序都从教学段之后起跳，天然不进这里。
+func _is_guided_tutorial_round() -> bool:
+	return _guided_lesson_for_round() != null and not _is_duel() and not _is_custom()
+
+
+func _guided_lesson_for_round() -> GDScript:
+	match _run_number:
+		1:
+			return GuidedTutorial
+		2:
+			return GuidedItemLesson
+	return null
+
+
+func _guided_tutorial_active() -> bool:
+	return _guided_step >= 0 and _guided_lesson != null and _guided_overlay != null and _guided_overlay.is_presenting()
+
+
+## 第 2 盘第一步还没走完：夜鹭牌翻出来时要先停下来讲，鸟不能在这之前就从枝头起飞。
+func _guided_item_intro_pending() -> bool:
+	return _guided_lesson == GuidedItemLesson and _guided_step == 0
+
+
+func _begin_guided_tutorial(boot: int) -> void:
+	var lesson := _guided_lesson_for_round()
+	if boot != _run_boot_generation or _board == null or lesson == null:
+		return
+	if lesson == GuidedTutorial and not GuidedTutorial.layout_matches(_board):
+		return
+	# 等一帧让棋盘完成排版，洞和小手才落在格子的真实位置上。
+	var board := _board
+	await get_tree().process_frame
+	# 这一帧里可能已经开了下一盘（连点重开 / 跳过教学），那就不是这盘的课了。
+	if boot != _run_boot_generation or _board != board or _guided_lesson_for_round() != lesson:
+		return
+	if _game_finish_started or _cells.is_empty() or _board == null:
+		return
+	_guided_lesson = lesson
+	_guided_step = 0
+	_present_guided_step()
+
+
+func _present_guided_step() -> void:
+	var step: Dictionary = _guided_lesson.step(_guided_step) if _guided_lesson != null else {}
+	if step.is_empty() or _guided_overlay == null:
+		_end_guided_tutorial()
+		return
+	var hole := Rect2()
+	match int(step["focus"]):
+		GuidedTutorial.Focus.HEALTH:
+			hole = _health_bar.get_global_rect().grow(18.0)
+		GuidedTutorial.Focus.BOARD_ALL:
+			hole = _cells_bounding_rect(_active_cell_indices()).grow(GUIDED_HOLE_PADDING)
+		GuidedTutorial.Focus.ITEM:
+			if _tutorial_night_heron_edge_index >= 0:
+				hole = _cells_bounding_rect([_tutorial_night_heron_edge_index]).grow(GUIDED_HOLE_PADDING)
+		_:
+			hole = _cells_bounding_rect(step["spot"]).grow(GUIDED_HOLE_PADDING)
+	var target := int(step["target"])
+	var pointer := Vector2.INF
+	var pointer_cell := target if target >= 0 else int(step.get("pointer_cell", -1))
+	if pointer_cell >= 0 and pointer_cell < _cells.size():
+		pointer = _cell_center(pointer_cell)
+	var highlights: Array = step.get("highlight", [])
+	if int(step["focus"]) == GuidedTutorial.Focus.ITEM and _tutorial_night_heron_edge_index >= 0:
+		highlights = [_tutorial_night_heron_edge_index]
+	for highlighted in highlights:
+		var cell_index := int(highlighted)
+		if cell_index >= 0 and cell_index < _cells.size():
+			_cells[cell_index].play_border_flash(Color("ffd36b"), 5, 0.14)
+	_guided_overlay.present_step({
+		"hole": hole,
+		"interactive": bool(step["interactive"]),
+		"pointer": pointer,
+		"pointer_side": String(step.get("pointer_side", "right")),
+		"hint": String(step["hint"]),
+		"text": _guided_lesson.step_bbcode(_guided_step),
+		"show_next": int(step["action"]) == GuidedTutorial.Action.NEXT,
+		"next_text": String(step.get("next_text", "知道了  »")),
+		"step_index": _guided_step,
+		"step_count": _guided_lesson.step_count(),
+	})
+
+
+func _active_cell_indices() -> Array:
+	var indices: Array = []
+	for index in range(_cells.size()):
+		if _board == null or _board.is_active(index):
+			indices.append(index)
+	return indices
+
+
+func _cells_bounding_rect(indices: Array) -> Rect2:
+	var rect := Rect2()
+	var first := true
+	for entry in indices:
+		var index := int(entry)
+		if index < 0 or index >= _cells.size():
+			continue
+		var cell_rect := _cells[index].get_global_rect()
+		rect = cell_rect if first else rect.merge(cell_rect)
+		first = false
+	return rect
+
+
+## 棋盘每次回到可点状态就来问一句：这一步的目标达成了没有。达成就进下一步（连着达成的
+## 一并跳过）。演出中途收起过引导层的（第 2 盘「看它表演」），棋盘回来了先把当前步亮回来。
+func _sync_guided_tutorial() -> void:
+	if _guided_step < 0 or _guided_lesson == null or _guided_overlay == null or _game_finish_started or _board == null:
+		return
+	if _item_guide_screen != null and _item_guide_screen.is_open():
+		return
+	var advanced := false
+	while _guided_step < _guided_lesson.step_count() and _guided_lesson.is_step_done(_guided_step, _board):
+		_guided_step += 1
+		advanced = true
+	if _guided_step >= _guided_lesson.step_count():
+		_end_guided_tutorial()
+		return
+	if advanced or not _guided_overlay.is_presenting():
+		_present_guided_step()
+
+
+func _advance_guided_tutorial() -> void:
+	_guided_step += 1
+	if _guided_lesson == null or _guided_step >= _guided_lesson.step_count():
+		_end_guided_tutorial()
+		return
+	_present_guided_step()
+
+
+func _on_guided_tutorial_next() -> void:
+	if not _guided_tutorial_active():
+		return
+	var step: Dictionary = _guided_lesson.step(_guided_step)
+	if step.is_empty() or int(step["action"]) != GuidedTutorial.Action.NEXT:
+		return
+	if bool(step.get("opens_guide", false)):
+		# 最后一步：收起引导层、弹伙伴图鉴；图鉴关掉就算这堂课上完了。
+		_guided_overlay.dismiss()
+		_item_guide_screen.present()
+		return
+	if bool(step.get("resume_on_board", false)):
+		# 先让开让玩家看演出，棋盘回到可点状态时 _sync_guided_tutorial 再亮出下一步。
+		_guided_step += 1
+		_guided_overlay.dismiss()
+		return
+	_advance_guided_tutorial()
+
+
+func _on_item_guide_closed() -> void:
+	if _guided_lesson == null:
+		return
+	_end_guided_tutorial()
+	if not _game_finish_started and _board != null and not _board.game_over:
+		_status_label.text = "继续排查，别踩到它们。"
+
+
+## 第 2 盘：夜鹭牌刚翻出来、鸟还在枝头时停下来讲一句，玩家按「看它表演」才继续结算。
+## 牌没翻出来（或这盘压根没有夜鹭牌）就什么都不做，兜底交给 GuidedItemLesson.is_step_done。
+func _guided_item_intro(item_queue: Array[int]) -> void:
+	if not _guided_item_intro_pending() or _guided_overlay == null:
+		return
+	var item_index := _tutorial_night_heron_edge_index
+	if item_index < 0 or not item_queue.has(item_index):
+		return
+	var boot := _run_boot_generation
+	_guided_step = 1
+	_present_guided_step()
+	while (
+		_guided_step == 1
+		and boot == _run_boot_generation
+		and not _game_finish_started
+		and _guided_lesson == GuidedItemLesson
+	):
+		await get_tree().process_frame
+
+
+func _end_guided_tutorial() -> void:
+	_guided_step = -1
+	_guided_lesson = null
+	if _guided_overlay != null:
+		_guided_overlay.dismiss()
+	if _item_guide_screen != null and _item_guide_screen.is_open():
+		_item_guide_screen.dismiss()
+
+
 func _on_cell_mouse_button_changed(index: int, button_index: int, pressed: bool) -> void:
 	if not pressed:
+		return
+	# 强引导期间只放行当前步骤指定的那一格、那一个键，其余点击一律拦下并提示。
+	if _guided_tutorial_active() and not _guided_lesson.allows_click(_guided_step, index, button_index):
+		_guided_overlay.play_nudge()
 		return
 	_clear_inference_highlights()
 	_clear_inference_hover_preview()
@@ -2147,6 +3066,9 @@ func _resolve_inferred_safe_cells(safe_cells: PackedInt32Array) -> void:
 	if targets.is_empty():
 		return
 	_play_board_impact()
+	# 推理翻开也是「点一下翻出格子」，同样 +1。挂在判空之后而不是挂在点击上——
+	# 对着一格已经推完的空地连点不该白刷连击。
+	_register_click_combo()
 	await _resolve_reveal_targets(targets, "推理成立：安全格已全部翻开。")
 
 
@@ -2226,7 +3148,9 @@ func _refresh_health_bar() -> void:
 	if _player_status != null:
 		_player_status.set_health(_player_hp, _player_max_hp)
 		_player_status.set_invincible(
-			_is_invincible(),
+			# 奖励盘的免伤不倒计时，挂个「无敌 0.0s」反而像出了 bug；金盘加光环
+			# 已经说明白这一段不会掉血了。
+			_is_invincible() and not _bonus_board_active,
 			float(_super_luck_clicks_remaining) if _super_luck_mode_active else _invincible_seconds_left(),
 			_super_luck_mode_active
 		)
@@ -2234,7 +3158,9 @@ func _refresh_health_bar() -> void:
 
 func _is_invincible() -> bool:
 	return (
-		_super_luck_mode_active
+		# 奖励盘是白送的：上面翻出雷只标记、不掉血，不然「奖励」会变成惩罚。
+		_bonus_board_active
+		or _super_luck_mode_active
 		or _super_luck_settling
 		or _enlarge_click_invincible
 		or _pending_invincible_duration_msec > 0
@@ -2260,6 +3186,7 @@ func _on_cell_revealed(index: int) -> void:
 		return
 	if _enlarge_mark_charges > 0:
 		_play_board_impact()
+		_register_click_combo()
 		_clear_effect_preview()
 		_enlarge_mark_charges -= 1
 		var consume_super_luck_click := _super_luck_mode_active
@@ -2268,7 +3195,14 @@ func _on_cell_revealed(index: int) -> void:
 			_fly_eg_small_over_cell(index)
 		_enlarge_click_invincible = true
 		_refresh_health_bar()
-		await _resolve_reveal_targets(_area_3x3_targets(index), "变大翻开了目标周围的 3×3 区域。")
+		# 鸟还在半空时棋盘就不能再点；翻开阶段接着用同一把锁，由 _resolve_reveal_targets 释放。
+		_resolving = true
+		_set_board_interactable(false)
+		await _play_tit_bird_crash(index)
+		_drop_tit_bird_offscreen_after(TIT_TAKEOFF_DELAY)
+		await _resolve_reveal_targets(
+			_area_3x3_targets(index), "长尾山雀砸开了目标周围的 3×3 区域。", true, Callable(), true
+		)
 		_enlarge_click_invincible = false
 		_refresh_health_bar()
 		if consume_super_luck_click and _super_luck_mode_active and not _game_finish_started:
@@ -2276,6 +3210,7 @@ func _on_cell_revealed(index: int) -> void:
 		return
 	if _board.state_at(index) == MinesweeperBoard.CellState.COVERED:
 		_play_board_impact()
+		_register_click_combo()
 		_prepare_tutorial_first_reveal(index)
 		if _super_luck_mode_active:
 			_board.ensure_mines_placed(index)
@@ -2449,6 +3384,71 @@ func _place_unlocked_kestrel_in_first_reveal(changed: PackedInt32Array, origin: 
 		_kestrel_demo_pending = false
 
 
+func _place_unlocked_tit_in_first_reveal(changed: PackedInt32Array, origin: int) -> void:
+	if not _tit_demo_pending or changed.is_empty():
+		return
+	var best_index := -1
+	var best_distance := -1
+	for candidate in changed:
+		if _board.has_mine(candidate):
+			continue
+		var distance := absi(candidate % _board.width - origin % _board.width) + absi(candidate / _board.width - origin / _board.width)
+		if distance > best_distance:
+			best_index = candidate
+			best_distance = distance
+	if best_index < 0:
+		return
+	if _board.force_item_at(best_index, MinesweeperBoard.ItemType.ENLARGE):
+		_tit_demo_index = best_index
+		_tit_demo_pending = false
+
+
+## 教学最后一关送完小嘴乌鸦，第一盘正式关首次翻开的区域里也必定有一张它的牌；
+## 挑离起点最远、且不和长尾山雀那张挤同一格的空地。
+func _place_unlocked_crow_in_first_reveal(changed: PackedInt32Array, origin: int) -> void:
+	if not _crow_demo_pending or changed.is_empty():
+		return
+	var best_index := -1
+	var best_distance := -1
+	for candidate in changed:
+		if _board.has_mine(candidate) or candidate == _tit_demo_index:
+			continue
+		if _board.item_at(candidate) != MinesweeperBoard.ItemType.NONE:
+			continue
+		var distance := absi(candidate % _board.width - origin % _board.width) + absi(candidate / _board.width - origin / _board.width)
+		if distance > best_distance:
+			best_index = candidate
+			best_distance = distance
+	if best_index < 0:
+		return
+	if _board.force_item_at(best_index, MinesweeperBoard.ItemType.XRAY):
+		_crow_demo_index = best_index
+		_crow_demo_pending = false
+
+
+## 教学最后一关送完斑鸠，第一盘正式关首次翻开的区域里也必定有一张它的牌；
+## 挑离起点最远、又不和长尾山雀、小嘴乌鸦那两张挤同一格的空地。
+func _place_unlocked_dove_in_first_reveal(changed: PackedInt32Array, origin: int) -> void:
+	if not _dove_demo_pending or changed.is_empty():
+		return
+	var best_index := -1
+	var best_distance := -1
+	for candidate in changed:
+		if _board.has_mine(candidate) or candidate == _tit_demo_index or candidate == _crow_demo_index:
+			continue
+		if _board.item_at(candidate) != MinesweeperBoard.ItemType.NONE:
+			continue
+		var distance := absi(candidate % _board.width - origin % _board.width) + absi(candidate / _board.width - origin / _board.width)
+		if distance > best_distance:
+			best_index = candidate
+			best_distance = distance
+	if best_index < 0:
+		return
+	if _board.force_item_at(best_index, MinesweeperBoard.ItemType.MEDICAL_KIT):
+		_dove_demo_index = best_index
+		_dove_demo_pending = false
+
+
 func _mark_mine_in_super_luck_mode(index: int) -> void:
 	_resolving = true
 	_restart_button.disabled = true
@@ -2506,6 +3506,11 @@ func _on_cell_flagged(index: int) -> void:
 		# last click ends the mode, and the mark must not retroactively hurt.
 		var shielded := _is_invincible()
 		var marked_wrong := _reveal_wrong_player_mark(index)
+		# 标错就断连击。护盾免的是血，不是这条纪律——连击奖励的是「一路没标错」，
+		# 无敌状态下白标一格照样该把这串断掉。
+		# `marked_wrong` 为假表示这一下什么也没发生（格子本来就翻开了），不算失误。
+		if marked_wrong:
+			_break_score_combo()
 		if _super_luck_mode_active:
 			_fly_eg_small_over_cell(index)
 			_consume_super_luck_click()
@@ -2531,6 +3536,7 @@ func _on_cell_flagged(index: int) -> void:
 	_play_correct_flag_feedback(index)
 	_mine_label.text = "%03d" % maxi(_board.mine_count - _board.flag_count(), 0)
 	var is_now_flagged := _board.state_at(index) == MinesweeperBoard.CellState.FLAGGED
+	_sync_guided_tutorial()
 	if is_now_flagged and found_mine:
 		await _flush_chain_links()
 		if _game_finish_started:
@@ -2624,119 +3630,111 @@ func _show_tutorial_lifeline_feedback() -> void:
 	_animate_floating_label(label, center + Vector2(0, 24), Color("b8f28c"))
 
 
-## 把棋盘刚记下的「新标出的雷」收进待配对队列。没有标记点 A 在等的时候直接丢掉：
-## 「下一个标出的雷」只算标记点落地之后发生的标记。
-func _collect_chain_partners() -> void:
-	var marked := _board.take_marked_mine_log()
-	if _chain_anchors.is_empty():
-		return
-	for index in marked:
-		if not _chain_anchors.has(index) and not _chain_pending_partners.has(index):
-			_chain_pending_partners.append(index)
+## 把棋盘刚记下的「新标出的雷」过一遍，留下属于连携组的那些。标雷的入口太多
+## （手动右键、红尾水鸲、探测、夜鹭、啄木鸟、长尾山雀、推理……），全都汇进
+## `take_marked_mine_log()`，所以这里一处就够，不用去 hook 每个调用点。
+func _collect_chain_triggers() -> void:
+	for index in _board.take_marked_mine_log():
+		if _board.is_chain_mine(index) and not _chain_pending_triggers.has(index):
+			_chain_pending_triggers.append(index)
 
 
-## 结算所有已经凑成一对的连携：标记点 A 是道具牌的位置，标记点 B 是它之后第一个
-## 被标出的雷（手动标记或道具效果标记都算）。`manage_lock` 为 false 表示调用方已经
-## 持有 `_resolving` 锁，翻牌不能中途把棋盘交还给玩家。
+## 连携结算：只要刚标出的雷属于连携组，同组剩下的雷就一并被灰喜鹊点出来。
+## `manage_lock` 为 false 表示调用方已经持有 `_resolving` 锁并会自己收尾，这里不能
+## 中途把棋盘交还给玩家。
 func _flush_chain_links(manage_lock: bool = true) -> void:
 	if _chain_flush_active:
-		# 外层循环每翻完一批就会重新收集，嵌套调用交给它接着处理即可。
+		# 连锁点出来的雷会再进一次队列，交给外层这一轮循环接着处理即可。
 		return
 	_chain_flush_active = true
-	_collect_chain_partners()
-	while not _chain_pending_partners.is_empty() and not _chain_anchors.is_empty():
-		var partner: int = _chain_pending_partners.pop_front()
-		if _board.state_at(partner) != MinesweeperBoard.CellState.FLAGGED:
+	_collect_chain_triggers()
+	while not _chain_pending_triggers.is_empty():
+		var trigger: int = _chain_pending_triggers.pop_front()
+		# 撤旗之后这颗雷就不算标出来了，连携也不该再认它。
+		if _board.state_at(trigger) != MinesweeperBoard.CellState.FLAGGED:
 			continue
-		var anchor := _closest_chain_anchor(partner)
-		if anchor < 0:
+		var partners := _chain_link_order(trigger, _board.covered_chain_mines())
+		if partners.is_empty():
 			continue
-		_chain_anchors.erase(anchor)
-		_refresh_cell(anchor)
-		var targets := _chain_path_targets(anchor, partner)
-		_cells[anchor].play_border_flash(Color("74f3ff"), 5, 0.08)
-		_cells[partner].play_border_flash(Color("74f3ff"), 5, 0.08)
-		if targets.is_empty():
-			_play_target_lock(anchor, [partner], Color("74f3ff"), 1.0)
-			_status_label.text = "连携的两个标记点紧挨着，中间没有可翻开的格子。"
-			continue
-		_play_target_lock(anchor, targets, Color("74f3ff"), 1.0)
-		# 锁一直握在手里：翻牌过程中翻出的新连携由本循环下一轮接手，而不是嵌套进去。
-		await _resolve_reveal_targets(
-			targets, "连携翻开了两个标记点之间的所有格子。", manage_lock
-		)
+		if manage_lock:
+			_resolving = true
+			_restart_button.disabled = true
+			_set_board_interactable(false)
+		await _play_chain_link(trigger, partners)
+		# 连携把最后几颗雷标完就可能直接通关；那条路上由结算流程接管棋盘，
+		# 这里不能再把输入交回去。
 		if _game_finish_started or _board.game_over:
 			_chain_flush_active = false
 			return
-		_collect_chain_partners()
+		if manage_lock:
+			_resolving = false
+			_restart_button.disabled = false
+			_set_board_interactable(true)
+		_collect_chain_triggers()
 	_chain_flush_active = false
 
 
-func _closest_chain_anchor(index: int) -> int:
-	var best := -1
-	var best_distance := 1_000_000
-	var row: int = index / _board.width
-	var column := index % _board.width
-	for anchor in _chain_anchors:
-		if anchor == index:
+## 灰喜鹊把同组剩下的连携雷一并点出来：**一颗雷派一只**，全部从刚标出的那一格同时出发，
+## 各飞各的目标，翅膀一路扇着。点出来就是「标记」，不是引爆：
+## 连携是奖励，走的和玩家自己标对一颗雷完全相同的结算路径。
+func _play_chain_link(trigger: int, partners: Array[int]) -> void:
+	_status_label.text = "连携雷！灰喜鹊倾巢而出，把同一组的另外 %d 颗雷一并标出。" % partners.size()
+	_cells[trigger].play_border_flash(Color("74f3ff"), 5, 0.08)
+	_play_target_lock(trigger, partners, Color("74f3ff"), 1.0)
+	_magpie_bird.play_action_sfx()
+	var start := _cell_center(trigger)
+	var flyers: Array[TextureRect] = []
+	var flights: Array[Tween] = []
+	for index in range(partners.size()):
+		var flyer := _spawn_chain_magpie(start)
+		flyers.append(flyer)
+		flights.append(_fly_chain_magpie(flyer, start, _cell_center(partners[index]), index * MAGPIE_LINK_STAGGER))
+	var marked: PackedInt32Array = PackedInt32Array()
+	for index in range(partners.size()):
+		if flights[index].is_valid():
+			await flights[index].finished
+		_land_chain_magpie(flyers[index])
+		var target: int = partners[index]
+		if not _board.mark_mine(target):
 			continue
-		var distance := absi(anchor / _board.width - row) + absi(anchor % _board.width - column)
-		if distance < best_distance:
-			best = anchor
-			best_distance = distance
-	return best
+		marked.append(target)
+		_refresh_cell(target)
+		_play_correct_flag_feedback(target)
+		_cells[target].play_border_flash(Color("74f3ff"), 3, 0.07)
+		_spawn_effect_ring(_cell_center(target), Color("74f3ff"), 14.0, 78.0, 0.26)
+		_mine_label.text = "%03d" % maxi(_board.mine_count - _board.flag_count(), 0)
+	if _check_victory_now():
+		return
+	# 刚标出来的小雷照样扑向场上的大怪，和其他标雷入口的结算一致。
+	await _attack_newly_flagged_smalls(marked)
 
 
-## 两个标记点之间的连线：同行同列就是一条直线，否则允许转一次弯走 L 形。两条 L 形
-## 都合法，取撞上的怪物更少的那条——连携是用来开路的，不该反过来替玩家踩雷。
-func _chain_path_targets(first: int, second: int) -> Array[int]:
-	var first_row: int = first / _board.width
-	var second_row: int = second / _board.width
-	var first_column := first % _board.width
-	var second_column := second % _board.width
-	if first_row == second_row or first_column == second_column:
-		return _line_between_targets(first, second)
-	var horizontal_first := _chain_corner_path(first, second, first_row * _board.width + second_column)
-	var vertical_first := _chain_corner_path(first, second, second_row * _board.width + first_column)
-	if _chain_path_monster_count(vertical_first) < _chain_path_monster_count(horizontal_first):
-		return vertical_first
-	return horizontal_first
+## 连线顺序：从触发格出发，每次跳到还没点的雷里最近的那一颗，避免来回折返。
+func _chain_link_order(trigger: int, partners: PackedInt32Array) -> Array[int]:
+	var remaining: Array[int] = []
+	for index in partners:
+		remaining.append(index)
+	var ordered: Array[int] = []
+	var here := trigger
+	while not remaining.is_empty():
+		var best := 0
+		var best_distance := 1_000_000
+		for slot in range(remaining.size()):
+			var distance := _cell_manhattan(here, remaining[slot])
+			if distance < best_distance:
+				best_distance = distance
+				best = slot
+		here = remaining[best]
+		ordered.append(here)
+		remaining.remove_at(best)
+	return ordered
 
 
-func _chain_corner_path(first: int, second: int, corner: int) -> Array[int]:
-	var targets := _line_between_targets(first, corner)
-	if corner != first and corner != second:
-		targets.append(corner)
-	for target in _line_between_targets(corner, second):
-		if not targets.has(target):
-			targets.append(target)
-	return targets
-
-
-func _chain_path_monster_count(path: Array[int]) -> int:
-	var total := 0
-	for target in path:
-		if (
-			_board.is_monster_core(target)
-			and _board.state_at(target) != MinesweeperBoard.CellState.REVEALED
-		):
-			total += 1
-	return total
-
-
-func _line_between_targets(first: int, second: int) -> Array[int]:
-	var targets: Array[int] = []
-	var first_row: int = first / _board.width
-	var second_row: int = second / _board.width
-	var first_column := first % _board.width
-	var second_column := second % _board.width
-	if first_row == second_row:
-		for column in range(mini(first_column, second_column) + 1, maxi(first_column, second_column)):
-			targets.append(first_row * _board.width + column)
-	elif first_column == second_column:
-		for row in range(mini(first_row, second_row) + 1, maxi(first_row, second_row)):
-			targets.append(row * _board.width + first_column)
-	return targets
+func _cell_manhattan(first: int, second: int) -> int:
+	return (
+		absi(first / _board.width - second / _board.width)
+		+ absi(first % _board.width - second % _board.width)
+	)
 
 
 func _area_3x3_targets(center: int) -> Array[int]:
@@ -2749,8 +3747,12 @@ func _area_3x3_targets(center: int) -> Array[int]:
 
 ## `manage_lock` 为 false 时说明调用方已经握着 `_resolving` 锁并会自己收尾，这里就
 ## 不许中途把棋盘交还给玩家——否则嵌套结算会在上层还没跑完时放开输入。
+## `walker` 给了的话，每个目标格翻开前先 `await walker.call(target)`——灰喜鹊就是这样
+## 一格一格走过去、走到哪格翻哪格；不给就整批一起翻。
+## `flag_mines` 为 true 时区域里的雷不引爆、直接标出来（长尾山雀），和啄木鸟的清线一个规矩。
 func _resolve_reveal_targets(
-	targets: Array[int], completion_text: String, manage_lock: bool = true
+	targets: Array[int], completion_text: String, manage_lock: bool = true, walker: Callable = Callable(),
+	flag_mines: bool = false
 ) -> void:
 	if manage_lock:
 		_resolving = true
@@ -2758,10 +3760,15 @@ func _resolve_reveal_targets(
 		_set_board_interactable(false)
 	var changed := PackedInt32Array()
 	var flagged := PackedInt32Array()
+	var item_queue: Array[int] = []
+	var queued_items: Dictionary = {}
+	var reveal_animation_duration := 0.0
 	for target in targets:
+		if walker.is_valid():
+			await walker.call(target)
 		if _board.state_at(target) == MinesweeperBoard.CellState.REVEALED:
 			continue
-		if _super_luck_mode_active and _board.is_monster_core(target):
+		if (_super_luck_mode_active or flag_mines) and _board.is_monster_core(target):
 			if _board.mark_mine(target):
 				flagged.append(target)
 			continue
@@ -2770,12 +3777,15 @@ func _resolve_reveal_targets(
 			if _board.is_monster_core(target)
 			else _board.reveal_exact_forced_safe(target)
 		)
+		var fresh := PackedInt32Array()
 		for changed_index in target_changed:
 			if not changed.has(changed_index):
 				changed.append(changed_index)
-	var item_queue: Array[int] = []
-	var queued_items: Dictionary = {}
-	var reveal_animation_duration := _present_revealed(changed, item_queue, queued_items)
+				fresh.append(changed_index)
+		if walker.is_valid() and not fresh.is_empty():
+			reveal_animation_duration = _present_revealed(fresh, item_queue, queued_items)
+	if not walker.is_valid():
+		reveal_animation_duration = _present_revealed(changed, item_queue, queued_items)
 	if _super_luck_mode_active:
 		_defer_super_luck_reveals(changed)
 		for flagged_index in flagged:
@@ -2790,6 +3800,13 @@ func _resolve_reveal_targets(
 			_restart_button.disabled = false
 			_set_board_interactable(true)
 		return
+	# 标出来的雷先亮旗再往下走：剩余雷读数和胜利判定都要看这一批。
+	for flagged_index in flagged:
+		_refresh_cell(flagged_index)
+		_play_correct_flag_feedback(flagged_index)
+		_spawn_effect_ring(_cell_center(flagged_index), Color("ffcf63"), 12.0, 62.0, 0.2)
+	if not flagged.is_empty():
+		_mine_label.text = "%03d" % maxi(_board.mine_count - _board.flag_count(), 0)
 	if reveal_animation_duration > 0.0:
 		await get_tree().create_timer(reveal_animation_duration).timeout
 	if not _has_unresolved_revealed_mine(changed) and _check_victory_now():
@@ -2797,6 +3814,8 @@ func _resolve_reveal_targets(
 	var revealed_big_monsters := await _register_revealed_combat_objects(changed)
 	for big_index in revealed_big_monsters:
 		await _attack_big_with_small_mines(big_index, _flagged_small_monsters())
+	# 刚标出来的小雷照样扑向场上的大怪，和啄木鸟清线后的结算一致。
+	await _attack_newly_flagged_smalls(flagged)
 	await _resolve_item_queue(item_queue, queued_items)
 	if _check_victory_now():
 		return
@@ -2809,11 +3828,16 @@ func _resolve_reveal_targets(
 	if _game_finish_started:
 		return
 	_mine_label.text = "%03d" % maxi(_board.mine_count - _board.flag_count(), 0)
-	_status_label.text = completion_text
+	_status_label.text = (
+		"%s 踩到的 %d 个雷已直接标出。" % [completion_text, flagged.size()]
+		if not flagged.is_empty()
+		else completion_text
+	)
 	if manage_lock:
 		_resolving = false
 		_restart_button.disabled = false
 		_set_board_interactable(true)
+		_sync_guided_tutorial()
 
 
 func _on_cell_hover_started(index: int) -> void:
@@ -2863,7 +3887,7 @@ func _on_cell_hover_started(index: int) -> void:
 		MinesweeperBoard.ItemType.MEDICAL_KIT:
 			_previewed_cells.append(index)
 			_cells[index].set_effect_preview(true, Color(0.72, 1.18, 0.76, 1.0))
-		MinesweeperBoard.ItemType.XRAY, MinesweeperBoard.ItemType.CHAIN, MinesweeperBoard.ItemType.ENLARGE, MinesweeperBoard.ItemType.DETECT:
+		MinesweeperBoard.ItemType.XRAY, MinesweeperBoard.ItemType.ENLARGE, MinesweeperBoard.ItemType.DETECT:
 			_previewed_cells.append(index)
 			_cells[index].set_effect_preview(true, _item_effect_color(_board.item_at(index)))
 
@@ -2928,17 +3952,14 @@ func _show_item_tooltip(item: MinesweeperBoard.ItemType) -> void:
 			_item_tooltip_title.text = "红隼 · 翻出后自动使用"
 			_item_tooltip_body.text = "%d步内无敌，踩中雷不掉血" % (SUPER_LUCK_CLICKS_PER_ITEM + _super_luck_click_bonus)
 		MinesweeperBoard.ItemType.MEDICAL_KIT:
-			_item_tooltip_title.text = "疗愈鸟 · 翻出后自动使用"
-			_item_tooltip_body.text = "恢复 %d 颗爱心，但不能超过当前生命上限。" % (1 + _healing_power_bonus)
+			_item_tooltip_title.text = "斑鸠 · 翻出后自动使用"
+			_item_tooltip_body.text = "斑鸠衔一枝飞到血条边，补回 %d 颗爱心，但不会超过生命上限。" % (1 + _healing_power_bonus)
 		MinesweeperBoard.ItemType.XRAY:
-			_item_tooltip_title.text = "透视 · 翻出后自动使用"
-			_item_tooltip_body.text = "随机1个格子出现内容（不翻开）3s后消失"
-		MinesweeperBoard.ItemType.CHAIN:
-			_item_tooltip_title.text = "连携 · 翻出后自动使用"
-			_item_tooltip_body.text = "这一格成为标记点，下一颗标出的雷是另一个标记点，两点之间的格子全被翻开（可转弯）"
+			_item_tooltip_title.text = "小嘴乌鸦 · 翻出后自动使用"
+			_item_tooltip_body.text = "小嘴乌鸦飞去随机一格掀开偷看：那一格的内容亮 3 秒，但不会被翻开"
 		MinesweeperBoard.ItemType.ENLARGE:
-			_item_tooltip_title.text = "变大 · 翻出后自动使用"
-			_item_tooltip_body.text = "无敌，下一步选中的格子周围会被一起翻开"
+			_item_tooltip_title.text = "长尾山雀 · 翻出后自动使用"
+			_item_tooltip_body.text = "下一步无敌：长尾山雀会摔到你选中的格子上，把周围 3×3 一起砸开，踩到的雷直接标出来"
 		MinesweeperBoard.ItemType.DETECT:
 			_item_tooltip_title.text = "探测 · 翻出后自动使用"
 			_item_tooltip_body.text = "自动找出并标记一个尚未处理的雷。"
@@ -2950,6 +3971,11 @@ func _show_item_tooltip(item: MinesweeperBoard.ItemType) -> void:
 
 
 func _refresh_cell(index: int, animate_reveal: bool = false) -> void:
+	# 道具结算是跨 await 的协程：上一盘还没结算完就换了盘（关卡包的下一张图、或者
+	# 玩家手快点穿了账单和商店），迟到的那一笔会拿着旧盘的格号进来。新盘更小就越界。
+	# 这里当成空操作挡掉——要刷的那个格子已经不存在了，本来也没什么可刷的。
+	if _board == null or index < 0 or index >= _cells.size():
+		return
 	var state := _board.state_at(index)
 	var is_flipped := (
 		state == MinesweeperBoard.CellState.REVEALED
@@ -3015,8 +4041,6 @@ func _refresh_cell(index: int, animate_reveal: bool = false) -> void:
 			_cells[index].display_revealed(
 				content, kind, animate_reveal, content_span, number_value, fault_plate
 			)
-			# 连携的标记点 A 停在自己那张已翻开的道具牌上，翻牌会清掉角标，得补回来。
-			_cells[index].set_chain_anchor(_chain_anchors.has(index))
 			if _active_mines.has(index):
 				var mine_data: Dictionary = _active_mines[index]
 				_cells[index].set_combat_mine_status(mine_data["hp"], BIG_MONSTER_MAX_HP, mine_data["turns"])
@@ -3035,6 +4059,9 @@ func _resolve_turn(index: int) -> void:
 	_place_tutorial_night_heron_on_reveal_edge(changed, index)
 	_place_unlocked_woodpecker_in_first_reveal(changed, index)
 	_place_unlocked_kestrel_in_first_reveal(changed, index)
+	_place_unlocked_tit_in_first_reveal(changed, index)
+	_place_unlocked_crow_in_first_reveal(changed, index)
+	_place_unlocked_dove_in_first_reveal(changed, index)
 	var reveal_animation_duration := _present_revealed(changed, item_queue, queued_items, index)
 	if _super_luck_mode_active:
 		_defer_super_luck_reveals(changed)
@@ -3049,6 +4076,11 @@ func _resolve_turn(index: int) -> void:
 		return
 	if not changed.is_empty():
 		await get_tree().create_timer(reveal_animation_duration).timeout
+	# 第 2 盘：夜鹭牌刚翻出来，先圈住它讲一句，玩家点了「看它表演」再往下结算。
+	var board_before_intro := _board
+	await _guided_item_intro(item_queue)
+	if _board != board_before_intro or _game_finish_started:
+		return
 
 	var revealed_big_monsters := await _register_revealed_combat_objects(changed)
 	if _check_victory_now():
@@ -3076,6 +4108,7 @@ func _resolve_turn(index: int) -> void:
 	_resolving = false
 	_restart_button.disabled = false
 	_set_board_interactable(true)
+	_sync_guided_tutorial()
 
 
 func _present_revealed(changed: PackedInt32Array, item_queue: Array[int], queued_items: Dictionary, reveal_origin: int = -1) -> float:
@@ -3120,7 +4153,9 @@ func _present_revealed(changed: PackedInt32Array, item_queue: Array[int], queued
 		):
 			queued_items[changed_index] = true
 			item_queue.append(changed_index)
-			_prelaunch_queued_bird(changed_index, _board.item_at(changed_index))
+			# 第 2 盘的夜鹭牌要先停下来讲，鸟不能这时就起飞；走不预飞的那条结算路。
+			if not (_guided_item_intro_pending() and changed_index == _tutorial_night_heron_edge_index):
+				_prelaunch_queued_bird(changed_index, _board.item_at(changed_index))
 	return maximum_delay + 0.65 if not changed.is_empty() else 0.0
 
 
@@ -3174,6 +4209,186 @@ func _register_revealed_combat_objects(changed: PackedInt32Array) -> Array[int]:
 	return revealed_big_monsters
 
 
+# --- 奖励盘 ---
+
+
+## 这一盘算不算赢。奖励盘上没有「打完」这回事——真正的胜负在它展开之前就定了，
+## 所以只要这一盘开过奖励盘，就一路按赢处理。
+func _round_is_won() -> bool:
+	return _bonus_boards_this_round > 0 or (_board != null and _board.won)
+
+
+## 该不该展开奖励盘：本盘的雷已经用尽，而还有牌要落。调用方自己就是那张待落的牌
+## （或是队列里还压着牌），所以这里只看盘面与闸门。
+## 对战与自定义包排除在外：它们各有自己的换盘/同步节奏，再插一张盘只会把两套流程
+## 搅在一起。教学盘也不进——那几盘的每一步都是写死的。
+func _should_open_bonus_board() -> bool:
+	return (
+		_board != null
+		and _board.won
+		and not _game_finish_started
+		and not _is_duel()
+		and not _is_custom()
+		and _guided_lesson == null
+		and _run_number > TUTORIAL_LEVEL_COUNT
+		and _bonus_boards_this_round < BONUS_BOARD_LIMIT
+	)
+
+
+## 换盘请求。可能有好几张牌同时走到这一步，用一个「正在换」的闸把它们并成一次换盘：
+## 先到的那张负责换，其余的等换好再继续，于是大家都落在同一张奖励盘上。
+func _request_bonus_board(item_queue: Array[int], queued_items: Dictionary) -> void:
+	_bonus_board_waiters += 1
+	if _bonus_board_opening:
+		while _bonus_board_opening and not _game_finish_started:
+			await get_tree().process_frame
+		_bonus_board_waiters -= 1
+		return
+	_bonus_board_opening = true
+	await _open_bonus_board(item_queue, queued_items)
+	_bonus_board_opening = false
+	_bonus_board_waiters -= 1
+
+
+## 展开一张奖励盘：同尺寸、同雷数、不发新牌，只把队列里剩下的那几张原样种回去。
+func _open_bonus_board(item_queue: Array[int], queued_items: Dictionary) -> void:
+	# 还在跑效果的牌踩着旧盘的格号，等它们落地再换。**等在这道闸前面的不算**
+	# （含调用者自己）——它们停在生效之前，碰不到盘；不减掉就会互相等成死锁。
+	while _active_item_settlements - _bonus_board_waiters > 0 and not _game_finish_started:
+		await get_tree().create_timer(0.04).timeout
+	if _game_finish_started or _board == null or not _board.won:
+		return
+	var previous := _board
+	_banked_flagged_mines = _correctly_flagged_mines()
+	_banked_scored_mines += _combo_scored_cells.size()
+	_bonus_boards_this_round += 1
+	_bonus_board_active = true
+	_board = BoardModel.new(
+		previous.width,
+		previous.height,
+		previous.mine_count,
+		_bonus_board_seed(),
+		0, 0, 0, 0, 0, 0, 0, 0, 0,
+		_mask_of_board(previous)
+	)
+	# 牌一落下就要有雷可标，所以立刻布雷，不等谁去点第一下。
+	_board.ensure_mines_placed(_board_center_index())
+	# 旧盘的临时账目跟着旧盘翻篇（要留的那两笔上面已经存过了）。
+	_active_mines.clear()
+	_defeated_mines.clear()
+	_wrong_flagged_cells.clear()
+	_chain_pending_triggers.clear()
+	_combo_scored_cells.clear()
+	_last_target_lock_indices.clear()
+	_replant_queued_cards(previous, item_queue, queued_items)
+	for index in range(_cells.size()):
+		_refresh_cell(index)
+	_mine_label.text = "%03d" % maxi(_board.mine_count - _board.flag_count(), 0)
+	_status_label.text = "雷全清光了——奖励盘展开，剩下的伙伴接着上！"
+	_status_label.add_theme_color_override("font_color", COLOR_ACCENT)
+	await _play_bonus_board_intro()
+
+
+## 队列里存的是旧盘的格号，而奖励盘上并没有这些牌。把它们照原样种回同一格并翻开，
+## 后面的结算流程就能一行不改地跑下去；原格被雷占了就就近挪一格，队列同步改写。
+func _replant_queued_cards(
+	previous: MinesweeperBoard, item_queue: Array[int], queued_items: Dictionary
+) -> void:
+	var taken := {}
+	for position in range(item_queue.size()):
+		var origin: int = item_queue[position]
+		var kind: MinesweeperBoard.ItemType = previous.item_at(origin)
+		if kind == MinesweeperBoard.ItemType.NONE:
+			continue
+		var slot := _bonus_card_slot(origin, taken)
+		if slot < 0:
+			continue
+		taken[slot] = true
+		item_queue[position] = slot
+		queued_items.erase(origin)
+		queued_items[slot] = true
+		# 预飞账本按格号记：不跟着挪，这张牌结算完就找不到自己那只鸟，鸟再也回不了
+		# 枝头（`_complete_prelaunched_bird()` 查的就是这张表）。
+		if slot != origin and _prelaunched_item_indices.has(origin):
+			_prelaunched_item_indices.erase(origin)
+			_prelaunched_item_indices[slot] = true
+		_board.reveal_exact_forced_safe(slot)
+		# preserve_count = false：这几张是同时在场的，默认那套「同类只留一张」会互相顶掉。
+		_board.force_item_at(slot, kind, false)
+
+
+## 奖励盘上放牌的格子：优先用原来那一格，被雷占了或已被别的牌占了就由近及远另找。
+func _bonus_card_slot(preferred: int, taken: Dictionary) -> int:
+	if _bonus_slot_free(preferred, taken):
+		return preferred
+	var total := _board.width * _board.height
+	for offset in range(1, total):
+		for candidate in [preferred - offset, preferred + offset]:
+			if _bonus_slot_free(candidate, taken):
+				return candidate
+	return -1
+
+
+func _bonus_slot_free(index: int, taken: Dictionary) -> bool:
+	return (
+		index >= 0
+		and index < _board.width * _board.height
+		and _board.is_active(index)
+		and not _board.is_monster_core(index)
+		and not taken.has(index)
+	)
+
+
+## 奖励盘的雷位种子：跟着本盘种子和这是第几张奖励盘走，所以同一局可复现。
+func _bonus_board_seed() -> int:
+	var mixed := _level_seed_for_current_round() ^ (0x5F3A7B1 * (_bonus_boards_this_round + 1))
+	return mixed if mixed != 0 else 1
+
+
+func _board_center_index() -> int:
+	return int(_board.height / 2) * _board.width + int(_board.width / 2)
+
+
+## 照抄一块盘的可玩格掩码（异形盘的奖励盘要长得一模一样）。
+func _mask_of_board(board: MinesweeperBoard) -> PackedByteArray:
+	var mask := PackedByteArray()
+	mask.resize(board.width * board.height)
+	for index in range(mask.size()):
+		mask[index] = 1 if board.is_active(index) else 0
+	return mask
+
+
+## 奖励盘的开场：整盘压成暖金、光环与标题亮起来，然后把牌一张张发下去。
+func _play_bonus_board_intro() -> void:
+	_prepare_board_deal()
+	if _grid != null:
+		create_tween().tween_property(_grid, "modulate", BONUS_BOARD_TINT, BONUS_BOARD_TINT_TIME)
+	_build_bonus_aura()
+	if _bonus_aura != null and _grid != null:
+		_bonus_aura.present(Rect2(_grid.global_position, _grid.size))
+	await get_tree().create_timer(BONUS_BOARD_INTRO_HOLD).timeout
+	if _game_finish_started:
+		return
+	await _play_board_deal_shuffle()
+
+
+## 光环懒建，和别的演出层一样挂在 `_effects_layer` 上（不吃鼠标、压在棋盘之上）。
+func _build_bonus_aura() -> void:
+	if _bonus_aura != null or _effects_layer == null:
+		return
+	_bonus_aura = BonusBoardAura.new()
+	_effects_layer.add_child(_bonus_aura)
+
+
+## 收走奖励盘的演出。盘面本身留着——`_finish_game()` 会照常把它摊开结算。
+func _close_bonus_board(immediate: bool = false) -> void:
+	_bonus_board_active = false
+	if _grid != null:
+		_grid.modulate = Color.WHITE
+	if _bonus_aura != null:
+		_bonus_aura.dismiss(immediate)
+
+
 func _resolve_item_queue(item_queue: Array[int], queued_items: Dictionary) -> void:
 	_item_queue_dispatching = true
 	var deferred_super_luck: Array[int] = []
@@ -3181,6 +4396,13 @@ func _resolve_item_queue(item_queue: Array[int], queued_items: Dictionary) -> vo
 	# the background, so a long flyover never prevents the next bird/effect
 	# from entering the scene. Chained reveals may append more work here.
 	while not item_queue.is_empty() or _active_item_settlements > 0:
+		# 队列里还压着牌、盘面却已经没雷了：先换盘再往下发，省得白发一张。
+		# 真正兜底的是 `_resolve_queued_item()` 里那一道——牌离队后才生效，那时才准。
+		if not item_queue.is_empty() and _should_open_bonus_board():
+			await _request_bonus_board(item_queue, queued_items)
+			if _game_finish_started:
+				_item_queue_dispatching = false
+				return
 		if not item_queue.is_empty():
 			var item_index: int = item_queue.pop_front()
 			if _board.is_item_used(item_index):
@@ -3210,6 +4432,11 @@ func _resolve_item_queue(item_queue: Array[int], queued_items: Dictionary) -> vo
 		_pending_invincible_duration_msec = 0
 		_refresh_health_bar()
 	_item_queue_dispatching = false
+	if _bonus_board_active and not _game_finish_started:
+		# 奖励盘上永远凑不齐「雷全标完」，`_check_victory_now()` 收不了场。胜负在它
+		# 展开之前就定了（那时本盘已经赢），所以这里直接收。
+		_finish_game()
+		return
 	_check_victory_now()
 
 
@@ -3318,12 +4545,26 @@ func _resolve_queued_item(
 	queued_items: Dictionary
 ) -> void:
 	var focus_color := _item_effect_color(item)
+	var board := _board
+	if item_index < 0 or item_index >= _cells.size():
+		return
 	_status_label.text = "发现%s，正在结算……" % _item_display_name(item)
 	_cells[item_index].play_item_focus(focus_color)
 	_spawn_effect_ring(_cell_center(item_index), focus_color, 18.0, 68.0, 0.3)
 	await get_tree().create_timer(0.3).timeout
+	# 等这 0.3 秒的工夫棋盘可能已经换了（关卡包翻到下一张图）。换了就别再往下结算，
+	# 不然会拿旧盘的格号去改新盘——照代码库其它异步处的写法，捕获再比对。
+	if board != _board:
+		return
 	_board.consume_item(item_index)
 	_refresh_cell(item_index)
+	# **奖励盘的真正触发点**：这张牌马上要生效，可本盘的雷已经被前面几张清光了。
+	# 先把奖励盘展开，让它落在新盘上，而不是空转一句「没找到雷」。
+	# 判据必须在这里而不是派发处：派发不等结果，一大把牌会在盘面变「已赢」之前就离队。
+	if _should_open_bonus_board():
+		await _request_bonus_board(item_queue, queued_items)
+		if _game_finish_started:
+			return
 	match item:
 		MinesweeperBoard.ItemType.LANTERN:
 			await _resolve_lantern(item_index, item_queue, queued_items)
@@ -3337,8 +4578,6 @@ func _resolve_queued_item(
 			await _resolve_medical_kit(item_index)
 		MinesweeperBoard.ItemType.XRAY:
 			await _resolve_xray(item_index)
-		MinesweeperBoard.ItemType.CHAIN:
-			await _resolve_chain(item_index)
 		MinesweeperBoard.ItemType.ENLARGE:
 			await _resolve_enlarge(item_index)
 		MinesweeperBoard.ItemType.DETECT:
@@ -3346,26 +4585,52 @@ func _resolve_queued_item(
 	_check_victory_now()
 
 
+## 斑鸠接手治愈：叼着枝从栖位直接飞到血条上，到了才回血、才飘字——奖励落在看得见的
+## 落点上，而不是凭空跳数字。不绕去那张牌了：来回两程太长，玩家的眼睛只跟着血条走。
 func _resolve_medical_kit(item_index: int) -> void:
 	var previous_hp := _player_hp
 	var healing := 1 + _healing_power_bonus
+	var health_center := _health_bar.global_position + _health_bar.size * 0.5 + DOVE_HEAL_OFFSET
+	_spawn_effect_ring(_cell_center(item_index), Color("87e58b"), 16.0, 76.0, 0.3)
+	await _dove_fly_to_health_bar(health_center)
 	_player_hp = mini(_player_hp + healing, _player_max_hp)
 	_refresh_health_bar()
 	_player_status.play_heal_feedback()
-	var health_center := _health_bar.global_position + _health_bar.size * 0.5
-	_spawn_effect_ring(_cell_center(item_index), Color("87e58b"), 16.0, 76.0, 0.3)
-	_spawn_effect_ring(health_center, Color("87e58b"), 18.0, 104.0, 0.36, 0.08)
-	if _player_hp > previous_hp:
-		_status_label.text = "疗愈鸟恢复了 %d 颗爱心。" % (_player_hp - previous_hp)
+	_spawn_effect_ring(health_center, Color("87e58b"), 18.0, 104.0, 0.36)
+	var gained := _player_hp - previous_hp
+	var popup := Label.new()
+	if gained > 0:
+		popup.text = "+%d" % gained
+		_status_label.text = "斑鸠衔来一枝，补回了 %d 颗爱心。" % gained
 	else:
-		_status_label.text = "爱心已满，疗愈鸟没有溢出上限。"
-	await get_tree().create_timer(0.34).timeout
+		popup.text = "已满"
+		_status_label.text = "爱心已满，斑鸠把枝叼回去了。"
+	_animate_floating_label(popup, health_center, Color("9dffa8"))
+	_dove_fly_home(_run_boot_generation)
+	await get_tree().create_timer(0.2).timeout
+
+
+## 一程直飞：叼着枝（帧 0 站姿叼枝起手）扇着翅膀奔血条去。
+func _dove_fly_to_health_bar(health_center: Vector2) -> void:
+	await _dove_bird.begin_travel_action(DOVE_FLAP_CYCLE[0], true)
+	_dove_bird.set_travel_facing_right(health_center.x > _dove_bird.get_launch_global_position().x)
+	await _dove_bird.flap_travel_sprite_to_global_center(
+		health_center, DOVE_FLY_TIME, DOVE_FLAP_CYCLE, DOVE_FLAP_TIME, 52.0
+	)
+
+
+## 递完就走：就地淡出，回栖位。不阻塞结算；中途重开或换关就收手，免得动到已经归位的鸟。
+func _dove_fly_home(boot: int) -> void:
+	await _dove_bird.fade_out_travel_sprite(DOVE_VANISH_TIME)
+	if boot != _run_boot_generation:
+		return
+	_dove_bird.reappear_on_perch(0.25)
 
 
 func _resolve_xray(item_index: int) -> void:
 	_last_xray_target = _board.random_hidden_cell()
 	if _last_xray_target < 0:
-		_status_label.text = "透视没有找到仍被覆盖的格子。"
+		_status_label.text = "小嘴乌鸦转了一圈，没找到还盖着的格子。"
 		return
 	var content: Texture2D
 	var number_value := 0
@@ -3375,32 +4640,128 @@ func _resolve_xray(item_index: int) -> void:
 		content = _item_texture(_board.item_at(_last_xray_target))
 	else:
 		number_value = _board.adjacent_mines(_last_xray_target)
-	_cells[_last_xray_target].show_xray_hint(content, number_value, 3.0)
+	var spot := _cell_center(_last_xray_target) + CROW_PEEK_OFFSET
+	await _crow_peek_in(spot)
+	_cells[_last_xray_target].show_xray_hint(content, number_value, XRAY_PEEK_SECONDS)
 	_spawn_effect_ring(_cell_center(item_index), Color("c58cff"), 16.0, 74.0, 0.28)
-	_status_label.text = "透视显示了一个格子的内容，3 秒后消失。"
+	_status_label.text = "小嘴乌鸦掀开偷看了一眼：这一格的内容会亮 %d 秒。" % int(XRAY_PEEK_SECONDS)
+	# 内容自己亮满 3 秒，鸟不留下陪看：顿一拍就地消失，省得挡住刚掀开的那一格。
+	_crow_peek_out(spot, _run_boot_generation)
 	await get_tree().create_timer(0.18).timeout
 
 
-## 连携的标记点 A 就是道具牌自己的位置，落地后只等它之后第一个被标出的雷当标记点 B。
-func _resolve_chain(item_index: int) -> void:
-	# 先把之前攒下的标记吸收掉：这枚新的 A 只认它落地之后发生的标记。
-	_collect_chain_partners()
-	if not _chain_anchors.has(item_index):
-		_chain_anchors.append(item_index)
-	_refresh_cell(item_index)
-	_cells[item_index].play_border_flash(Color("74f3ff"), 3, 0.09)
-	_spawn_effect_ring(_cell_center(item_index), Color("6de8f2"), 16.0, 76.0, 0.3)
-	_status_label.text = "连携标记点已落在这里：下一颗标出的雷会与它连线翻开。"
-	await get_tree().create_timer(0.22).timeout
+## 小嘴乌鸦替透视干活：飞到那一格**旁边**，探身掀起卡片的一角偷看（帧 5 探身、帧 6 掀开）。
+## 它落在格子右上方而不是格子上，而且下棋盘时会缩到一格左右（board_travel_scale）：
+## 栖位上的鸟有三格宽，照原样压上去就把要给玩家看的内容盖住了。素材的喙朝左下，
+## 所以站在右上时正好低头对着那一格。
+func _crow_peek_in(spot: Vector2) -> void:
+	await _crow_bird.begin_travel_action(0, true)
+	_crow_bird.set_travel_facing_right(spot.x > _crow_bird.get_launch_global_position().x)
+	await _crow_bird.move_travel_sprite_to_global_center(spot, CROW_FLY_IN_TIME)
+	_crow_bird.set_travel_frame(1)
+
+
+## 掀完就走：换成被自己掀出来的东西吓一跳那一帧（帧 7）、叫一声、冒个圈，随即原地消失，
+## 内容留在那儿自己亮完。`boot` 是发起时的开局代号，中途重开或换关就收手，免得动到已经归位的鸟。
+func _crow_peek_out(spot: Vector2, boot: int) -> void:
+	_crow_bird.set_travel_frame(2)
+	_crow_bird.play_action_sfx()
+	_spawn_effect_ring(spot, Color("c58cff"), 12.0, 62.0, 0.28)
+	await get_tree().create_timer(CROW_PEEK_BEAT).timeout
+	if boot != _run_boot_generation:
+		return
+	await _crow_bird.fade_out_travel_sprite(CROW_VANISH_TIME)
+	if boot != _run_boot_generation:
+		return
+	_crow_bird.reappear_on_perch(0.25)
+
+
+## 连携用的灰喜鹊分身：帧和栖位上那只同一套，尺寸也照它的 board_travel_scale 缩到一格上下。
+## 一颗雷派一只，所以不能共用栖位那一个精灵——那只留在枝上，只负责叫一声。
+func _spawn_chain_magpie(start: Vector2) -> TextureRect:
+	var source := _magpie_bird.get_node("Sprite") as TextureRect
+	var flyer := TextureRect.new()
+	flyer.texture = _magpie_bird.action_frames[0]
+	flyer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	flyer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	flyer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flyer.size = source.size * _magpie_bird.get_global_transform().get_scale() * _magpie_bird.board_travel_scale
+	flyer.pivot_offset = flyer.size * 0.5
+	flyer.z_index = BIRD_FLYOVER_Z
+	_effects_layer.add_child(flyer)
+	flyer.global_position = start - flyer.size * 0.5
+	return flyer
+
+
+## 飞过去：沿一条微微外拐的弧线，翅膀按固定帧率扇——帧号是拿**真实走过的时间**除以
+## MAGPIE_FLAP_TIME 算的，所以这条 tween 必须是线性的；一挂缓动，翅膀就会在两头慢下来。
+## 返回这条 tween，调用方等它落地再结算那颗雷。
+func _fly_chain_magpie(flyer: TextureRect, start: Vector2, destination: Vector2, delay: float) -> Tween:
+	var frames := _magpie_bird.action_frames
+	var lateral := (destination - start).orthogonal().normalized() * MAGPIE_LINK_ARC
+	var control := (start + destination) * 0.5 + lateral
+	flyer.flip_h = (destination.x >= start.x) != _magpie_bird.art_faces_right
+	var flight := flyer.create_tween()
+	if delay > 0.0:
+		flight.tween_interval(delay)
+	flight.tween_method(func(progress: float) -> void:
+		flyer.global_position = _quadratic_bezier(start, control, destination, progress) - flyer.size * 0.5
+		var frame := int(progress * MAGPIE_LINK_FLY_TIME / MAGPIE_FLAP_TIME)
+		flyer.texture = frames[frame % frames.size()]
+	, 0.0, 1.0, MAGPIE_LINK_FLY_TIME).set_trans(Tween.TRANS_LINEAR)
+	return flight
+
+
+## 落到那颗雷上：收翅摆个姿势，随即一边飘起一边淡掉。
+func _land_chain_magpie(flyer: TextureRect) -> void:
+	if not is_instance_valid(flyer):
+		return
+	flyer.texture = _magpie_bird.action_frames[2]
+	var settle := flyer.create_tween().set_parallel(true)
+	settle.tween_property(flyer, "modulate:a", 0.0, MAGPIE_VANISH_TIME).set_delay(MAGPIE_LAND_HOLD)
+	settle.tween_property(flyer, "position:y", flyer.position.y - 24.0, MAGPIE_LAND_HOLD + MAGPIE_VANISH_TIME)
+	settle.finished.connect(flyer.queue_free)
 
 
 func _resolve_enlarge(item_index: int) -> void:
 	_enlarge_mark_charges += 1
 	_spawn_effect_ring(_cell_center(item_index), Color("d69bff"), 18.0, 88.0, 0.32)
-	_status_label.text = "变大已准备：下一步无敌，选中格子周围会被一起翻开。"
+	_status_label.text = "长尾山雀已就位：下一步无敌，它会摔到选中格子上砸开周围 3×3，踩到的雷直接标出来。"
 	if _hovered_cell_index >= 0:
 		_start_enlarge_hover_preview(_hovered_cell_index)
 	await get_tree().create_timer(0.22).timeout
+
+
+## 巨大化：长尾山雀从栖枝上滑下来，扑腾两下、俯冲、趴在目标格上；3×3 翻开紧跟落地。
+## 帧序：action_frames[0] 失足、[1] 扑腾、[2] 俯冲、[3] 趴地。栖枝本体不动，只有鸟离开。
+func _play_tit_bird_crash(target_index: int) -> void:
+	var target := _cell_center(target_index)
+	await _tit_bird.begin_travel_action(0, false)
+	var start := _tit_bird.get_launch_global_position()
+	# 先微微向上抛再加速坠落：控制点抬到起点与终点之上。
+	var apex := Vector2(lerpf(start.x, target.x, 0.3), minf(start.y, target.y) - 150.0)
+	var fall := create_tween().set_parallel(true)
+	fall.tween_method(func(progress: float) -> void:
+		_tit_bird.set_travel_sprite_global_center(_quadratic_bezier(start, apex, target, progress))
+	, 0.0, 1.0, TIT_FALL_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	fall.tween_callback(_tit_bird.set_travel_frame.bind(1)).set_delay(TIT_FALL_DURATION * 0.3)
+	fall.tween_callback(_tit_bird.set_travel_frame.bind(2)).set_delay(TIT_FALL_DURATION * 0.62)
+	await fall.finished
+	_tit_bird.set_travel_frame(3)
+	_tit_bird.play_action_sfx()
+	_play_board_impact(BOARD_SHAKE_MONSTER_STRENGTH, Vector2.DOWN, BOARD_SHAKE_MONSTER_STEPS)
+	_spawn_effect_ring(target, Color("d69bff"), CELL_SIZE * 0.6, CELL_SIZE * 3.6, 0.36)
+	await get_tree().create_timer(TIT_CRASH_HOLD).timeout
+
+
+## 落地稍作停留，惊起一小下（扑腾帧）就翻着身子掉出屏幕底（失足帧），过一拍再悄悄淡回枝头。
+## 与 3×3 翻牌同时进行；不等后续道具结算，也不阻塞它。
+func _drop_tit_bird_offscreen_after(delay: float) -> void:
+	if delay > 0.0:
+		await get_tree().create_timer(delay).timeout
+	await _tit_bird.tumble_sprite_offscreen_bottom(TIT_TUMBLE_DURATION, 1, 0)
+	await get_tree().create_timer(TIT_REAPPEAR_DELAY).timeout
+	_tit_bird.reappear_on_perch(0.3)
 
 
 func _resolve_detect(item_index: int) -> void:
@@ -3430,13 +4791,13 @@ func _item_display_name(item: MinesweeperBoard.ItemType) -> String:
 		MinesweeperBoard.ItemType.SUPER_LUCK:
 			return "红隼"
 		MinesweeperBoard.ItemType.MEDICAL_KIT:
-			return "疗愈鸟"
+			return "斑鸠"
 		MinesweeperBoard.ItemType.XRAY:
-			return "透视"
+			return "小嘴乌鸦"
 		MinesweeperBoard.ItemType.CHAIN:
-			return "连携"
+			return "灰喜鹊"
 		MinesweeperBoard.ItemType.ENLARGE:
-			return "变大"
+			return "长尾山雀"
 		MinesweeperBoard.ItemType.DETECT:
 			return "探测"
 	return "道具"
@@ -3499,6 +4860,92 @@ func _nearest_active_big_monster(source_index: int) -> int:
 
 func _cell_center(index: int) -> Vector2:
 	return _cells[index].global_position + _cells[index].size * 0.5
+
+
+## 牌堆位置：棋盘正中。发牌从这里甩出去，收牌也朝这里收。
+func _board_deal_origin() -> Vector2:
+	if _grid == null:
+		return Vector2.ZERO
+	return _grid.global_position + _grid.size * 0.5
+
+
+## 开局洗牌（一）：把所有草地牌收进牌堆并藏起来。必须在棋盘 UI 淡入之前调用，
+## 否则玩家会先看到摆好的盘、再看着它们缩回牌堆去。
+func _prepare_board_deal() -> void:
+	var origin := _board_deal_origin()
+	for index in range(_cells.size()):
+		if not _board.is_active(index):
+			continue
+		var spin := deg_to_rad(-BOARD_DEAL_SPIN if index % 2 == 0 else BOARD_DEAL_SPIN)
+		_cells[index].prepare_deal(origin - _cell_center(index), spin)
+
+
+## 开局洗牌（二）：一张张甩到各自的格子上，近的先落、远的后落。
+func _play_board_deal_shuffle() -> void:
+	var order := _board_deal_order()
+	if order.is_empty():
+		return
+	var step := BOARD_DEAL_TOTAL_TIME / float(order.size())
+	for slot in range(order.size()):
+		_cells[order[slot]].play_deal_in(float(slot) * step)
+	await get_tree().create_timer(BOARD_DEAL_TOTAL_TIME + MineCell.DEAL_FLIGHT_TIME).timeout
+	# 最后一张落地时轻轻一震，给这段发牌收个尾。
+	_play_board_impact()
+
+
+func _board_deal_order() -> Array[int]:
+	var order: Array[int] = []
+	for index in range(_cells.size()):
+		if _board.is_active(index):
+			order.append(index)
+	var origin := _board_deal_origin()
+	order.sort_custom(func(first: int, second: int) -> bool:
+		return (
+			_cell_center(first).distance_squared_to(origin)
+			< _cell_center(second).distance_squared_to(origin)
+		)
+	)
+	return order
+
+
+## 横幅摆在棋盘下沿之下那条空木板带上：上方的读数行和刚发完的牌都不挡。
+func _round_intro_banner_top() -> float:
+	if _board_panel == null:
+		return -1.0
+	return _board_panel.global_position.y + _board_panel.size.y + 20.0
+
+
+## 开局横幅的内容：先报雷和连携雷，再按固定顺序列出这一盘埋着的每种伙伴牌。
+## 只报数量不报位置——布雷本来也要等玩家第一下点击才发生。
+func _round_intro_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	if _board == null:
+		return entries
+	entries.append({
+		"icon": MONSTER_SMALL_TEXTURE,
+		"name": "雷",
+		"count": _board.mine_count,
+		"accent": Color("ff9a7a"),
+	})
+	var chain_mines := _board.chain_mine_total()
+	if chain_mines > 0:
+		entries.append({
+			"icon": CHAIN_TEXTURE,
+			"name": "连携雷",
+			"count": chain_mines,
+			"accent": Color("74f3ff"),
+		})
+	for item_type in ITEM_TYPE_ORDER:
+		var total := _board.configured_item_count(item_type)
+		if total <= 0:
+			continue
+		entries.append({
+			"icon": _item_texture(item_type),
+			"name": _item_display_name(item_type),
+			"count": total,
+			"accent": _item_effect_color(item_type),
+		})
+	return entries
 
 
 func _play_big_monster_reveal(core_index: int) -> void:
@@ -3840,7 +5287,7 @@ func _has_unresolved_revealed_mine(changed: PackedInt32Array) -> bool:
 
 func _check_victory_now() -> bool:
 	if _game_finish_started or _player_hp <= 0:
-		return _game_finish_started and _board.won
+		return _game_finish_started and _round_is_won()
 	_update_round_completion()
 	if not _board.won:
 		return false
@@ -3864,22 +5311,28 @@ func _position_combo_hud() -> void:
 	_combo_hud.set_home(pos)
 
 
-func _on_score_combo_changed(score: int, combo: int, meter: float) -> void:
-	if _combo_hud == null:
-		return
-	_combo_hud.sync_state(score, combo, meter)
+## 换盘后把格子几何喂给棋盘表现层：光波的逐格判定查这份缓存，异形盘的空洞格不参与。
+func _on_score_combo_changed(score: int, combo: int) -> void:
+	if _combo_hud != null:
+		_combo_hud.sync_state(score, combo)
+	if _combo_board_fx != null:
+		_combo_board_fx.set_state(combo)
 
 
-func _on_score_combo_hit(points: int, combo: int, meter: float) -> void:
-	if _combo_hud == null or _score_combo == null:
+func _on_score_combo_hit(points: int, combo: int) -> void:
+	if _score_combo == null:
 		return
-	_combo_hud.play_hit(_score_combo.score, points, combo, meter)
-	_try_update_stage_high_score()
+	if _combo_hud != null:
+		_combo_hud.play_hit(_score_combo.score, points, combo)
+	_play_combo_board_hit(combo)
+	# 这里不再更新最高分：分数只在每盘结算时进账，刷新点跟着挪到了 _award_time_bonus()。
 
 
 func _on_score_combo_broke(previous_combo: int) -> void:
 	if _combo_hud != null:
 		_combo_hud.play_combo_break()
+	if _combo_board_fx != null:
+		_combo_board_fx.play_break(previous_combo)
 	_award_combo_gold_bonus(previous_combo)
 
 
@@ -3893,6 +5346,13 @@ func _award_combo_gold_bonus(combo_count: int) -> void:
 	_refresh_gold_display()
 	if _combo_hud != null:
 		_combo_hud.play_gold_bonus(bonus)
+	if _board_panel != null and _player_status != null:
+		CELL_FX.play_gold_flight(
+			_effects_layer,
+			_board_panel.global_position + _board_panel.size * 0.5,
+			_player_status.gold_center(),
+			bonus
+		)
 
 
 ## 盘末若还有未断的连击，先收束发奖，再进账单。
@@ -3903,37 +5363,64 @@ func _cash_out_active_combo() -> void:
 		_score_combo.break_combo()
 
 
-func _is_combo_decay_frozen() -> bool:
-	if _combo_decay_holds > 0:
-		return true
-	if _resolving or _item_queue_dispatching or _super_luck_settling:
-		return true
-	if _game_finish_started:
-		return true
-	if _shop_layer != null and _shop_layer.visible:
-		return true
-	return false
-
-
-func _begin_combo_decay_hold() -> void:
-	_combo_decay_holds += 1
-
-
-func _end_combo_decay_hold() -> void:
-	_combo_decay_holds = maxi(_combo_decay_holds - 1, 0)
-	if _combo_decay_holds == 0 and _score_combo != null:
-		# 演出结束当作刚动手：避免一恢复就因空闲加速而瞬间掉光。
-		_score_combo.resume_decay()
-
-
-func _register_mine_score_hit(cell_index: int = -1) -> void:
+## 返回这一次是否真的计了分——撤旗重标同一格会走到这里，但不该再加连击，
+## 表现层也要靠这个返回值决定要不要跟着炸一次。
+func _register_mine_score_hit(cell_index: int = -1) -> bool:
 	if _score_combo == null:
-		return
+		return false
 	if cell_index >= 0:
 		if _combo_scored_cells.has(cell_index):
-			return
+			return false
 		_combo_scored_cells[cell_index] = true
-	_score_combo.register_mine_cleared()
+	# 认雷走这条路，不是普通点击那条：无尽关的分全从这里来。
+	_score_combo.register_mine_hit()
+	return true
+
+
+## 一次「翻开了格子」的操作 +1，翻出来多少格都只算一次：手点覆盖格、长尾山雀砸盘、
+## 推理推出安全格，三条路都走这里。和「每认出一枚雷 +1」并行计数——一次点击如果
+## 顺带自动标出了三枚雷，这一下就是 1 + 3。
+##
+## 三个调用点都放在「确实会翻开格子」的判断之后，不是放在点击入口上：挂在入口的话，
+## 对着一格已经推完的空地连点就能白刷连击。
+func _register_click_combo() -> void:
+	if _score_combo == null:
+		return
+	_score_combo.register_combo_hit()
+
+
+## 这一局按哪种口径计分：无尽关按排雷（每枚 100 分），其余一律按每盘用时。
+## 必须在 `_stage_id` 定下来之后、开盘之前调用——`_reset_run_state()` 里的
+## `reset()` 会把口径退回关卡默认，所以新开与续局两条路都要各自走一遍。
+func _apply_score_mode() -> void:
+	if _score_combo == null:
+		return
+	_score_combo.mode = (
+		ScoreComboTrackerScript.Mode.MINES
+		if _is_endless_stage()
+		else ScoreComboTrackerScript.Mode.TIME
+	)
+
+
+## 这一盘靠排雷拿到的分与雷数。`_combo_scored_cells` 每盘清一次，所以它的大小
+## 就是「这一盘真正计了分的雷」——和盘末还插着几面旗不是一回事（标了又撤、
+## 或者撤了没补，两边就会对不上）。
+func _endless_board_mine_points() -> Array:
+	var mines := _combo_scored_cells.size() + _banked_scored_mines
+	return [mines, mines * ScoreComboTrackerScript.POINTS_PER_MINE]
+
+
+## 一盘打完按用时结算：1000 起步、每秒衰减、最低 100（口径在 ScoreComboTracker）。
+## 和金币奖励共用同一道重入闸——`_finish_game` 这条路不保证只走一次，
+## 少一道闸就会出现「同一盘结算两次分」。
+func _award_time_bonus() -> int:
+	if _score_combo == null or _time_bonus_awarded_this_run:
+		return 0
+	_time_bonus_awarded_this_run = true
+	# `_score_combo` 是无类型 var，这里必须显式标注，否则推不出返回类型。
+	var bonus: int = _score_combo.register_time_bonus(_elapsed)
+	_try_update_stage_high_score()
+	return bonus
 
 
 func _break_score_combo() -> void:
@@ -3942,26 +5429,28 @@ func _break_score_combo() -> void:
 	_score_combo.break_combo()
 
 
-func _reset_score_combo_meter() -> void:
+func _reset_score_combo_board() -> void:
 	if _score_combo == null:
 		return
 	_combo_scored_cells.clear()
-	_combo_decay_holds = 0
 	_combo_bonus_gold = 0
 	# 换盘只清连击表；盘末奖金已在账单前 `_cash_out_active_combo` 结算过。
 	_score_combo.reset_combo_keep_score()
 	if _combo_hud != null:
-		_combo_hud.sync_state(_score_combo.score, 0, 0.0, false)
+		_combo_hud.sync_state(_score_combo.score, 0, false)
+	if _combo_board_fx != null:
+		_combo_board_fx.reset_visuals()
 
 
 func _reset_score_combo_run() -> void:
 	_combo_scored_cells.clear()
-	_combo_decay_holds = 0
 	_combo_bonus_gold = 0
 	if _score_combo != null:
 		_score_combo.reset()
 	if _combo_hud != null:
 		_combo_hud.reset_visuals()
+	if _combo_board_fx != null:
+		_combo_board_fx.reset_visuals()
 
 
 func _try_update_stage_high_score() -> void:
@@ -3976,28 +5465,59 @@ func _try_update_stage_high_score() -> void:
 
 ## Every correct mark — player, compass, lantern, detector, inference — goes
 ## through here so the confirmation reads the same wherever it comes from.
+## 连击的落点表现也全挂在这里：音高、封印染色、盘外烟花，一处改处处一致。
 func _play_correct_flag_feedback(cell_index: int) -> void:
 	if cell_index < 0 or cell_index >= _cells.size():
 		return
 	var cell := _cells[cell_index]
 	# 只在「插上旗」时计分；撤旗也会进这个反馈函数，不能加连击。
-	if _board != null and _board.is_flagged(cell_index):
-		_register_mine_score_hit(cell_index)
-	_begin_combo_decay_hold()
-	_play_correct_flag_sfx()
+	var scored: bool = (
+		_board != null
+		and _board.is_flagged(cell_index)
+		and _register_mine_score_hit(cell_index)
+	)
+	# 撤旗重标同一格不再计分，表现也退回原来那发单色封印，别让它白蹭一束烟花。
+	var combo: int = _score_combo.combo if scored and _score_combo != null else 0
+	_play_correct_flag_sfx(combo)
 	cell.play_flag()
-	CELL_FX.play_flag_seal(_effects_layer, _cell_center(cell_index))
-	_end_combo_decay_hold()
+	CELL_FX.play_flag_seal(
+		_effects_layer,
+		_cell_center(cell_index),
+		ComboStyle.tier_color(combo) if combo > 0 else Color(1.0, 0.84, 0.42, 1.0),
+		ComboStyle.heat(combo)
+	)
 
 
-func _play_correct_flag_sfx() -> void:
+## 连击的棋盘反馈：盘外炸烟花，棋盘按热度回弹，里程碑再补一帧顿。
+## 只由 `_on_score_combo_hit` 一处调用——连击每 +1 就是一束，点击和认雷走同一条路，
+## 两边各喊一次就会一下点击炸两束。
+func _play_combo_board_hit(combo: int) -> void:
+	if combo <= 0:
+		return
+	var heat: float = ComboStyle.heat(combo)
+	if _combo_board_fx != null:
+		_combo_board_fx.play_hit(combo)
+		if ComboStyle.is_milestone(combo):
+			_combo_board_fx.play_milestone(combo)
+	# 只晃不缩放：连击是「确认」不是「撞击」，缩放会把格子的点击判定一起挪走。
+	# 这里刻意不给顿帧。里程碑是每 5 连一次，而现在点一下就 +1——
+	# 顿帧会变成每五次点击卡一下，越连越卡。升调、烟花和抖动已经够撑起递进了。
+	_play_board_shake(
+		COMBO_SHAKE_BASE + COMBO_SHAKE_HEAT_GAIN * heat, Vector2.ZERO, COMBO_SHAKE_STEPS
+	)
+
+
+## 确认音跟着连击往上爬半音阶，爬满一个八度封顶。连击真正的节奏感八成来自这条，
+## 视觉再足也替代不了；断连时连击归零，音高自然落回起点。
+func _play_correct_flag_sfx(combo: int = 0) -> void:
 	if _correct_flag_sfx == null or _correct_flag_sfx.stream == null:
 		return
 	# Correct marks can arrive in quick inference batches, so keep each
 	# confirmation voice independent instead of cutting the previous one off.
 	var voice := AudioStreamPlayer.new()
 	voice.stream = _correct_flag_sfx.stream
-	voice.volume_db = _correct_flag_sfx.volume_db
+	voice.volume_db = _correct_flag_sfx.volume_db + ComboStyle.gain_db_for(combo)
+	voice.pitch_scale = ComboStyle.pitch_for(combo)
 	voice.bus = _correct_flag_sfx.bus
 	add_child(voice)
 	voice.play()
@@ -4005,7 +5525,9 @@ func _play_correct_flag_sfx() -> void:
 
 
 func _release_correct_flag_sfx_voice(voice: AudioStreamPlayer) -> void:
-	await get_tree().create_timer(maxf(voice.stream.get_length(), 0.1) + 0.05).timeout
+	# 升调同时把时长压短了，回收窗口要跟着除掉，长连击才不会挂一串播完的空 voice。
+	var length := voice.stream.get_length() / maxf(voice.pitch_scale, 0.01)
+	await get_tree().create_timer(maxf(length, 0.1) + 0.05).timeout
 	if is_instance_valid(voice):
 		voice.queue_free()
 
@@ -4541,8 +6063,14 @@ func _fly_eg_small_over_cell(index: int) -> void:
 	flyer.queue_free()
 
 
+## 红隼模式把外围的鸟收到屏外，只留红隼自己独占这一刻。两个例外：
+## 红隼是主角，长尾山雀要留在枝上——模式里那一次左键仍可能翻出巨大，它得等着摔下来。
+## 其余七只一律收走；新加的鸟别忘了挂进来，漏一只就是它孤零零留在原地。
 func _super_luck_other_birds() -> Array[BirdPerch]:
-	return [_blue_bird, _red_bird, _black_bird, _attacker_bird]
+	return [
+		_blue_bird, _red_bird, _black_bird, _attacker_bird,
+		_magpie_bird, _crow_bird, _dove_bird,
+	]
 
 
 func _enter_super_luck_mode(click_count: int = SUPER_LUCK_CLICKS_PER_ITEM) -> void:
@@ -4833,6 +6361,7 @@ func _finish_game() -> void:
 		return
 	_game_finish_started = true
 	_enlarge_click_invincible = false
+	_end_guided_tutorial()
 	if _tutorial_skip_button != null:
 		_tutorial_skip_button.set_available(false)
 	if _regular_skip_control != null:
@@ -4891,7 +6420,7 @@ func _finish_game() -> void:
 		_board.won = false
 		_status_label.text = "生命归零，旅程结束。"
 		_status_label.add_theme_color_override("font_color", COLOR_DANGER)
-	elif _board.won:
+	elif _round_is_won():
 		_status_label.text = "雷区清理完成！\n干得漂亮。"
 		_status_label.add_theme_color_override("font_color", COLOR_SUCCESS)
 		_mine_label.text = "000"
@@ -4903,7 +6432,46 @@ func _finish_game() -> void:
 		_finish_duel_round()
 		return
 	await get_tree().create_timer(0.55).timeout
-	if _player_hp <= 0 or not _board.won:
+	if _is_custom():
+		# 自定义局不进解锁演出。赢了且关卡包还有下一张图，就照单机那套走账单 → 商店 →
+		# 下一张；否则（打完最后一张，或者输了）弹结果卡：再来一局／返回编辑／回标题。
+		var custom_won := _board.won and _player_hp > 0
+		var custom_total := CustomLevel.map_count(_custom_level)
+		if custom_won and _custom_map_index < custom_total - 1:
+			var custom_flagged := _correctly_flagged_mines()
+			_cash_out_active_combo()
+			var custom_seconds := int(_elapsed)
+			var custom_time_bonus := _award_time_bonus()
+			if not _gold_rewarded_this_run:
+				_gold += custom_flagged + _night_master_fish_count + LEVEL_CLEAR_GOLD
+				_gold_rewarded_this_run = true
+				_refresh_gold_display()
+			await _level_bill.present(
+				_custom_map_index + 1,
+				custom_flagged,
+				_night_master_fish_count,
+				_combo_bonus_gold,
+				LEVEL_CLEAR_GOLD,
+				_gold,
+				custom_seconds,
+				custom_time_bonus,
+				0,
+				0,
+				false
+			)
+			_custom_map_index += 1
+			_show_shop()
+			return
+		if _custom_editor != null:
+			_custom_editor.present_result(
+				custom_won,
+				_correctly_flagged_mines(),
+				_board.mine_count,
+				_custom_map_index + 1,
+				custom_total
+			)
+		return
+	if _player_hp <= 0 or not _round_is_won():
 		_game_over_overlay.present(_run_number)
 		return
 	await _victory_banner.present(_run_number)
@@ -4935,16 +6503,58 @@ func _finish_game() -> void:
 		await _kestrel_unlock.present()
 		_start_game()
 		return
+	if _run_number == TUTORIAL_LEVEL_COUNT - 3:
+		# 第 5 盘：送长尾山雀。它的道具每关默认自带一张，所以不再另加强化。
+		_tit_bird_unlocked = true
+		_apply_bird_unlock_visibility()
+		await _tit_unlock.present()
+		_start_game()
+		return
+	if _run_number == TUTORIAL_LEVEL_COUNT - 2:
+		# 第 6 盘：送灰喜鹊。它接手连携，靠棋盘上现成的连携雷组干活，不用另加强化。
+		_magpie_bird_unlocked = true
+		_apply_bird_unlock_visibility()
+		await _magpie_unlock.present()
+		_start_game()
+		return
+	if _run_number == TUTORIAL_LEVEL_COUNT - 1:
+		# 第 7 盘：送小嘴乌鸦。它接手透视，每关默认自带一张，所以不再另加强化。
+		_crow_bird_unlocked = true
+		_apply_bird_unlock_visibility()
+		await _crow_unlock.present()
+		_start_game()
+		return
+	if _run_number == TUTORIAL_LEVEL_COUNT:
+		# 教学收尾：送斑鸠。它接手治愈，每关默认自带一张，所以不再另加强化；
+		# 演出完照常走账单 / 通关流程，这一盘也是教学关的最后一盘。
+		_dove_bird_unlocked = true
+		_apply_bird_unlock_visibility()
+		await _dove_unlock.present()
 	var flagged_mines := _correctly_flagged_mines()
 	_cash_out_active_combo()
+	_bank_endless_round()
+	var seconds_used := int(_elapsed)
+	# 无尽关的账单印排雷那一行，用时奖励在那边恒为 0（口径在 ScoreComboTracker）。
+	var mine_tally := _endless_board_mine_points() if _is_endless_stage() else [0, 0]
+	var time_bonus := _award_time_bonus()
 	if not _gold_rewarded_this_run:
-		_gold += flagged_mines + _night_master_fish_count
+		_gold += flagged_mines + _night_master_fish_count + LEVEL_CLEAR_GOLD
 		_gold_rewarded_this_run = true
 		_refresh_gold_display()
 	_resume_level = _run_number + 1
 	_save_progress()
 	await _level_bill.present(
-		_run_number, flagged_mines, _night_master_fish_count, _combo_bonus_gold, _gold
+		_run_number,
+		flagged_mines,
+		_night_master_fish_count,
+		_combo_bonus_gold,
+		LEVEL_CLEAR_GOLD,
+		_gold,
+		seconds_used,
+		time_bonus,
+		int(mine_tally[0]),
+		int(mine_tally[1]),
+		_is_endless_stage()
 	)
 	# 到点叫停：本关打满目标盘数就是通关，不再进商店、不再往下发盘，回世界地图
 	# （FEAT-002 共识 1）。没打满则照旧走商店 → 下一盘。
@@ -4968,8 +6578,10 @@ func _play_music_break() -> void:
 	_bgm_player.stream_paused = false
 
 
+## 这一盘标对的雷数。开过奖励盘时，旧盘那几笔存在 `_banked_flagged_mines` 里，
+## 这里要一并算上——`_board` 已经换成奖励盘了，只数它会把之前的战果抹掉。
 func _correctly_flagged_mines() -> int:
-	var total := 0
+	var total := _banked_flagged_mines
 	for index in range(_board.width * _board.height):
 		if _board.is_monster_core(index) and _board.state_at(index) == MinesweeperBoard.CellState.FLAGGED:
 			total += 1
@@ -4977,9 +6589,13 @@ func _correctly_flagged_mines() -> int:
 
 
 func _show_shop() -> void:
-	var result_template := "第 %d 局清扫完成" if _board.won else "第 %d 局遭遇地雷"
+	var result_template := "第 %d 局清扫完成" if _round_is_won() else "第 %d 局遭遇地雷"
 	var result := result_template % _run_number
-	var progress := "夜鹭 %d（随机 %d）｜红尾水鸲 %d（标记 %d）｜啄木鸟 %d（%s）｜红隼 %d（无敌 %d）｜透视 %d｜连携 %d｜变大 %d｜回血 +%d｜生命上限 %d" % [
+	if _is_custom():
+		# 自定义包里"第几局"该按包内图序说，`_run_number` 是全局盘序，玩家看不懂。
+		var custom_template := "第 %d 张清扫完成" if _board.won else "第 %d 张遭遇地雷"
+		result = custom_template % _custom_map_index
+	var progress := "夜鹭 %d（随机 %d）｜红尾水鸲 %d（标记 %d）｜啄木鸟 %d（%s）｜红隼 %d（无敌 %d）｜小嘴乌鸦 %d｜灰喜鹊 %d｜长尾山雀 %d｜回血 +%d｜生命上限 %d" % [
 		_lantern_bonus,
 		1 + _lantern_target_bonus,
 		_compass_bonus,
@@ -4994,11 +6610,17 @@ func _show_shop() -> void:
 		1 + _healing_power_bonus,
 		_player_max_hp,
 	]
+	_sync_shop_offer_limits()
+	_pending_slot_offer = -1
+	_sync_shop_slots()
+	_shop_layer.set_offer_prices(_offer_price_table())
 	_shop_layer.present(result, progress, _gold, SHOP_ITEM_COST)
 
 
 func _return_to_main_menu() -> void:
 	_leave_duel()
+	if _custom_editor != null:
+		_custom_editor.dismiss()
 	# This path is also available during an active normal level. Invalidate every
 	# non-blocking gameplay presentation before rebuilding the title screen, so
 	# a late flyover or queued bird callback cannot touch the discarded board.
@@ -5034,12 +6656,15 @@ func _return_to_main_menu() -> void:
 		_night_master_fish_guide_banner.hide_immediately()
 	if _stage_progress_banner != null:
 		_stage_progress_banner.hide_immediately()
+	if _round_intro_banner != null:
+		_round_intro_banner.hide_immediately()
 	if _leaderboard_panel != null:
 		_leaderboard_panel.hide_immediately()
 	if _tutorial_skip_button != null:
 		_tutorial_skip_button.set_available(false)
 	if _tutorial_guide != null:
 		_tutorial_guide.visible = false
+	_end_guided_tutorial()
 	if _regular_skip_control != null:
 		_regular_skip_control.set_available(false)
 	_victory_banner.visible = false
@@ -5049,6 +6674,7 @@ func _return_to_main_menu() -> void:
 	_redstart_unlock.visible = false
 	_attacker_unlock.visible = false
 	_kestrel_unlock.visible = false
+	_tit_unlock.visible = false
 	for child in _grid.get_children():
 		child.queue_free()
 	_cells.clear()
@@ -5063,6 +6689,7 @@ func _return_to_main_menu() -> void:
 		for entry in AchievementCatalogData.ENTRIES:
 			_achievements_screen.set_unlocked(str(entry["id"]), false)
 	_music_break_played = false
+	_intro_played = false
 	_load_saved_progress()
 	_apply_bird_unlock_visibility()
 	if _start_screen == null:
@@ -5072,11 +6699,28 @@ func _return_to_main_menu() -> void:
 		_refresh_achievement_banner()
 
 
+## 盘外的那几笔账：推图战绩、每关最高分、无尽记录、上榜昵称、续局槽。它们活得比一
+## 轮长，所以 [method _reset_run_state] 故意不碰——但「盘上没有存档」必须等于「这几笔账
+## 也是空的」，否则「清除存档」删完文件，内存里的战绩还在，下一次落盘又把它们原样写
+## 回来，地图上的 ✓ 和「继续游戏」一个都没少。
+func _reset_persistent_progress() -> void:
+	_cleared_stages.clear()
+	_stage_high_scores.clear()
+	_endless_best_round = 0
+	_leaderboard_name = ""
+	_resume_stage_id = ""
+	_resume_level = 1
+	_run_number = 0
+	_stage_round = 0
+	_music_break_played = false
+	_intro_played = false
+
+
 ## 把一局的全部 run 级状态推回起点。回标题页与"进一个全新的关卡"共用这一段——
 ## 关卡的定义就是"一整局从头开始的肉鸽"（FEAT-002 共识 1），两者要清的东西完全一样。
 ##
-## 刻意**不动**的三样：成就（跨关卡）、`_cleared_stages`（推图战绩）、
-## `_music_break_played`（已落盘，清了就会每关重放插播）。
+## 刻意**不动**的四样：成就（跨关卡）、`_cleared_stages`（推图战绩）、
+## `_music_break_played`（已落盘，清了就会每关重放插播）、`_endless_best_round`（无尽关记录）。
 func _reset_run_state() -> void:
 	_player_max_hp = PLAYER_START_MAX_HP
 	_player_hp = PLAYER_START_MAX_HP
@@ -5088,17 +6732,28 @@ func _reset_run_state() -> void:
 	_woodpecker_demo_index = -1
 	_kestrel_demo_pending = false
 	_kestrel_demo_index = -1
+	_tit_demo_pending = false
+	_tit_demo_index = -1
+	_crow_demo_pending = false
+	_crow_demo_index = -1
+	_dove_demo_pending = false
+	_dove_demo_index = -1
 	_run_number = 0
 	_resume_level = 1
 	_stage_id = ""
 	_stage_target_round = 0
 	_stage_round = 0
+	_custom_level = {}
 	_run_seed = 0
 	_blue_bird_unlocked = true
 	_red_bird_unlocked = false
 	_night_heron_unlocked = false
 	_attacker_bird_unlocked = false
 	_lucky_bird_unlocked = false
+	_tit_bird_unlocked = false
+	_magpie_bird_unlocked = false
+	_crow_bird_unlocked = false
+	_dove_bird_unlocked = false
 	_lantern_bonus = 0
 	_compass_bonus = 0
 	_orbital_strike_bonus = 0
@@ -5107,19 +6762,23 @@ func _reset_run_state() -> void:
 	_healing_power_bonus = 0
 	_super_luck_click_bonus = 0
 	_orbital_cross_unlocked = false
+	_offer_purchase_counts.clear()
+	_reset_endless_slots()
 	_shop_layer.set_offer_owned(ShopOffer.ORBITAL_CROSS, false)
 	_lantern_target_bonus = 0
 	_compass_mark_bonus = 0
 	_xray_bonus = 0
 	_chain_bonus = 0
 	_enlarge_bonus = 0
+	_sync_shop_offer_limits()
+	_shop_layer.set_offer_prices(_offer_price_table())
 	_enlarge_click_invincible = false
 	_game_finish_started = false
 	_started = false
 	_resolving = false
 	_reset_score_combo_run()
 	_refresh_health_bar()
-	for bird in [_blue_bird, _red_bird, _black_bird, _attacker_bird, _eg_bird]:
+	for bird in [_blue_bird, _red_bird, _black_bird, _attacker_bird, _eg_bird, _tit_bird, _magpie_bird, _crow_bird, _dove_bird]:
 		bird.reset_to_idle()
 	_apply_bird_unlock_visibility()
 	_refresh_gold_display()
@@ -5228,6 +6887,25 @@ func _is_stage_run() -> bool:
 	return _stage_id != ""
 
 
+## 当前在打的是无尽关（第 7 关）：盘随机、越打越难、没有目标盘数，只有血量归零才收场。
+func _is_endless_stage() -> bool:
+	return _is_stage_run() and StageTable.is_endless(_stage_id)
+
+
+## 无尽关打赢一盘：刷新「最远第几盘」。只记打赢的盘，死在哪一盘不算；紧随其后的
+## `_save_progress()` 会把它落盘。
+func _bank_endless_round() -> void:
+	if not _is_endless_stage():
+		return
+	if _stage_round > _endless_best_round:
+		_endless_best_round = _stage_round
+
+
+## 陈列柜要显示的「最远第几盘」：目前只有无尽关有这项记录。
+func _best_rounds_for_map() -> Dictionary:
+	return {StageTable.ENDLESS_STAGE_ID: _endless_best_round}
+
+
 func _leaderboard_blocks_stage_entry() -> bool:
 	return _leaderboard_panel != null and _leaderboard_panel.visible
 
@@ -5235,6 +6913,9 @@ func _leaderboard_blocks_stage_entry() -> bool:
 ## 「到点叫停」的判据单独成一个谓词，好让测试直接在边界值上打它——胜利结算那条路径有
 ## 一长串 await，靠真打完一整关来验证这一条既慢又脆。
 func _stage_complete() -> bool:
+	# 无尽关没有目标盘数，永远打不「满」：只有血量归零才收场。
+	if _is_endless_stage():
+		return false
 	return _is_stage_run() and _stage_round >= _stage_target_round
 
 
@@ -5243,11 +6924,11 @@ func _stage_complete() -> bool:
 func _build_world_map() -> void:
 	if _world_map != null:
 		return
-	var scene := load("res://scenes/world_map.tscn") as PackedScene
+	var scene := load("res://scenes/stage_cabinet.tscn") as PackedScene
 	if scene == null:
-		push_warning("世界地图场景缺失，无法选关")
+		push_warning("陈列柜场景缺失，无法选关")
 		return
-	_world_map = scene.instantiate() as WorldMap
+	_world_map = scene.instantiate() as StageCabinet
 	add_child(_world_map)
 	_world_map.stage_selected.connect(_on_world_map_stage_selected)
 	_world_map.title_requested.connect(_on_world_map_title_requested)
@@ -5267,6 +6948,7 @@ const SCENERY_ALWAYS_HIDDEN := [
 const SCENERY_PLAY_NODES := [
 	"Background", "SideFoliageLeft", "SideFoliageRight", "CentralTreeBackground",
 	"BlueBirdPerch", "RedBirdPerch", "BlackBirdPerch", "AttackerBirdPerch", "EgBirdPerch",
+	"TitBirdPerch", "MagpieBirdPerch", "CrowBirdPerch", "DoveBirdPerch",
 ]
 
 
@@ -5293,7 +6975,7 @@ func _show_world_map() -> void:
 	_hide_board_interface()
 	_set_scenery_visible(false)
 	_shop_layer.visible = false
-	_world_map.present(_cleared_stages, _resume_stage_id, _stage_round + 1, _stage_high_scores)
+	_world_map.present(_cleared_stages, _resume_stage_id, _stage_round + 1, _stage_high_scores, _best_rounds_for_map())
 
 
 func _hide_world_map() -> void:
@@ -5323,7 +7005,7 @@ func _on_world_map_abandon_requested() -> void:
 	_reset_run_state()
 	_save_progress()
 	if _world_map != null:
-		_world_map.present(_cleared_stages, _resume_stage_id, 0, _stage_high_scores)
+		_world_map.present(_cleared_stages, _resume_stage_id, 0, _stage_high_scores, _best_rounds_for_map())
 
 
 ## 进入一个关卡。`resume` 为真时沿用已经读进内存的血量/金币/强化，从上次那一盘的开头
@@ -5346,16 +7028,19 @@ func _enter_stage(stage_id: String, resume: bool) -> void:
 		# `_start_game` 会把两者加回去，于是重建的正是离开时那一盘的开头。
 		_stage_id = stage_id
 		_stage_target_round = int(stage["target_round"])
+		# 鸟窝是数值位的唯一真相：续无尽关时以存档里的窝为准重算一遍。
+		_sync_bonuses_from_slots()
 	_resume_stage_id = stage_id
+	_apply_score_mode()
 	_start_game()
 
 
 ## 关卡的起手状态。血量/金币走单机常量——每关起跑线完全相同，唯一变量是目标盘数
 ## （FEAT-002 共识 1），所以这里没有任何按关卡取值的数值。
 ##
-## 关键分歧在教程：只有第一关带那 4 盘教学（`teaches`），其余关卡从
-## `TUTORIAL_LEVEL_COUNT` 起跳过教学段。跳过就拿不到教学那 4 段解锁演出送的鸟和强化
-## （main.gd 的胜利分支里 `_run_number == 1..4` 各送一只鸟 + 1 点对应强化），所以必须
+## 关键分歧在教程：只有第一关带那 8 盘教学（`teaches`），其余关卡从
+## `TUTORIAL_LEVEL_COUNT` 起跳过教学段。跳过就拿不到教学那 8 段解锁演出送的鸟和强化
+## （main.gd 的胜利分支里 `_run_number == 1..8` 各送一只鸟，前四只还各带 1 点对应强化），所以必须
 ## 在这里补发——不补的话整关只有蓝鸟可用。这一条沿用 `_prepare_duel_run()` 的先例。
 func _prepare_stage_run(stage: Dictionary) -> void:
 	_stage_id = String(stage["id"])
@@ -5370,10 +7055,19 @@ func _prepare_stage_run(stage: Dictionary) -> void:
 	_night_heron_unlocked = true
 	_attacker_bird_unlocked = true
 	_lucky_bird_unlocked = true
+	_tit_bird_unlocked = true
+	_magpie_bird_unlocked = true
+	_crow_bird_unlocked = true
+	_dove_bird_unlocked = true
 	_lantern_bonus = 1
 	_compass_bonus = 1
 	_orbital_strike_bonus = 1
 	_super_luck_bonus = 1
+	# 无尽关：这四只直接住进鸟窝，往后的增减一律经由窝。
+	if _is_slot_shop():
+		_seed_endless_slots()
+		if endless_debug_loadout:
+			_apply_endless_debug_loadout()
 	_apply_bird_unlock_visibility()
 	_refresh_health_bar()
 	_refresh_gold_display()
@@ -5416,7 +7110,14 @@ func _on_stage_cleared() -> void:
 ## 从关卡里退回地图。棋盘和一切在飞的演出都要收干净。
 ## 中途暂离（未死）时 run 数值与续局槽由调用方保留；血量归零则在 `_on_game_over_return` 里先清槽。
 func _return_to_world_map() -> void:
+	_clear_board_presentation()
+	_show_world_map()
+
+
+## 拆掉棋盘和一切在飞的演出，但不决定下一步去哪——回地图和回自定义编辑器共用。
+func _clear_board_presentation() -> void:
 	_run_boot_generation += 1
+	_close_bonus_board(true)
 	_hitstop_generation += 1
 	Engine.time_scale = 1.0
 	_cancel_board_shake()
@@ -5447,6 +7148,8 @@ func _return_to_world_map() -> void:
 		_night_master_fish_guide_banner.hide_immediately()
 	if _stage_progress_banner != null:
 		_stage_progress_banner.hide_immediately()
+	if _round_intro_banner != null:
+		_round_intro_banner.hide_immediately()
 	# 通关榜还开着时不要掐掉，否则 hide_immediately 会把上榜判成跳过。
 	if _leaderboard_panel != null and not (_map_settle_lock and _leaderboard_panel.visible):
 		_leaderboard_panel.hide_immediately()
@@ -5454,6 +7157,7 @@ func _return_to_world_map() -> void:
 		_tutorial_skip_button.set_available(false)
 	if _tutorial_guide != null:
 		_tutorial_guide.visible = false
+	_end_guided_tutorial()
 	if _regular_skip_control != null:
 		_regular_skip_control.set_available(false)
 	_victory_banner.visible = false
@@ -5463,26 +7167,46 @@ func _return_to_world_map() -> void:
 	_redstart_unlock.visible = false
 	_attacker_unlock.visible = false
 	_kestrel_unlock.visible = false
+	_tit_unlock.visible = false
 	for child in _grid.get_children():
 		child.queue_free()
 	_cells.clear()
 	_started = false
 	_resolving = false
 	_game_finish_started = false
-	_show_world_map()
 
 
 ## 结算界面的「返回」：在关卡里就回地图，否则（对战/异常）回标题页。
 ## 血量归零算本局作废——清掉续局槽并复位 run，避免回地图后再点别的关还弹「放弃进度」。
 func _on_game_over_return() -> void:
 	if _is_stage_run():
+		# 无尽关只有倒下一种收场：这一局的累计分在这里上榜，和其他关通关时一样。
+		var fallen_endless := _is_endless_stage() and _player_hp <= 0
+		var fallen_stage := _stage_id
+		var fallen_round := _stage_round
+		var fallen_score := int(_score_combo.score) if _score_combo != null else 0
 		if _player_hp <= 0:
 			_resume_stage_id = ""
 			_reset_run_state()
 			_save_progress()
 		_return_to_world_map()
+		if fallen_endless:
+			await _present_endless_fall(fallen_stage, fallen_round, fallen_score)
 		return
 	_return_to_main_menu()
+
+
+## 无尽关倒下：弹和通关结算同一张阻塞榜页，标题改成「止步第 N 盘」。榜开着时结算锁挡住
+## 点穿进关，关掉后再放开，与 `_on_stage_cleared` 同一套收尾。
+func _present_endless_fall(stage_id: String, fallen_round: int, score: int) -> void:
+	var stage_name := String(StageTable.stage(stage_id).get("name", stage_id))
+	_map_settle_lock = true
+	await _present_clear_leaderboard(
+		stage_id, score, "「%s」止步第 %d 盘" % [stage_name, maxi(fallen_round, 1)]
+	)
+	# 吞掉关榜同一帧可能落到展品上的残留点击，再允许进关。
+	await get_tree().process_frame
+	_map_settle_lock = false
 
 
 func _on_world_map_leaderboard_requested(stage_id: String) -> void:
@@ -5492,19 +7216,24 @@ func _on_world_map_leaderboard_requested(stage_id: String) -> void:
 func _on_world_map_all_leaderboards_requested() -> void:
 	if _leaderboard_panel == null:
 		return
+	_sync_leaderboard_local_context()
 	_leaderboard_panel.present_all()
 
 
 ## 通关后弹出阻塞式排行页：中间是榜（可能仍在加载）；可随时跳过，加载完才能上榜。
-func _present_clear_leaderboard(stage_id: String, score: int) -> void:
+## `title` 非空时换掉「通关结算」标题（无尽关倒下时用）。
+func _present_clear_leaderboard(stage_id: String, score: int, title: String = "") -> void:
 	if stage_id == "" or _is_duel() or _leaderboard_panel == null:
 		return
 	if not StageTable.has_stage(stage_id):
 		return
+	# 教学关通关不弹结算榜：第一次打通的人正要去看地图，不该先被一张「上榜吗」拦一道。
+	if not StageTable.has_leaderboard(stage_id):
+		return
 	var stage := StageTable.stage(stage_id)
 	var stage_name := String(stage.get("name", stage_id))
 	var result: Dictionary = await _leaderboard_panel.present_after_clear(
-		stage_id, stage_name, score, _leaderboard_name
+		stage_id, stage_name, score, _leaderboard_name, title
 	)
 	var player_name := LeaderboardApiScript.normalize_name(String(result.get("name", "")))
 	if player_name != "":
@@ -5515,11 +7244,30 @@ func _present_clear_leaderboard(stage_id: String, score: int) -> void:
 		_status_label.text = "上榜成功：%s · 第 %d 名" % [player_name, rank]
 
 
+## 浏览页的「上传我的最高分」拿的就是这份本地记录，所以每次开榜前都要灌一次新的。
+func _sync_leaderboard_local_context() -> void:
+	if _leaderboard_panel == null:
+		return
+	_leaderboard_panel.set_local_context(_stage_high_scores, _leaderboard_name)
+
+
+## 在浏览页里补传成功：把用过的昵称记进存档，下次预填就是它。
+func _on_leaderboard_name_remembered(player_name: String) -> void:
+	var cleaned := LeaderboardApiScript.normalize_name(player_name)
+	if cleaned == "" or cleaned == _leaderboard_name:
+		return
+	_leaderboard_name = cleaned
+	_save_progress()
+
+
 func _open_stage_leaderboard(stage_id: String, stage_name: String = "") -> void:
 	if _leaderboard_panel == null or not StageTable.has_stage(stage_id):
 		return
+	if not StageTable.has_leaderboard(stage_id):
+		return
 	if stage_name == "":
 		stage_name = String(StageTable.stage(stage_id).get("name", stage_id))
+	_sync_leaderboard_local_context()
 	_leaderboard_panel.present(stage_id, stage_name)
 
 
@@ -5688,11 +7436,17 @@ func _prepare_duel_run() -> void:
 	_player_max_hp = DuelConfig.START_HP
 	_player_hp = DuelConfig.START_HP
 	_gold = DuelConfig.START_GOLD
+	# 对战自带一套经济：涨价次数不从上一局单机带过来，中场商店从基础价开卖。
+	_offer_purchase_counts.clear()
 	_blue_bird_unlocked = true
 	_red_bird_unlocked = true
 	_night_heron_unlocked = true
 	_attacker_bird_unlocked = true
 	_lucky_bird_unlocked = true
+	_tit_bird_unlocked = true
+	_magpie_bird_unlocked = true
+	_crow_bird_unlocked = true
+	_dove_bird_unlocked = true
 	_run_number = TUTORIAL_LEVEL_COUNT
 	# 单机的换歌插播落在第 9 关，对战打到那一轮时不该被它打断。
 	_music_break_played = true
@@ -5774,7 +7528,7 @@ func _try_settle_duel_damage() -> void:
 		return
 	if _resolving or _super_luck_mode_active or _super_luck_settling:
 		return
-	if not _chain_anchors.is_empty():
+	if _chain_flush_active:
 		return
 	var amount := _duel_pending_damage
 	_duel_pending_damage = 0
@@ -5840,6 +7594,8 @@ func _on_duel_round_frozen(self_cleared: bool) -> void:
 func _open_duel_intermission() -> void:
 	_duel_hud.set_frozen(false, "", "")
 	_duel.enter_intermission()
+	_sync_shop_offer_limits()
+	_shop_layer.set_offer_prices(_offer_price_table())
 	_shop_layer.present_full(_gold, SHOP_ITEM_COST)
 	_shop_layer.set_duel_round_result(
 		"第 %d 轮 — %s" % [_duel.round_index, "你率先清盘" if _duel_self_cleared else "对手率先清盘"]
@@ -5885,3 +7641,203 @@ func _leave_duel() -> void:
 	if _shop_layer != null:
 		_shop_layer.exit_duel_mode()
 	_duel.leave()
+
+
+## ---- 自定义模式（CustomLevel）----
+## 玩家自己画地图、配道具的一局。和对战一样不写存档、不进商店、不算关卡战绩；
+## 打完弹结果卡，能原配置重开、回编辑器改了再开、或回标题。
+
+func _is_custom() -> bool:
+	return not _custom_level.is_empty()
+
+
+func _build_custom_editor() -> void:
+	if _custom_editor != null:
+		return
+	_custom_editor = CustomLevelEditorScript.new()
+	_custom_editor.name = "CustomLevelEditor"
+	add_child(_custom_editor)
+	_custom_editor.play_requested.connect(_on_custom_play_requested)
+	_custom_editor.back_requested.connect(_on_custom_back_requested)
+	_custom_editor.replay_requested.connect(_on_custom_replay_requested)
+	_custom_editor.edit_requested.connect(_return_to_custom_editor)
+	_custom_editor.exit_requested.connect(_return_to_main_menu)
+	_custom_editor.publish_requested.connect(_on_custom_publish_requested)
+
+
+## 标题页点「自定义」：拆菜单、亮编辑器。编辑器懒建，标题页不为它付启动成本。
+func _on_custom_requested() -> void:
+	if _is_duel():
+		return
+	_build_custom_editor()
+	if _start_screen != null:
+		var screen := _start_screen
+		_start_screen = null
+		var parent := screen.get_parent()
+		if is_instance_valid(parent):
+			parent.queue_free()
+	_hide_board_interface()
+	_custom_editor.present()
+
+
+func _on_custom_back_requested() -> void:
+	_return_to_main_menu()
+
+
+func _on_custom_play_requested(level: Dictionary) -> void:
+	if not CustomLevel.is_valid(level):
+		push_warning("自定义关卡配置不合法，拒绝开局")
+		return
+	# 进了自定义模式就一定要有编辑器：结算时的结果卡、「返回编辑」都挂在它身上。
+	# 从工坊直接开局这条路不经过标题页的自定义按钮，所以这里补一次建。
+	_build_custom_editor()
+	_run_boot_generation += 1
+	_reset_run_state()
+	_custom_level = level.duplicate(true)
+	_custom_map_index = 0
+	_prepare_custom_run()
+	if _custom_editor != null:
+		_custom_editor.dismiss()
+	_start_game()
+
+
+## 结果卡上的「再来一局」：同一个关卡包从第一张图重来，金币/血量/商店加成一并清干净。
+## 不清的话上一局的残留会带进新一轮，多图包尤其明显（第二轮开局就带着上一轮买的东西）。
+func _on_custom_replay_requested() -> void:
+	if not _is_custom():
+		return
+	var pack: Dictionary = _custom_level.duplicate(true)
+	if _custom_editor != null:
+		_custom_editor.dismiss()
+	_run_boot_generation += 1
+	_reset_run_state()
+	_custom_level = pack
+	_custom_map_index = 0
+	_prepare_custom_run()
+	_start_game()
+
+
+## 自定义局的起手状态：五只鸟全开（道具要靠鸟演出），盘序从教学段之后起跳，
+## 免得踩到第 1～4 盘的教学钩子；换歌插播也不该打断。
+func _prepare_custom_run() -> void:
+	_run_number = TUTORIAL_LEVEL_COUNT
+	_blue_bird_unlocked = true
+	_red_bird_unlocked = true
+	_night_heron_unlocked = true
+	_attacker_bird_unlocked = true
+	_lucky_bird_unlocked = true
+	_tit_bird_unlocked = true
+	_magpie_bird_unlocked = true
+	_crow_bird_unlocked = true
+	_dove_bird_unlocked = true
+	# 九种初始道具全部铺进 `*_bonus`：开盘时直接拿这批数当"这张图上埋几张牌"，
+	# 商店买到的加成叠在同一批变量上，于是后面几张图能吃到玩家买的东西。
+	_lantern_bonus = CustomLevel.item_count(_custom_level, "lantern")
+	_compass_bonus = CustomLevel.item_count(_custom_level, "compass")
+	_orbital_strike_bonus = CustomLevel.item_count(_custom_level, "orbital_strike")
+	_super_luck_bonus = CustomLevel.item_count(_custom_level, "super_luck")
+	_medical_kit_bonus = CustomLevel.item_count(_custom_level, "medical_kit")
+	_xray_bonus = CustomLevel.item_count(_custom_level, "xray")
+	_chain_bonus = CustomLevel.item_count(_custom_level, "chain")
+	_enlarge_bonus = CustomLevel.item_count(_custom_level, "enlarge")
+	_music_break_played = true
+	_apply_bird_unlock_visibility()
+	_refresh_health_bar()
+	_refresh_gold_display()
+
+
+## ---- 创意工坊 ----
+## 总开关在 `WorkshopApi.ENABLED`。关着的时候标题页不长按钮、编辑器不显示发布，
+## 这里的函数也就没人调得到，整套功能对玩家不存在。
+
+func _workshop_request_node() -> HTTPRequest:
+	if _workshop_http == null or not is_instance_valid(_workshop_http):
+		_workshop_http = HTTPRequest.new()
+		_workshop_http.name = "WorkshopHttp"
+		_workshop_http.timeout = WorkshopApi.REQUEST_TIMEOUT_SEC
+		add_child(_workshop_http)
+	return _workshop_http
+
+
+func _on_custom_publish_requested(pack: Dictionary, author: String) -> void:
+	if not WorkshopApi.ENABLED:
+		return
+	var result := await WorkshopApi.publish(
+		_workshop_request_node(), String(pack.get("name", "")), author, _workshop_payload(pack)
+	)
+	if _custom_editor == null:
+		return
+	if bool(result.get("ok", false)):
+		_custom_editor.set_publish_status("已发布到创意工坊。", true)
+		return
+	_custom_editor.set_publish_status("发布失败：" + _workshop_error_text(result), false)
+
+
+## 关卡包在网络上走的是 JSON 文本那套（mask 写成 0/1 二维数组），和导出的文件同构，
+## 这样服务端存下来的东西可以直接丢回 `CustomLevel.from_json` 读。
+func _workshop_payload(pack: Dictionary) -> Dictionary:
+	var parsed = JSON.parse_string(CustomLevel.to_json(pack))
+	return parsed as Dictionary if parsed is Dictionary else {}
+
+
+func _workshop_error_text(result: Dictionary) -> String:
+	var error := String(result.get("error", ""))
+	if error == "http_result" or error == "request_failed":
+		return "连不上工坊服务器"
+	if error == "bad_pack":
+		return "关卡包不合法（%s）" % String(result.get("detail", ""))
+	if error == "bad_name":
+		return "名称不能为空"
+	return error if not error.is_empty() else "未知错误"
+
+
+func _build_workshop_panel() -> void:
+	if _workshop_panel != null:
+		return
+	_workshop_panel = WorkshopPanelScript.new()
+	_workshop_panel.name = "WorkshopPanel"
+	add_child(_workshop_panel)
+	_workshop_panel.play_requested.connect(_on_workshop_play_requested)
+	_workshop_panel.closed.connect(_on_workshop_closed)
+
+
+func _on_workshop_requested() -> void:
+	if not WorkshopApi.ENABLED or _is_duel():
+		return
+	_build_workshop_panel()
+	_workshop_panel.present()
+
+
+## 从工坊下载的包直接开局；打完走的还是自定义那条路，结果卡上的「返回编辑」会把它
+## 装进编辑器，玩家可以在别人的图上接着改。
+func _on_workshop_play_requested(pack: Dictionary, id: String) -> void:
+	if not CustomLevel.is_valid(pack):
+		return
+	_build_custom_editor()
+	_custom_editor.load_level(pack)
+	if _start_screen != null:
+		var screen := _start_screen
+		_start_screen = null
+		var parent := screen.get_parent()
+		if is_instance_valid(parent):
+			parent.queue_free()
+	if not id.is_empty():
+		WorkshopApi.mark_play(_workshop_request_node(), id)
+	_on_custom_play_requested(pack)
+
+
+func _on_workshop_closed() -> void:
+	if _start_screen == null and not _is_custom():
+		_return_to_main_menu()
+
+
+## 从自定义局退回编辑器：拆盘，配置留在编辑器里等着改。
+func _return_to_custom_editor() -> void:
+	if _custom_editor == null:
+		_return_to_main_menu()
+		return
+	_clear_board_presentation()
+	_hide_board_interface()
+	_custom_level = {}
+	_custom_map_index = 0
+	_custom_editor.present()

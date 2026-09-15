@@ -1,5 +1,5 @@
 extends SceneTree
-## 名单页上的五只鸟：直线飞、撞墙和撞同伴都要弹开，鼠标滑过要叫一声并炸出音符。
+## 名单页上的八只鸟：直线飞、撞墙和撞同伴都要弹开，鼠标滑过要叫一声并炸出音符。
 
 
 func _init() -> void:
@@ -27,10 +27,10 @@ func _run() -> void:
 			birds.append(child)
 		elif child is AudioStreamPlayer:
 			voices.append(child)
-	assert(birds.size() == 5, "Expected five birds, found %d" % birds.size())
-	assert(voices.size() == 5, "Expected one call per bird, found %d" % voices.size())
+	assert(birds.size() == 9, "Expected nine birds, found %d" % birds.size())
+	assert(voices.size() == 9, "Expected one call per bird, found %d" % voices.size())
 
-	# 一鸟一叫，五个音效不能重样。
+	# 一鸟一叫，九个音效不能重样。
 	var streams: Array[String] = []
 	for voice in voices:
 		assert(voice.stream != null, "%s has no call" % voice.name)
@@ -102,5 +102,5 @@ func _run() -> void:
 		notes.get_child_count() <= CreditsBirdSwarm.NOTE_LIMIT,
 		"Music notes blew past their cap: %d" % notes.get_child_count()
 	)
-	print("Credits bird swarm: five birds, bouncing, per-bird calls and note bursts passed")
+	print("Credits bird swarm: six birds, bouncing, per-bird calls and note bursts passed")
 	quit()

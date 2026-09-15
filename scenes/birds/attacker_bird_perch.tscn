@@ -23,18 +23,12 @@ idle_frames = Array[Texture2D]([ExtResource("3_idle1"), ExtResource("4_idle2"), 
 action_frames = Array[Texture2D]([ExtResource("7_fly"), ExtResource("8_zhuo")])
 click_enabled = false
 
-[node name="Tree" type="TextureRect" parent="." unique_id=1343849162]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -234.99998
-offset_top = 14.999992
-offset_right = 274.0
-offset_bottom = 255.0
-grow_horizontal = 2
-grow_vertical = 2
-rotation = -0.21211927
+[node name="Tree" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 96.3
+offset_top = 118.2
+offset_right = 449.8
+offset_bottom = 383.4
 mouse_filter = 2
 texture = ExtResource("2_tree")
 expand_mode = 1

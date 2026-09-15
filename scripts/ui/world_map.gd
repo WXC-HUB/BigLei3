@@ -20,12 +20,29 @@ signal easter_egg_triggered(achievement_id: String)
 
 ## 悬浮牌离地面的高度。建筑在关卡格上，牌子再抬一点免得扎进屋顶。
 const BADGE_LIFT := 1.62
-## 相机俯角。略侧俯，既能读出六边格顶面，也能看见格厚。
-const CAMERA_PITCH_DEG := -52.0
-## 正对地图，岛从左到右。
-const CAMERA_YAW_DEG := 0.0
-## 框定关卡时在算出的视距上再留边。
-const FIT_PADDING := 1.12
+## 相机俯角。陈列柜视角：比正俯视更侧一点，建筑立面和地格厚度都读得出来。
+const CAMERA_PITCH_DEG := -38.0
+## 正交投影：远近一样大，整张地图像一件摆在台面上的模型，是「干净」感的来源之一。
+## 视距仍沿用 _distance / _fit_distance_for_bounds 那套算法，换算成正交尺寸即可。
+const CAMERA_ORTHO := true
+## 注视点沿屏幕竖向上提一点（世界单位）：底部续局条会占掉一条，岛整体往上坐。
+## 只沿相机 up 轴挪，相机到 _pivot 的距离几乎不变，框定/拍照的视距算法不受影响。
+const FRAME_LOOK_LIFT := 0.45
+## 斜一个角看方格岛：岛的直边在屏幕上成对角线，是体素模型的标准摆法。
+## 关卡 1→6 仍从左到右读（yaw 只是把矩形转了个角）。
+const CAMERA_YAW_DEG := 10.0
+## 框定时在算出的视距上再留边：横向一点点，纵向多留——顶栏和续局条要占掉上下两条。
+## 体素岛按脚印（包围盒 + ISLAND_MARGIN）框，不按关卡包围盒。
+## 参考图里岛几乎顶满画框、房子约占画面高度的 8–10%，所以横向不留边、纵向只留一点。
+const FIT_PADDING := 1.04
+const FIT_PADDING_DEPTH := 1.08
+## 岛缘：关卡包围盒（含 FIT_MARGIN）再外扩这么多之外的地格/植被收起，让岛有边。
+## 用超椭圆判定，角是圆的；再加一点按地格哈希的抖动，边缘是自然的锯齿而不是一刀切。
+const ISLAND_MARGIN := Vector2(1.7, 1.4)
+const ISLAND_EDGE_POWER := 2.6
+const ISLAND_EDGE_JITTER := 0.45
+## 植被比地格再往里收一点，免得树冠悬在台面上方。
+const ISLAND_FLORA_INSET := 0.6
 ## 关卡包围盒外扩，吃进岸边六边格，把云雾留给屏幕外圈。
 const FIT_MARGIN := 2.4
 ## 关卡落点外描边：圆环，套在原木上。
@@ -35,8 +52,8 @@ const HEX_OUTLINE_Y := 0.42
 ## 关卡行进路径：地面色带，把 1→6 的前后关系画出来。
 const PATH_Y := 0.11
 const PATH_WIDTH := 0.16
-const PATH_OPEN := Color(0.78, 0.56, 0.28, 0.42)
-const PATH_LOCKED := Color(0.52, 0.38, 0.22, 0.22)
+const PATH_OPEN := Color(0.62, 0.55, 0.44, 0.55)
+const PATH_LOCKED := Color(0.62, 0.58, 0.52, 0.22)
 ## 悬停描边绕 Y 轴缓慢自转（弧度/秒）。
 const HEX_OUTLINE_SPIN_SPEED := 0.7
 ## 把关卡节点对齐到地格时，平面距离小于此值即视为同一格。
@@ -44,7 +61,7 @@ const TILE_BIND_EPSILON := 0.35
 ## 悬停时地格（及同格装饰）向上抬起的高度。
 const TILE_HOVER_LIFT := 0.30
 const TILE_HOVER_DURATION := 0.14
-const TILE_OUTLINE_DEFAULT := Color(1.0, 0.92, 0.55, 0.92)
+const TILE_OUTLINE_DEFAULT := Color(1.0, 0.98, 0.92, 0.95)
 ## 地面拾取兜底：点到地格中心多远内算悬停在这一格（KayKit 六边中心到顶点 ≈ 1）。
 const TILE_PICK_RADIUS := 1.05
 ## 地格碰撞层（bit1 = layer 2），专给地图悬停射线用，不跟别的物理搅在一起。
@@ -192,15 +209,140 @@ const MAP_BUFFET_PIGEONS := 3
 const MAP_HERON_BREAD_LOAVES := 5
 const Catalog := preload("res://scripts/game/achievement_catalog.gd")
 ## 飘云：几颗圆球叠成的小卡通云，从岛外一侧进、另一侧出。
-const DRIFT_CLOUD_COUNT := 9
+const DRIFT_CLOUD_COUNT := 5
 const DRIFT_CLOUD_MAX_SHADOWS := 8
 const CARTOON_CLOUD_SHADER := preload("res://shaders/cartoon_cloud.gdshader")
 
 const UI_LAYER := 60
-const PAPER := Color(0.973, 0.961, 0.925)
-const PAPER_EDGE := Color(0.784, 0.722, 0.604)
+## 「陈列柜」画风的一套颜色：奶油底、白卡、墨字、细描边。3D 与 UI 共用。
+const BACKDROP := Color(0.929, 0.918, 0.886)
+const PAPER := Color(1.0, 0.996, 0.988)
+const PAPER_EDGE := Color(0.820, 0.792, 0.735)
 const INK := Color(0.184, 0.165, 0.125)
 const INK_SOFT := Color(0.478, 0.427, 0.349)
+const INK_FAINT := Color(0.62, 0.59, 0.54)
+const ACCENT := Color(0.85, 0.58, 0.16)
+const CARD_SHADOW := Color(0.18, 0.16, 0.12, 0.10)
+## 3D 素材调色：地格向灰绿收、建筑保暖木色、植被去掉荧光绿。
+## 地格/建筑先换成重新配色的图集（tools/build_clean_atlas.py：荧光草绿→灰绿、翠绿屋顶→陶土），
+## 着色器里只再轻轻收一点，颜色是"画出来的"而不是"滤镜滤出来的"。
+const CLEAN_ATLAS := preload("res://assets/hexmap/clean/hexagons_medieval_clean.png")
+const TILE_TINT := Color(1.0, 1.0, 1.0)
+const TILE_DESATURATE := 0.08
+const TILE_WASH := 0.0
+const BUILDING_TINT := Color(0.98, 0.96, 0.93)
+const BUILDING_DESATURATE := 0.16
+const BUILDING_WASH := 0.04
+## 体素地面：手摆的六边地格整层藏起来，运行时按方格重铺一层立方体地块——顶面灰绿草、
+## 侧面沙土；关卡建筑四周与关卡之间铺石板；池塘换成方格水面；岛是带缺口的方块矩形。
+## 六边地格节点一个不删：拾取、悬停、关卡绑定仍走 pad_ 节点，只是不再显示。
+const VOXEL_FLOOR := true
+const VOXEL_CELL := 0.8
+const VOXEL_GAP := 0.0
+const VOXEL_HEIGHT := 1.1
+const VOXEL_TOP_Y := 0.0
+## 布光按"受光顶面 ≈ 1.0×"调，所以这里写的就是参考图里量出来的成色：
+## 草 #A7BE85 / 深草 #9CB47A / 浅草 #B1C690，沙土侧面 #D0B285，石板 #BEBBB3。
+const VOXEL_GRASS: Array[Color] = [
+	Color(0.655, 0.745, 0.520),
+	Color(0.610, 0.705, 0.480),
+	Color(0.695, 0.775, 0.565),
+]
+const VOXEL_DIRT := Color(0.815, 0.700, 0.520)
+const VOXEL_COBBLE_OPEN := Color(0.700, 0.690, 0.650)
+const VOXEL_COBBLE_LOCKED := Color(0.615, 0.612, 0.590)
+const VOXEL_WATER_BED := Color(0.500, 0.580, 0.560)
+## 像素贴图：每格 16×16 个像素、最近邻采样，是"体素/方块"味道的来源。
+const VOXEL_TEX_SIZE := 16
+const VOXEL_TEX_SEED := 91
+## 侧面自上而下压暗到这个系数，充当接触阴影（Compatibility 没有 SSAO）。
+const VOXEL_SIDE_AO := Color(0.70, 0.68, 0.66)
+## 点缀：关卡广场旁的配楼、外围散落的小屋与农田，让岛读成一座镇子而不是六个孤楼。
+const DRESS_SEED := 7
+const DRESS_PLAZA_EXTRAS := 4
+const DRESS_OUTSKIRT_HOUSES := 6
+const DRESS_FARMS := 0
+const DRESS_PLAZA_ASSETS: Array[String] = [
+	"res://assets/hexmap/buildings/green/building_home_A_green.gltf",
+	"res://assets/hexmap/buildings/green/building_home_B_green.gltf",
+	"res://assets/hexmap/buildings/green/building_tavern_green.gltf",
+	"res://assets/hexmap/buildings/green/building_well_green.gltf",
+	"res://assets/hexmap/buildings/green/building_blacksmith_green.gltf",
+	"res://assets/hexmap/buildings/green/building_market_green.gltf",
+	"res://assets/hexmap/buildings/green/building_tower_A_green.gltf",
+	"res://assets/hexmap/buildings/green/building_lumbermill_green.gltf",
+	"res://assets/hexmap/buildings/green/building_church_green.gltf",
+	"res://assets/hexmap/buildings/green/building_archeryrange_green.gltf",
+]
+const DRESS_OUTSKIRT_ASSETS: Array[String] = [
+	"res://assets/hexmap/buildings/green/building_home_A_green.gltf",
+	"res://assets/hexmap/buildings/green/building_home_B_green.gltf",
+	"res://assets/hexmap/buildings/green/building_well_green.gltf",
+]
+const DRESS_FARM_ASSET := "res://assets/builder/objects/farm_plot.glb"
+const DRESS_PLAZA_WIDTH := 1.0
+const DRESS_OUTSKIRT_WIDTH := 0.8
+const DRESS_FARM_WIDTH := 1.25
+## 每关一副布景：广场地面（cobble 石板 / soil 田土 / plank 木板 / grass 不铺）、按顺序摆的
+## 专属配楼道具、以及一项地形特写（orchard 果树 / fields 麦垄 / channels 双渠双桥 /
+## pier 伸进潭里的栈桥 / harbor 岛缘挖出的港湾）。关卡名就是布景的题目。
+const ASSET_HOME_A := "res://assets/hexmap/buildings/green/building_home_A_green.gltf"
+const ASSET_HOME_B := "res://assets/hexmap/buildings/green/building_home_B_green.gltf"
+const ASSET_TAVERN := "res://assets/hexmap/buildings/green/building_tavern_green.gltf"
+const ASSET_BLACKSMITH := "res://assets/hexmap/buildings/green/building_blacksmith_green.gltf"
+const ASSET_CHURCH := "res://assets/hexmap/buildings/green/building_church_green.gltf"
+const ASSET_LUMBERMILL := "res://assets/hexmap/buildings/green/building_lumbermill_green.gltf"
+const ASSET_TOWER_A := "res://assets/hexmap/buildings/green/building_tower_A_green.gltf"
+const ASSET_MARKET := "res://assets/hexmap/buildings/green/building_market_green.gltf"
+const ASSET_ROCK_A := "res://assets/hexmap/decoration/nature/rock_single_A.gltf"
+const ASSET_ROCK_B := "res://assets/hexmap/decoration/nature/rock_single_B.gltf"
+const ASSET_ROCK_C := "res://assets/hexmap/decoration/nature/rock_single_C.gltf"
+const ASSET_ROCK_D := "res://assets/hexmap/decoration/nature/rock_single_D.gltf"
+const ASSET_BRIDGE := "res://assets/builder/objects/bridge.glb"
+const STAGE_THEMES := {
+	"grass_1": {"floor": "grass", "feature": "orchard", "extras": [CLEAN_TREE_ROUND, ASSET_ROCK_A, CLEAN_TREE_ROUND, CLEAN_TREE_ROUND, ASSET_ROCK_C, CLEAN_TREE_ROUND]},
+	"grass_2": {"floor": "soil", "feature": "fields", "extras": [ASSET_HOME_A]},
+	"grass_3": {"floor": "cobble", "feature": "", "extras": [ASSET_HOME_A, ASSET_TAVERN, ASSET_HOME_B, ASSET_BLACKSMITH, ASSET_CHURCH, ASSET_HOME_A]},
+	"river_1": {"floor": "cobble", "feature": "channels", "extras": [ASSET_HOME_B, ASSET_LUMBERMILL]},
+	"river_2": {"floor": "grass", "feature": "pier", "extras": [ASSET_ROCK_B, ASSET_ROCK_D, ASSET_ROCK_A, ASSET_ROCK_C]},
+	"coast_1": {"floor": "plank", "feature": "harbor", "extras": [ASSET_TOWER_A, ASSET_MARKET, ASSET_HOME_B]},
+}
+const VOXEL_SOIL := Color(0.600, 0.480, 0.360)
+const VOXEL_PLANK := Color(0.660, 0.540, 0.405)
+const WHEAT := Color(0.760, 0.650, 0.400)
+## 双渠：沿路方向在关卡两侧各挖一道、桥架在路上。栈桥与港湾的长度按格数。
+const CHANNEL_OFFSET := 1.15
+const CHANNEL_HALF_WIDTH := 0.42
+const CHANNEL_REACH := 2.4
+const PIER_FROM := 0.9
+const PIER_TO := 3.3
+const HARBOR_FROM := 1.5
+const HARBOR_HALF_WIDTH := 1.8
+const DRESS_TREE_WIDTH := 0.72
+const DRESS_ROCK_WIDTH := 0.55
+const DRESS_BRIDGE_LENGTH := 1.45
+const VOXEL_WATER_DEPTH := 0.5
+const VOXEL_WATER_SURFACE_Y := -0.13
+## 关卡建筑四周铺石板的半径；关卡之间的石板路半宽。
+const VOXEL_PLAZA_RADIUS := 1.75
+const VOXEL_ROAD_HALF_WIDTH := 0.52
+## 岛缘缺口：几块矩形从边上咬掉，轮廓才像手切的模型而不是一块砖。
+const VOXEL_NOTCHES := 6
+const VOXEL_NOTCH_SEED := 20260909
+## 悬停关卡格时，一起抬起来的地块半径（略大于石板广场）。
+const VOXEL_LIFT_RADIUS := 1.7
+enum VoxelKind {GRASS_A, GRASS_B, GRASS_C, COBBLE, WATER, SOIL, PLANK}
+
+## 极简低模树（tools/build_clean_trees.py 用 Blender 生成）：替掉 Stylized Nature 的针叶树，
+## 和 KayKit 的方块建筑成一家。每三棵里一棵塔松，其余圆冠。
+const CLEAN_TREE_ROUND := "res://assets/nature_clean/tree_round.glb"
+const CLEAN_TREE_PINE := "res://assets/nature_clean/tree_pine.glb"
+const CLEAN_PINE_EVERY := 3
+const FOLIAGE_TINT := Color(0.86, 0.90, 0.82)
+const FOLIAGE_DESATURATE := 0.44
+const FOLIAGE_WASH := 0.14
+const FLAT_DESATURATE := 0.26
+const FLAT_WASH := 0.08
 
 var _cleared: Array = []
 var _resume_stage_id := ""
@@ -245,6 +387,14 @@ var _floaters: Array[Node3D] = []
 var _drift_clouds: Array[Node3D] = []
 var _water_mats: Array[ShaderMaterial] = []
 var _toon_mats: Array[ShaderMaterial] = []
+var _voxel_cells: Dictionary = {}        # Vector2i -> VoxelKind
+var _voxel_road: Dictionary = {}         # Vector2i -> [from_id, to_id]（路）或 [stage_id]（广场）
+var _voxel_nodes: Dictionary = {}        # Vector2i -> MeshInstance3D
+var _voxel_origin := Vector2.ZERO
+var _voxel_lift: Dictionary = {}         # pad instance_id -> Array[Node3D]
+var _theme_props: Array = []            # 地形特写要摆的道具：{asset, pos: Vector2, rot: float, width}
+var _voxel_cobble_open: StandardMaterial3D
+var _voxel_cobble_locked: StandardMaterial3D
 var _cloud_rng := RandomNumberGenerator.new()
 var _flora: Array[Node3D] = []
 var _hovered_flora: Node3D = null
@@ -311,6 +461,10 @@ var _map_pigeons_eaten := 0
 var _map_loaves_eaten := 0
 ## 测试可关掉自动循环，只手动点名 `play_redstart_photo`。
 var redstart_events := true
+## 选关图上飞来飞去、鼠标快挥能拍死的那只蚊子（2D 覆盖层，见 map_mosquito.gd）。
+var _mosquito: MapMosquito
+## 测试与截图可关掉：地图亮出来时不放蚊子。
+var mosquito_events := true
 
 
 const TOON_WATER_SHADER := preload("res://shaders/water_globe.gdshader")
@@ -326,14 +480,27 @@ func _ready() -> void:
 		_camera.fov = 46.0
 	_collect_markers()
 	_compute_map_bounds()
+	if not _is_globe():
+		_collect_ponds()
+		_plan_voxel_island()
+		_trim_island()
 	_setup_tile_interactions()
+	if not _is_globe():
+		_declutter_grove()
+		_restyle_trees()
 	_setup_flora_interactions()
 	if _is_globe():
 		apply_toon_water_material(get_node_or_null("WaterSphere") as MeshInstance3D)
 	else:
 		_apply_toon_water_ponds()
-		_apply_toon_materials()
+		if VOXEL_FLOOR:
+			# 参考图是平滑受光 + 软阴影，不是分档卡通；体素图走标准材质，卡通着色器留给水球场景。
+			_apply_clean_materials()
+		else:
+			_apply_toon_materials()
+			_apply_grove_materials()
 		_lock_forest_materials()
+		_build_voxel_floor()
 		_apply_edge_atmosphere()
 		_apply_scene_lighting()
 		_setup_drift_clouds()
@@ -358,8 +525,13 @@ static func apply_toon_water_material(ball: MeshInstance3D, for_pond := false) -
 		return
 	var mat := ShaderMaterial.new()
 	mat.shader = TOON_WATER_SHADER
-	mat.set_shader_parameter("depth_gradient_shallow", Color(0.325, 0.807, 0.971, 0.725))
-	mat.set_shader_parameter("depth_gradient_deep", Color(0.086, 0.407, 1.0, 0.749))
+	# 池塘走低饱和的灰蓝，和奶油底、灰绿草一个调；水球（解锁页等）保留原来的亮蓝。
+	if for_pond:
+		mat.set_shader_parameter("depth_gradient_shallow", Color(0.66, 0.83, 0.87, 0.74))
+		mat.set_shader_parameter("depth_gradient_deep", Color(0.40, 0.64, 0.76, 0.80))
+	else:
+		mat.set_shader_parameter("depth_gradient_shallow", Color(0.325, 0.807, 0.971, 0.725))
+		mat.set_shader_parameter("depth_gradient_deep", Color(0.086, 0.407, 1.0, 0.749))
 	mat.set_shader_parameter("depth_max_distance", 0.55 if for_pond else 0.9)
 	mat.set_shader_parameter("foam_color", Color(1.0, 1.0, 1.0, 1.0))
 	mat.set_shader_parameter("surface_noise", TOON_WATER_NOISE)
@@ -468,10 +640,10 @@ func _make_drift_cloud(index: int) -> Node3D:
 func _cartoon_cloud_material() -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = CARTOON_CLOUD_SHADER
-	mat.set_shader_parameter("fill", Color(0.995, 0.995, 1.0, 1.0))
-	mat.set_shader_parameter("belly", Color(0.80, 0.89, 0.98, 1.0))
-	mat.set_shader_parameter("line", Color(0.52, 0.68, 0.86, 1.0))
-	mat.set_shader_parameter("line_width", 0.30)
+	mat.set_shader_parameter("fill", Color(1.0, 0.998, 0.99, 1.0))
+	mat.set_shader_parameter("belly", Color(0.88, 0.88, 0.87, 1.0))
+	mat.set_shader_parameter("line", Color(0.84, 0.83, 0.80, 1.0))
+	mat.set_shader_parameter("line_width", 0.22)
 	return mat
 
 
@@ -504,6 +676,8 @@ func _build_cartoon_puffs(root: Node3D, big: bool) -> void:
 		puff.position = Vector3(spec.x, spec.y, spec.z)
 		puff.scale = Vector3(1.0, 0.72, 1.08)
 		puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# 陈列柜画风只要云影不要云：奶油底上飘白团会读成脏点。团子留着（结构不变），不显示。
+		puff.visible = not VOXEL_FLOOR
 		puff.set_surface_override_material(0, mat)
 		root.add_child(puff)
 		i += 1
@@ -578,7 +752,7 @@ func _sync_cloud_shadows_to_water() -> void:
 			continue
 		var hit := _project_cloud_shadow(cloud)
 		var radius := float(cloud.get_meta("cloud_shadow_radius", 0.9))
-		packed.append(Vector4(hit.x, hit.z, radius, 0.34))
+		packed.append(Vector4(hit.x, hit.z, radius, 0.22))
 		count += 1
 	while packed.size() < DRIFT_CLOUD_MAX_SHADOWS:
 		packed.append(Vector4.ZERO)
@@ -620,7 +794,7 @@ func _water_surface_radius() -> float:
 	return _globe_radius()
 
 
-## 平面池塘：全景天空盒，不打雾，让树环外露出蓝天。
+## 平面池塘：奶油色平底、无雾无泛光——整张地图像摆在浅色台面上的模型。
 func _apply_edge_atmosphere() -> void:
 	var holder := get_node_or_null("MapEnv") as WorldEnvironment
 	if holder == null or holder.environment == null:
@@ -640,20 +814,26 @@ func _apply_edge_atmosphere() -> void:
 		if _camera != null:
 			_camera.fov = 42.0
 		return
-	_apply_pond_skybox(env)
-	env.fog_enabled = true
-	env.fog_light_color = Color(0.78, 0.86, 0.94)
-	env.fog_density = 0.0008
-	env.ambient_light_color = Color(0.40, 0.50, 0.56)
-	env.ambient_light_energy = 0.10
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 0.78
-	env.glow_enabled = true
-	env.glow_intensity = 0.08
-	env.glow_bloom = 0.02
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = BACKDROP
+	env.sky = null
+	env.fog_enabled = false
+	env.glow_enabled = false
+	# 环境光偏暖偏亮：暗部托住、不发灰，阴影只靠主光。
+	env.ambient_light_color = Color(0.96, 0.95, 0.93)
+	env.ambient_light_energy = 0.16
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	env.tonemap_exposure = 1.0
 	if _camera != null:
 		_camera.environment = env
 		_camera.fov = 46.0
+	# 天空底面与旧的光柱/静态云都属于「天空」时代，一律收掉。
+	var bed := get_node_or_null("SkyBed") as Node3D
+	if bed != null:
+		bed.visible = false
+	var atmosphere := get_node_or_null("HexTerrain/Atmosphere") as Node3D
+	if atmosphere != null:
+		atmosphere.visible = false
 
 
 static func _apply_pond_skybox(env: Environment) -> void:
@@ -673,35 +853,38 @@ static func _apply_pond_skybox(env: Environment) -> void:
 
 
 ## 池塘用斜射主光拉开亮暗，补光和环境光只托暗部，避免三盏灯把阴影填平。
+## 陈列柜布光：一盏偏顶的暖白主光出软阴影，补光很淡只托暗部。三盏都不给镜面。
+## 陈列柜布光：主光偏顶偏左；主光 0.64 + 环境 0.16 + 补光实测让受光顶面 ≈ 1.0× 固有色
+## （不过曝）；背光面靠一盏淡冷补光托到六成亮；阴影实一点、边缘软。三盏都不给镜面。
 func _apply_scene_lighting() -> void:
 	var studio := _is_globe()
 	var key := get_node_or_null("KeyLight") as DirectionalLight3D
 	if key != null:
 		if not studio:
-			key.rotation = Vector3(deg_to_rad(-34.0), deg_to_rad(58.0), 0.0)
-		key.light_energy = 0.62 if studio else 0.78
-		key.light_color = Color(1.0, 0.98, 0.94) if studio else Color(0.98, 0.94, 0.86)
+			key.rotation = Vector3(deg_to_rad(-50.0), deg_to_rad(32.0), 0.0)
+		key.light_energy = 0.62 if studio else 0.64
+		key.light_color = Color(1.0, 0.98, 0.94) if studio else Color(1.0, 0.985, 0.955)
 		key.shadow_enabled = true
-		key.shadow_blur = 1.1 if studio else 1.4
+		key.shadow_blur = 1.1 if studio else 1.8
 		key.shadow_bias = 0.03 if studio else 0.04
-		key.shadow_normal_bias = 0.35 if studio else 0.5
+		key.shadow_normal_bias = 0.35 if studio else 0.6
 		key.directional_shadow_max_distance = 48.0 if studio else 80.0
 		key.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-		key.light_angular_distance = 0.0 if studio else 2.4
+		key.light_angular_distance = 0.0 if studio else 2.0
 		key.shadow_opacity = 1.0 if studio else 0.82
 		key.light_specular = 0.0
 	var fill := get_node_or_null("FillLight") as DirectionalLight3D
 	if fill != null:
 		if not studio:
-			fill.rotation = Vector3(deg_to_rad(-16.0), deg_to_rad(-118.0), 0.0)
-		fill.light_energy = 0.38 if studio else 0.06
-		fill.light_color = Color(0.78, 0.86, 0.96) if studio else Color(0.55, 0.68, 0.88)
+			fill.rotation = Vector3(deg_to_rad(-30.0), deg_to_rad(-140.0), 0.0)
+		fill.light_energy = 0.38 if studio else 0.17
+		fill.light_color = Color(0.78, 0.86, 0.96) if studio else Color(0.88, 0.90, 0.95)
 		fill.shadow_enabled = false
 		fill.light_specular = 0.0
 	var bounce := get_node_or_null("BounceLight") as DirectionalLight3D
 	if bounce != null:
-		bounce.light_energy = 0.16 if studio else 0.03
-		bounce.light_color = Color(0.98, 0.93, 0.86) if studio else Color(0.55, 0.72, 0.42)
+		bounce.light_energy = 0.16 if studio else 0.05
+		bounce.light_color = Color(0.98, 0.93, 0.86) if studio else Color(0.98, 0.94, 0.88)
 		bounce.shadow_enabled = false
 		bounce.light_specular = 0.0
 
@@ -721,9 +904,14 @@ func _setup_tile_interactions() -> void:
 					continue
 				if not String(child.name).begins_with("pad_"):
 					continue
+				if not (child as Node3D).visible:
+					continue
 				_tiles.append(child as Node3D)
 
-	_outline_mesh = _build_hex_outline_mesh(HEX_OUTLINE_RADIUS, HEX_OUTLINE_THICKNESS)
+	if VOXEL_FLOOR and not _is_globe():
+		_outline_mesh = _build_square_outline_mesh(VOXEL_PLAZA_RADIUS + 0.12, HEX_OUTLINE_THICKNESS)
+	else:
+		_outline_mesh = _build_hex_outline_mesh(HEX_OUTLINE_RADIUS, HEX_OUTLINE_THICKNESS)
 	for tile in _tiles:
 		_attach_tile_outline(tile)
 		_attach_tile_pick(tile)
@@ -834,6 +1022,8 @@ func _collect_flora(host: Node) -> void:
 		if not (child is Node3D):
 			continue
 		var node := child as Node3D
+		if not node.visible:
+			continue
 		if not _is_flora_prop(node):
 			continue
 		_flora.append(node)
@@ -1094,6 +1284,35 @@ func _clear_music_notes() -> void:
 		note.queue_free()
 
 
+## 方框描边：体素地面上悬停关卡格时套在石板广场外的一圈细框。
+func _build_square_outline_mesh(half: float, thickness: float) -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var inner := half - thickness
+	var corners := [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]
+	for i in 4:
+		var a: Vector2 = corners[i]
+		var b: Vector2 = corners[(i + 1) % 4]
+		var o0 := Vector3(a.x * half, 0.0, a.y * half)
+		var o1 := Vector3(b.x * half, 0.0, b.y * half)
+		var i0 := Vector3(a.x * inner, 0.0, a.y * inner)
+		var i1 := Vector3(b.x * inner, 0.0, b.y * inner)
+		var base := verts.size()
+		verts.append_array([o0, o1, i1, i0])
+		for _k in 4:
+			normals.append(Vector3.UP)
+		indices.append_array([base, base + 2, base + 1, base, base + 3, base + 2])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
 func _build_hex_outline_mesh(outer_r: float, thickness: float) -> ArrayMesh:
 	var inner_r := maxf(outer_r - thickness, outer_r * 0.55)
 	var verts := PackedVector3Array()
@@ -1205,6 +1424,10 @@ func _hover_lift_targets(tile: Node3D) -> Array[Node3D]:
 		).length()
 		if d <= TILE_BIND_EPSILON:
 			targets.append(marker)
+	var cells: Array = _voxel_lift.get(tile.get_instance_id(), [])
+	for cell in cells:
+		if is_instance_valid(cell):
+			targets.append(cell as Node3D)
 	return targets
 
 
@@ -1428,29 +1651,33 @@ func _apply_toon_materials() -> void:
 
 
 func _lock_forest_materials() -> void:
+	# 地格外那张 90×90 的深绿底板是天空时代的产物：奶油底下它会变成一块脏色。收掉，
+	# 让六边地格的侧面直接落在台面上。
 	var fill := get_node_or_null("HexTerrain/GroundFill") as MeshInstance3D
 	if fill != null:
-		var apron := StandardMaterial3D.new()
-		apron.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		apron.albedo_color = Color(0.20, 0.42, 0.16)
-		fill.set_surface_override_material(0, apron)
+		fill.visible = false
 	var ribbon := get_node_or_null("HexTerrain/PathScene/DirtPath") as MeshInstance3D
 	if ribbon != null:
 		var dirt := StandardMaterial3D.new()
 		dirt.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		dirt.cull_mode = BaseMaterial3D.CULL_DISABLED
-		dirt.albedo_color = Color(0.78, 0.54, 0.30)
+		dirt.albedo_color = Color(0.80, 0.76, 0.69)
 		ribbon.set_surface_override_material(0, dirt)
 
 
-func _toon_ify(node: Node, shader: Shader, cache: Dictionary) -> void:
+func _toon_ify(node: Node, shader: Shader, cache: Dictionary, foliage_shader: Shader = null, clean := false) -> void:
 	var n := String(node.name)
-	if n in ["Grove", "Ground", "GroundFill", "PathScene", "Hills", "Atmosphere", "Ponds", "PondBasins"]:
+	if n in ["Ground", "GroundFill", "PathScene", "Hills", "Atmosphere", "Ponds", "PondBasins"]:
+		return
+	if n == "Grove" and foliage_shader == null:
 		return
 	if n == "HexTerrain":
 		for child in node.get_children():
-			_toon_ify(child, shader, cache)
+			_toon_ify(child, shader, cache, foliage_shader, clean)
 		return
+	# 自己生成的干净资产：颜色已经按最终效果配好，只吃光照分档，不再调色。
+	if bool(node.get_meta("clean_asset", false)):
+		clean = true
 	var mesh_node := node as MeshInstance3D
 	if mesh_node != null and mesh_node.mesh != null:
 		for surface in mesh_node.mesh.get_surface_count():
@@ -1459,29 +1686,908 @@ func _toon_ify(node: Node, shader: Shader, cache: Dictionary) -> void:
 				source = mesh_node.mesh.surface_get_material(surface) as BaseMaterial3D
 			var texture: Texture2D = source.albedo_texture if source != null else null
 			var tint_col := source.albedo_color if source != null else Color.WHITE
+			var atlas_kind := _atlas_kind(texture)
+			if atlas_kind != "":
+				texture = CLEAN_ATLAS
+			# 叶片/花草：带透明通道或双面的面片，走双面 + alpha 裁切的变体。
+			var two_sided := source != null and (
+				source.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED
+				or source.cull_mode == BaseMaterial3D.CULL_DISABLED
+			)
+			var use_foliage := foliage_shader != null and two_sided
 			var key := texture.resource_path if texture != null else "__flat__:%0.3f,%0.3f,%0.3f" % [
 				tint_col.r, tint_col.g, tint_col.b
 			]
+			if use_foliage:
+				key = "foliage:" + key
+			if clean:
+				key = "clean:" + key
+			if atlas_kind != "":
+				key = atlas_kind + ":" + key
 			if not cache.has(key):
 				var material := ShaderMaterial.new()
-				material.shader = shader
+				material.shader = foliage_shader if use_foliage else shader
 				material.set_shader_parameter("albedo_tex", texture)
 				material.set_shader_parameter("has_albedo_tex", texture != null)
-				material.set_shader_parameter("rim_strength", 0.08)
-				material.set_shader_parameter("rim_width", 0.26)
-				material.set_shader_parameter("band_softness", 0.10)
-				# 没有贴图的表面（Builder Pack 纯色、或极少数装饰）走 tint。
-				# 有贴图的地格也略压一档，KayKit 草面固有色偏亮，受光后容易发白。
-				if texture == null:
-					material.set_shader_parameter("tint", tint_col * Color(0.82, 0.84, 0.80, 1.0))
-				else:
-					material.set_shader_parameter("tint", Color(0.78, 0.82, 0.76, 1.0))
-				material.set_shader_parameter("cloud_shadow_count", 0)
+				_style_toon_material(material, texture, tint_col, use_foliage, clean, atlas_kind)
 				cache[key] = material
 			mesh_node.set_surface_override_material(surface, cache[key])
 			mesh_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	for child in node.get_children():
-		_toon_ify(child, shader, cache)
+		_toon_ify(child, shader, cache, foliage_shader, clean)
+
+
+## 体素图的材质过场：每个面的原材质复制一份，关掉镜面、粗糙度拉满，KayKit 图集换成
+## 干净配色版。透明裁切、双面这些原材质自带的设置原样保留，所以树叶花草不用特殊处理。
+func _apply_clean_materials() -> void:
+	var cache: Dictionary = {}
+	for root_name in ["HexTerrain", "StageMarkers", "Floaters"]:
+		var host := get_node_or_null(root_name)
+		if host != null:
+			_clean_ify(host, cache)
+
+
+func _clean_ify(node: Node, cache: Dictionary) -> void:
+	var n := String(node.name)
+	if n in ["Ground", "GroundFill", "PathScene", "Hills", "Atmosphere", "Ponds", "PondBasins"]:
+		return
+	var mesh_node := node as MeshInstance3D
+	if mesh_node != null and mesh_node.mesh != null:
+		for surface in mesh_node.mesh.get_surface_count():
+			var source := mesh_node.get_active_material(surface) as BaseMaterial3D
+			if source == null:
+				source = mesh_node.mesh.surface_get_material(surface) as BaseMaterial3D
+			if source == null:
+				continue
+			var key := source.get_instance_id()
+			if not cache.has(key):
+				var mat := source.duplicate() as BaseMaterial3D
+				mat.roughness = 1.0
+				mat.metallic = 0.0
+				mat.metallic_specular = 0.0
+				if _atlas_kind(source.albedo_texture) != "":
+					mat.albedo_texture = CLEAN_ATLAS
+				elif source.albedo_texture != null and source.albedo_texture.resource_path.contains("/nature/"):
+					# Stylized Nature 的灌木/花：略压一档，别比方块树还鲜。
+					mat.albedo_color = source.albedo_color * Color(0.88, 0.90, 0.84, 1.0)
+				cache[key] = mat
+			mesh_node.set_surface_override_material(surface, cache[key])
+			mesh_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	for child in node.get_children():
+		_clean_ify(child, cache)
+
+
+## KayKit 图集识别：地格与建筑各带一份同图不同路径的 hexagons_medieval.png，
+## 两者都换成干净配色版；返回 "tiles" / "buildings"，其它贴图返回空串。
+func _atlas_kind(texture: Texture2D) -> String:
+	if texture == null:
+		return ""
+	var path := texture.resource_path
+	if not path.ends_with("hexagons_medieval.png"):
+		return ""
+	if path.contains("/buildings/"):
+		return "buildings"
+	return "tiles"
+
+
+## 把 Grove 里的针叶树换成极简低模树：原模型子节点整个拿掉，挂上生成的 GLB。
+## 树的根节点（名字、缩放、旋转、flora 元数据）原样保留——啄木鸟砍树、长回来、
+## 悬停抖动都只动根节点，一行不用改。同时把尖刺状的 Plant_/Fern_ 收掉。
+func _restyle_trees() -> void:
+	var grove := get_node_or_null("HexTerrain/Grove")
+	if grove == null:
+		return
+	var round_scene := load(CLEAN_TREE_ROUND) as PackedScene
+	var pine_scene := load(CLEAN_TREE_PINE) as PackedScene
+	if round_scene == null or pine_scene == null:
+		push_warning("WorldMap: 找不到干净树模型，保留原针叶树")
+		return
+	var index := 0
+	for child in grove.get_children():
+		if not (child is Node3D):
+			continue
+		var node := child as Node3D
+		var n := String(node.name)
+		if n.begins_with("Plant_") or n.begins_with("Fern_"):
+			node.visible = false
+			continue
+		if not node.visible or not _is_flora_tree(node):
+			continue
+		for old in node.get_children():
+			node.remove_child(old)
+			old.free()
+		var scene := pine_scene if index % CLEAN_PINE_EVERY == CLEAN_PINE_EVERY - 1 else round_scene
+		var model := scene.instantiate() as Node3D
+		model.name = "CleanTree"
+		model.set_meta("clean_asset", true)
+		node.add_child(model)
+		index += 1
+
+
+## 按素材类别定调色：地格（KayKit 草面荧光黄绿）压成灰绿；建筑保暖木色只略收；
+## Stylized Nature 植被去饱和最多，深绿针叶变成灰绿；纯色 Builder 件走 tint。
+func _style_toon_material(
+	material: ShaderMaterial, texture: Texture2D, tint_col: Color, foliage: bool,
+	clean := false, atlas_kind := ""
+) -> void:
+	material.set_shader_parameter("rim_strength", 0.0)
+	material.set_shader_parameter("rim_width", 0.26)
+	material.set_shader_parameter("wash_color", BACKDROP)
+	material.set_shader_parameter("cloud_shadow_count", 0)
+	var path := texture.resource_path if texture != null else ""
+	if clean:
+		material.set_shader_parameter("tint", tint_col)
+		material.set_shader_parameter("desaturate", 0.0)
+		material.set_shader_parameter("wash_amount", 0.0)
+	elif atlas_kind == "buildings":
+		material.set_shader_parameter("tint", BUILDING_TINT)
+		material.set_shader_parameter("desaturate", BUILDING_DESATURATE)
+		material.set_shader_parameter("wash_amount", BUILDING_WASH)
+	elif atlas_kind == "tiles":
+		material.set_shader_parameter("tint", TILE_TINT)
+		material.set_shader_parameter("desaturate", TILE_DESATURATE)
+		material.set_shader_parameter("wash_amount", TILE_WASH)
+	elif texture == null:
+		material.set_shader_parameter("tint", tint_col * Color(0.90, 0.90, 0.88, 1.0))
+		material.set_shader_parameter("desaturate", FLAT_DESATURATE)
+		material.set_shader_parameter("wash_amount", FLAT_WASH)
+	elif foliage or path.contains("/nature/"):
+		material.set_shader_parameter("tint", FOLIAGE_TINT)
+		material.set_shader_parameter("desaturate", FOLIAGE_DESATURATE)
+		material.set_shader_parameter("wash_amount", FOLIAGE_WASH)
+	elif path.contains("/buildings/"):
+		material.set_shader_parameter("tint", BUILDING_TINT)
+		material.set_shader_parameter("desaturate", BUILDING_DESATURATE)
+		material.set_shader_parameter("wash_amount", BUILDING_WASH)
+	else:
+		material.set_shader_parameter("tint", TILE_TINT)
+		material.set_shader_parameter("desaturate", TILE_DESATURATE)
+		material.set_shader_parameter("wash_amount", TILE_WASH)
+
+
+## 林间植被也进同一套调色：树叶走双面裁切变体，树干/石头走单面版。
+## 和 _apply_toon_materials 分开缓存，云影参数只同步给地格那批。
+func _apply_grove_materials() -> void:
+	var shader := load("res://shaders/hex_toon.gdshader") as Shader
+	var foliage := load("res://shaders/hex_toon_foliage.gdshader") as Shader
+	if shader == null or foliage == null:
+		return
+	var cache: Dictionary = {}
+	var grove := get_node_or_null("HexTerrain/Grove")
+	if grove != null:
+		_toon_ify(grove, shader, cache, foliage)
+
+
+## 裁出岛缘：地格铺满了整块 43×31 的场地，镜头里看不到边，整张图就只是"一片草地"。
+## 陈列柜画风要的是一件有轮廓的模型——把关卡包围盒外圈之外的地格与植被收起来，
+## 六边格的锯齿边露在奶油台面上。收起而不删：手摆场景一个节点都不动，随时能改回去。
+func _trim_island() -> void:
+	var terrain := get_node_or_null("HexTerrain") as Node3D
+	if terrain == null:
+		return
+	var center := _map_bounds.get_center()
+	var half := _map_bounds.size * 0.5 + ISLAND_MARGIN
+	for region in terrain.get_children():
+		var region_name := String(region.name)
+		var is_floor := region_name == "HexFloor" or region_name.begins_with("Island_")
+		var is_grove := region_name == "Grove"
+		if not (is_floor or is_grove):
+			continue
+		for child in region.get_children():
+			if not (child is Node3D):
+				continue
+			var node := child as Node3D
+			var n := String(node.name)
+			if is_floor and not (n.begins_with("hex_") or n.begins_with("pad_")):
+				continue
+			if n.begins_with("pad_"):
+				continue
+			var inside: bool
+			if VOXEL_FLOOR and not _voxel_cells.is_empty():
+				inside = _voxel_land_at(node.global_position)
+			else:
+				var inset := ISLAND_FLORA_INSET if is_grove else 0.0
+				inside = _inside_island(node.global_position, center, half - Vector2(inset, inset), node.get_index())
+			if not inside:
+				node.visible = false
+				node.set_meta("island_trimmed", true)
+
+
+## 超椭圆内外判定；jitter 让同一圈上的地格有的留有的收，边缘不成直线。
+func _inside_island(pos: Vector3, center: Vector2, half: Vector2, salt: int) -> bool:
+	var dx := absf(pos.x - center.x) / maxf(half.x, 0.01)
+	var dz := absf(pos.z - center.y) / maxf(half.y, 0.01)
+	var r := pow(dx, ISLAND_EDGE_POWER) + pow(dz, ISLAND_EDGE_POWER)
+	var h := float((salt * 2654435761) % 1000) / 1000.0
+	var edge := 1.0 + (h - 0.5) * 2.0 * ISLAND_EDGE_JITTER * 0.35
+	return r <= edge
+
+
+# --- 体素地面 ---
+
+
+## 规划岛的方格脚印：关卡包围盒外扩一圈的矩形，边上咬掉几块矩形缺口（关卡附近不咬），
+## 再把每格分成草 / 石板（广场 + 路）/ 水。只算数据，不建节点。
+func _plan_voxel_island() -> void:
+	_voxel_cells.clear()
+	_voxel_road.clear()
+	if not VOXEL_FLOOR:
+		return
+	var center := _map_bounds.get_center()
+	var half := _map_bounds.size * 0.5 + ISLAND_MARGIN
+	var cols := int(ceil(half.x * 2.0 / VOXEL_CELL))
+	var rows := int(ceil(half.y * 2.0 / VOXEL_CELL))
+	_voxel_origin = Vector2(
+		center.x - float(cols - 1) * 0.5 * VOXEL_CELL,
+		center.y - float(rows - 1) * 0.5 * VOXEL_CELL
+	)
+	for j in rows:
+		for i in cols:
+			_voxel_cells[Vector2i(i, j)] = VoxelKind.GRASS_A
+	# 缺口：轮流咬四条边。
+	var rng := RandomNumberGenerator.new()
+	rng.seed = VOXEL_NOTCH_SEED
+	var stage_points: Array[Vector2] = []
+	for marker in _markers:
+		stage_points.append(Vector2(marker.global_position.x, marker.global_position.z))
+	for k in VOXEL_NOTCHES:
+		var w := rng.randi_range(3, 6)
+		var h := rng.randi_range(2, 3)
+		var x0 := 0
+		var y0 := 0
+		match k % 4:
+			0:
+				x0 = rng.randi_range(0, cols - w)
+				y0 = 0
+			1:
+				x0 = rng.randi_range(0, cols - w)
+				y0 = rows - h
+			2:
+				x0 = 0
+				y0 = rng.randi_range(0, rows - h)
+			3:
+				x0 = cols - w
+				y0 = rng.randi_range(0, rows - h)
+		for j in range(y0, y0 + h):
+			for i in range(x0, x0 + w):
+				var key := Vector2i(i, j)
+				var p := _voxel_cell_center(key)
+				var near_stage := false
+				for sp in stage_points:
+					if sp.distance_to(p) < VOXEL_PLAZA_RADIUS + 1.2:
+						near_stage = true
+						break
+				if not near_stage:
+					_voxel_cells.erase(key)
+	# 分类。顺序：水 < 路 < 广场，后写覆盖前写。
+	var ordered := _ordered_markers()
+	for key in _voxel_cells.keys():
+		var p := _voxel_cell_center(key)
+		# 草色按 2×2 的块分深浅（参考图是成片的补丁，不是每格随机），主色多、深浅各少。
+		var px := int(floor(float(key.x) / 2.0))
+		var py := int(floor(float(key.y) / 2.0))
+		var h := posmod(px * 73856093 ^ py * 19349663, 10)
+		_voxel_cells[key] = VoxelKind.GRASS_A if h < 5 else (VoxelKind.GRASS_B if h < 8 else VoxelKind.GRASS_C)
+		if is_in_water(Vector3(p.x, 0.0, p.y), -0.42):
+			_voxel_cells[key] = VoxelKind.WATER
+	# 池塘是几个圆并起来的，圆与圆之间会漏出孤零零的草格；三面临水的格子并进水里，跑两轮。
+	for _pass in 2:
+		for key in _voxel_cells.keys():
+			if _voxel_cells[key] == VoxelKind.WATER:
+				continue
+			var wet := 0
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				if _voxel_cells.get(key + d, -1) == VoxelKind.WATER:
+					wet += 1
+			if wet >= 3:
+				_voxel_cells[key] = VoxelKind.WATER
+	# 反过来，孤零零的一两格水也并回草地，免得岛上冒出一个"井"。
+	for key in _voxel_cells.keys():
+		if _voxel_cells[key] != VoxelKind.WATER:
+			continue
+		var wet := 0
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			if _voxel_cells.get(key + d, -1) == VoxelKind.WATER:
+				wet += 1
+		if wet <= 1:
+			_voxel_cells[key] = VoxelKind.GRASS_A
+	for i in range(ordered.size() - 1):
+		var a := Vector2(ordered[i].global_position.x, ordered[i].global_position.z)
+		var b := Vector2(ordered[i + 1].global_position.x, ordered[i + 1].global_position.z)
+		var seg := [String(ordered[i].get_meta("stage_id", "")), String(ordered[i + 1].get_meta("stage_id", ""))]
+		for key in _voxel_cells.keys():
+			if _voxel_cells[key] == VoxelKind.WATER:
+				continue
+			var p := _voxel_cell_center(key)
+			if Geometry2D.get_closest_point_to_segment(p, a, b).distance_to(p) <= VOXEL_ROAD_HALF_WIDTH:
+				_voxel_cells[key] = VoxelKind.COBBLE
+				_voxel_road[key] = seg
+	_theme_props.clear()
+	for i in ordered.size():
+		var marker := ordered[i]
+		var sp := Vector2(marker.global_position.x, marker.global_position.z)
+		var sid := String(marker.get_meta("stage_id", ""))
+		var theme: Dictionary = STAGE_THEMES.get(sid, {})
+		var floor_kind := -1
+		match String(theme.get("floor", "cobble")):
+			"cobble":
+				floor_kind = VoxelKind.COBBLE
+			"soil":
+				floor_kind = VoxelKind.SOIL
+			"plank":
+				floor_kind = VoxelKind.PLANK
+		for key in _voxel_cells.keys():
+			var p := _voxel_cell_center(key)
+			if sp.distance_to(p) <= VOXEL_PLAZA_RADIUS:
+				if _voxel_cells[key] == VoxelKind.WATER:
+					continue
+				if floor_kind >= 0:
+					_voxel_cells[key] = floor_kind
+				_voxel_road[key] = [sid]
+		# 路的走向：前后两关连线的平均方向，渠道、桥、栈桥都参照它。
+		var prev_p := sp if i == 0 else Vector2(ordered[i - 1].global_position.x, ordered[i - 1].global_position.z)
+		var next_p := sp if i == ordered.size() - 1 else Vector2(ordered[i + 1].global_position.x, ordered[i + 1].global_position.z)
+		var road_dir := (next_p - prev_p).normalized()
+		if road_dir.length_squared() < 0.5:
+			road_dir = Vector2.RIGHT
+		_apply_theme_terrain(sid, String(theme.get("feature", "")), sp, road_dir)
+
+
+## 地形特写：直接改格子的种类（挖水、铺板），道具位置记进 _theme_props 交给穿衣服那步。
+func _apply_theme_terrain(sid: String, feature: String, sp: Vector2, road_dir: Vector2) -> void:
+	var across := Vector2(-road_dir.y, road_dir.x)
+	match feature:
+		"channels":
+			# 两道渠横穿广场，路被切成三段，两座桥架回去——「双桥」。
+			for sign in [-1.0, 1.0]:
+				var center: Vector2 = sp + road_dir * CHANNEL_OFFSET * float(sign)
+				for key in _voxel_cells.keys():
+					var p := _voxel_cell_center(key)
+					var rel: Vector2 = p - center
+					if absf(rel.dot(road_dir)) <= CHANNEL_HALF_WIDTH and absf(rel.dot(across)) <= CHANNEL_REACH:
+						_voxel_cells[key] = VoxelKind.WATER
+						_voxel_road.erase(key)
+				_theme_props.append({
+					"asset": ASSET_BRIDGE, "pos": center, "dir": road_dir, "width": DRESS_BRIDGE_LENGTH, "along": true,
+				})
+		"pier":
+			# 朝最近的潭心伸一条栈桥，只铺在水格上。
+			var target := sp
+			var best := INF
+			for c in _pond_centers:
+				var d := sp.distance_to(Vector2(c.x, c.z))
+				if d < best:
+					best = d
+					target = Vector2(c.x, c.z)
+			var dir := (target - sp).normalized() if best < INF and best > 0.01 else across
+			var t := PIER_FROM
+			while t <= PIER_TO:
+				var key := _voxel_key_at(Vector3(sp.x + dir.x * t, 0.0, sp.y + dir.y * t))
+				if _voxel_cells.get(key, -1) == VoxelKind.WATER:
+					_voxel_cells[key] = VoxelKind.PLANK
+					_voxel_road[key] = [sid]
+				t += VOXEL_CELL * 0.5
+		"harbor":
+			# 岛缘朝外挖一湾水，木板码头伸出去——「尽头港」。
+			var center := _map_bounds.get_center()
+			var outward := Vector2(signf(sp.x - center.x), 0.0)
+			if outward.x == 0.0:
+				outward = Vector2.RIGHT
+			var side := Vector2(0.0, 1.0)
+			for key in _voxel_cells.keys():
+				var p := _voxel_cell_center(key)
+				var rel := p - sp
+				var out := rel.dot(outward)
+				if out >= HARBOR_FROM and absf(rel.dot(side)) <= HARBOR_HALF_WIDTH:
+					_voxel_cells[key] = VoxelKind.WATER
+					_voxel_road.erase(key)
+			var t := HARBOR_FROM - VOXEL_CELL * 0.5
+			while t <= HARBOR_FROM + 2.2:
+				var key := _voxel_key_at(Vector3(sp.x + outward.x * t, 0.0, sp.y))
+				if _voxel_cells.has(key):
+					_voxel_cells[key] = VoxelKind.PLANK
+					_voxel_road[key] = [sid]
+				t += VOXEL_CELL * 0.5
+		_:
+			pass
+
+
+func _voxel_cell_center(key: Vector2i) -> Vector2:
+	return _voxel_origin + Vector2(float(key.x), float(key.y)) * VOXEL_CELL
+
+
+func _voxel_key_at(pos: Vector3) -> Vector2i:
+	return Vector2i(
+		int(round((pos.x - _voxel_origin.x) / VOXEL_CELL)),
+		int(round((pos.z - _voxel_origin.y) / VOXEL_CELL))
+	)
+
+
+## 这一点脚下是不是陆地（有地块且不是水）。植被裁剪与随机事件落点用。
+func _voxel_land_at(pos: Vector3) -> bool:
+	var key := _voxel_key_at(pos)
+	if not _voxel_cells.has(key):
+		return false
+	return _voxel_cells[key] != VoxelKind.WATER
+
+
+## 按脚印建地块节点。六边地格、旧池塘面、土路带全部藏起来；水面用同一套卡通水材质
+## 铺成一整片方格面，云影参数也照旧同步。
+func _build_voxel_floor() -> void:
+	if not VOXEL_FLOOR or _is_globe():
+		return
+	var old := get_node_or_null("VoxelFloor")
+	if old != null:
+		old.free()
+	_voxel_nodes.clear()
+	_voxel_lift.clear()
+	# 1. 藏旧地表。
+	var terrain := get_node_or_null("HexTerrain") as Node3D
+	if terrain != null:
+		var hex_floor := terrain.get_node_or_null("HexFloor")
+		if hex_floor != null:
+			for child in hex_floor.get_children():
+				if not (child is Node3D):
+					continue
+				var n := String(child.name)
+				if n.begins_with("hex_"):
+					(child as Node3D).visible = false
+				elif n.begins_with("pad_"):
+					for part in child.get_children():
+						if part is MeshInstance3D:
+							(part as MeshInstance3D).visible = false
+		var path_scene := terrain.get_node_or_null("PathScene") as Node3D
+		if path_scene != null:
+			path_scene.visible = false
+	var ponds := get_node_or_null("Ponds") as Node3D
+	if ponds != null:
+		ponds.visible = false
+	var floaters := get_node_or_null("Floaters") as Node3D
+	if floaters != null:
+		floaters.position.y = VOXEL_WATER_SURFACE_Y + 0.02
+	if _stage_path_root != null:
+		_stage_path_root.visible = false
+	# 2. 材质与网格：同类地块共用。
+	var dirt := _voxel_material(VOXEL_DIRT, "dirt", VOXEL_TEX_SEED + 1)
+	_voxel_cobble_open = _voxel_material(VOXEL_COBBLE_OPEN, "cobble", VOXEL_TEX_SEED + 2)
+	_voxel_cobble_locked = _voxel_material(VOXEL_COBBLE_LOCKED, "cobble", VOXEL_TEX_SEED + 2)
+	var bed := _voxel_material(VOXEL_WATER_BED, "plain", VOXEL_TEX_SEED + 3)
+	var soil := _voxel_material(VOXEL_SOIL, "dirt", VOXEL_TEX_SEED + 7)
+	var plank := _voxel_material(VOXEL_PLANK, "plank", VOXEL_TEX_SEED + 8)
+	var size := VOXEL_CELL - VOXEL_GAP
+	var meshes := {
+		VoxelKind.GRASS_A: _make_block_mesh(size, VOXEL_HEIGHT, _voxel_material(VOXEL_GRASS[0], "grass", VOXEL_TEX_SEED + 4), dirt),
+		VoxelKind.GRASS_B: _make_block_mesh(size, VOXEL_HEIGHT, _voxel_material(VOXEL_GRASS[1], "grass", VOXEL_TEX_SEED + 5), dirt),
+		VoxelKind.GRASS_C: _make_block_mesh(size, VOXEL_HEIGHT, _voxel_material(VOXEL_GRASS[2], "grass", VOXEL_TEX_SEED + 6), dirt),
+		VoxelKind.COBBLE: _make_block_mesh(size, VOXEL_HEIGHT, _voxel_cobble_open, dirt),
+		VoxelKind.WATER: _make_block_mesh(VOXEL_CELL, VOXEL_HEIGHT - VOXEL_WATER_DEPTH, bed, dirt),
+		VoxelKind.SOIL: _make_block_mesh(size, VOXEL_HEIGHT, soil, dirt),
+		VoxelKind.PLANK: _make_block_mesh(size, VOXEL_HEIGHT, plank, plank),
+	}
+	# 3. 建节点。
+	var root := Node3D.new()
+	root.name = "VoxelFloor"
+	add_child(root)
+	var water_cells: Array[Vector2i] = []
+	for key in _voxel_cells.keys():
+		var kind: int = _voxel_cells[key]
+		var mi := MeshInstance3D.new()
+		mi.name = "Cell_%d_%d" % [key.x, key.y]
+		mi.mesh = meshes[kind]
+		var c := _voxel_cell_center(key)
+		var top_y := VOXEL_TOP_Y - VOXEL_WATER_DEPTH if kind == VoxelKind.WATER else VOXEL_TOP_Y
+		mi.position = Vector3(c.x, top_y, c.y)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		mi.set_meta("voxel_kind", kind)
+		root.add_child(mi)
+		_voxel_nodes[key] = mi
+		if kind == VoxelKind.WATER:
+			water_cells.append(key)
+	# 4. 水面：一整片方格面，托在水床之上、草面之下。
+	if not water_cells.is_empty():
+		var water := MeshInstance3D.new()
+		water.name = "VoxelWater"
+		water.mesh = _make_water_mesh(water_cells)
+		water.position = Vector3(0.0, VOXEL_WATER_SURFACE_Y, 0.0)
+		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(water)
+		apply_toon_water_material(water, true)
+		var wmat := water.get_surface_override_material(0) as ShaderMaterial
+		if wmat != null:
+			_water_mats.append(wmat)
+	# 5. 点缀：配楼、小屋、农田。
+	var dressing := _dress_island(root)
+	# 6. 悬停时随关卡格一起抬起的地块与点缀。
+	for tile in _tiles:
+		var origin := tile.global_position
+		var cells: Array = []
+		for key in _voxel_nodes.keys():
+			var c := _voxel_cell_center(key)
+			if Vector2(origin.x, origin.z).distance_to(c) <= VOXEL_LIFT_RADIUS and _voxel_cells[key] != VoxelKind.WATER:
+				cells.append(_voxel_nodes[key])
+		for prop in dressing:
+			var pp := (prop as Node3D).global_position
+			if Vector2(origin.x, origin.z).distance_to(Vector2(pp.x, pp.z)) <= VOXEL_LIFT_RADIUS:
+				cells.append(prop)
+		_voxel_lift[tile.get_instance_id()] = cells
+	_refresh_voxel_cobble()
+
+
+## 给岛穿衣服：每个关卡广场旁摆几座配楼（贴着石板、四向对齐），外围草地散几间小屋和农田。
+## 全部确定性随机（DRESS_SEED），每次进图一个样。返回摆上去的节点，供悬停抬起用。
+func _dress_island(root: Node3D) -> Array:
+	var placed: Array = []
+	var host := Node3D.new()
+	host.name = "Dressing"
+	root.add_child(host)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = DRESS_SEED
+	var occupied: Dictionary = {}
+	var stage_points: Array[Vector2] = []
+	for marker in _markers:
+		var sp := Vector2(marker.global_position.x, marker.global_position.z)
+		stage_points.append(sp)
+		_occupy_around(occupied, sp, 0.95)
+	var grove := get_node_or_null("HexTerrain/Grove")
+	if grove != null:
+		for child in grove.get_children():
+			if child is Node3D and (child as Node3D).visible:
+				var gp := (child as Node3D).global_position
+				_occupy_around(occupied, Vector2(gp.x, gp.z), 0.45)
+	# 地形特写的道具（桥）先落位，占掉格子。
+	for spec in _theme_props:
+		var pos: Vector2 = spec["pos"]
+		var node := _place_dress_at(host, String(spec["asset"]), pos, spec["dir"], float(spec["width"]), bool(spec.get("along", true)))
+		if node != null:
+			placed.append(node)
+			_occupy_around(occupied, pos, 0.9)
+	# 广场配楼：按每关主题表顺序摆，摆不下的跳过。
+	for marker in _ordered_markers():
+		var sid := String(marker.get_meta("stage_id", ""))
+		var sp := Vector2(marker.global_position.x, marker.global_position.z)
+		var theme: Dictionary = STAGE_THEMES.get(sid, {})
+		var extras: Array = theme.get("extras", DRESS_PLAZA_ASSETS)
+		var candidates: Array[Vector2i] = []
+		for key in _voxel_cells.keys():
+			if not _plaza_of(key, sid):
+				continue
+			var kind: int = _voxel_cells[key]
+			if kind == VoxelKind.WATER or kind == VoxelKind.PLANK or occupied.has(key):
+				continue
+			var d := _voxel_cell_center(key).distance_to(sp)
+			if d >= 0.95 and d <= VOXEL_PLAZA_RADIUS + 0.05:
+				candidates.append(key)
+		for asset_v in extras:
+			var asset := String(asset_v)
+			var node: Node3D = null
+			while node == null and not candidates.is_empty():
+				var idx := rng.randi_range(0, candidates.size() - 1)
+				var key: Vector2i = candidates[idx]
+				candidates.remove_at(idx)
+				if occupied.has(key):
+					continue
+				var width := DRESS_PLAZA_WIDTH
+				if asset == CLEAN_TREE_ROUND or asset == CLEAN_TREE_PINE:
+					width = DRESS_TREE_WIDTH
+				elif asset.contains("rock_single"):
+					width = DRESS_ROCK_WIDTH
+				node = _place_dress(host, asset, key, width, rng)
+				if node != null:
+					placed.append(node)
+					_occupy_around(occupied, _voxel_cell_center(key), 0.75 if width >= 0.9 else 0.5)
+		if String(theme.get("feature", "")) == "fields":
+			placed.append_array(_plant_wheat(host, sid, sp, occupied))
+	# 外围小屋与农田：离关卡远一点的草地。
+	var grass_keys: Array[Vector2i] = []
+	for key in _voxel_cells.keys():
+		var kind: int = _voxel_cells[key]
+		if kind == VoxelKind.WATER or kind == VoxelKind.COBBLE:
+			continue
+		var c := _voxel_cell_center(key)
+		var near := INF
+		for sp in stage_points:
+			near = minf(near, sp.distance_to(c))
+		if near >= 2.7 and not occupied.has(key) and _voxel_interior(key):
+			grass_keys.append(key)
+	var wanted := [[DRESS_FARMS, DRESS_FARM_WIDTH, true], [DRESS_OUTSKIRT_HOUSES, DRESS_OUTSKIRT_WIDTH, false]]
+	for spec in wanted:
+		var count := 0
+		var tries := 0
+		while count < int(spec[0]) and tries < 200 and not grass_keys.is_empty():
+			tries += 1
+			var idx := rng.randi_range(0, grass_keys.size() - 1)
+			var key: Vector2i = grass_keys[idx]
+			if occupied.has(key):
+				grass_keys.remove_at(idx)
+				continue
+			var asset: String = DRESS_FARM_ASSET if bool(spec[2]) else DRESS_OUTSKIRT_ASSETS[rng.randi_range(0, DRESS_OUTSKIRT_ASSETS.size() - 1)]
+			var node := _place_dress(host, asset, key, float(spec[1]), rng)
+			grass_keys.remove_at(idx)
+			if node != null:
+				placed.append(node)
+				_occupy_around(occupied, _voxel_cell_center(key), 1.1)
+				count += 1
+	var cache: Dictionary = {}
+	_clean_ify(host, cache)
+	return placed
+
+
+## 这格是不是某关广场（含栈桥/码头）。
+func _plaza_of(key: Vector2i, sid: String) -> bool:
+	var tag = _voxel_road.get(key)
+	return tag is Array and (tag as Array).size() == 1 and String((tag as Array)[0]) == sid
+
+
+## 麦垄：田土格上三条平行的麦垄小方条，沿路方向排，田土本身就是布景的底色。
+func _plant_wheat(host: Node3D, sid: String, sp: Vector2, occupied: Dictionary) -> Array:
+	var placed: Array = []
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = WHEAT
+	mat.roughness = 1.0
+	mat.metallic_specular = 0.0
+	var box := BoxMesh.new()
+	box.size = Vector3(VOXEL_CELL * 0.74, 0.11, 0.10)
+	box.material = mat
+	for key in _voxel_cells.keys():
+		if _voxel_cells[key] != VoxelKind.SOIL or not _plaza_of(key, sid) or occupied.has(key):
+			continue
+		var c := _voxel_cell_center(key)
+		if c.distance_to(sp) < 0.9:
+			continue
+		var row := Node3D.new()
+		row.name = "Wheat_%d_%d" % [key.x, key.y]
+		row.position = Vector3(c.x, VOXEL_TOP_Y, c.y)
+		for k in 3:
+			var mi := MeshInstance3D.new()
+			mi.mesh = box
+			mi.position = Vector3(0.0, 0.055, (float(k) - 1.0) * 0.25)
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			row.add_child(mi)
+		host.add_child(row)
+		placed.append(row)
+	return placed
+
+
+## 四邻都是陆地才算内部格：点缀不挂在岛缘或水边。
+func _voxel_interior(key: Vector2i) -> bool:
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var k: int = _voxel_cells.get(key + d, -1)
+		if k == -1 or k == VoxelKind.WATER:
+			return false
+	return true
+
+
+func _occupy_around(occupied: Dictionary, center: Vector2, radius: float) -> void:
+	var r := int(ceil(radius / VOXEL_CELL))
+	var ck := _voxel_key_at(Vector3(center.x, 0.0, center.y))
+	for dy in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			var key := ck + Vector2i(dx, dy)
+			if _voxel_cell_center(key).distance_to(center) <= radius:
+				occupied[key] = true
+
+
+## 摆一件点缀：按包围盒把占地宽度缩放到 target_width，四向对齐随机转一个直角。
+## 摆一件点缀到某格：按包围盒把占地宽度缩放到 target_width，四向对齐随机转一个直角。
+func _place_dress(host: Node3D, asset_path: String, key: Vector2i, target_width: float, rng: RandomNumberGenerator) -> Node3D:
+	var c := _voxel_cell_center(key)
+	var dir := Vector2.RIGHT.rotated(deg_to_rad(90.0 * float(rng.randi_range(0, 3))))
+	return _place_dress_at(host, asset_path, c, dir, target_width, true)
+
+
+## 摆一件点缀到任意位置，长轴对齐 dir（along=true 时）。桥这类要横跨方向的道具靠它。
+func _place_dress_at(host: Node3D, asset_path: String, at: Vector2, dir: Vector2, target_width: float, along: bool) -> Node3D:
+	var scene := load(asset_path) as PackedScene
+	if scene == null:
+		return null
+	var node := scene.instantiate() as Node3D
+	if node == null:
+		return null
+	node.name = "Dress_%d" % host.get_child_count()
+	host.add_child(node)
+	var aabb := _merged_aabb(node)
+	var long_x := aabb.size.x >= aabb.size.z
+	var width := maxf(aabb.size.x, aabb.size.z)
+	if width > 0.01:
+		node.scale = Vector3.ONE * clampf(target_width / width, 0.3, 1.6)
+	node.position = Vector3(at.x, VOXEL_TOP_Y, at.y)
+	# 绕 Y 转 θ 后，局部 +x 指向 (cos θ, -sin θ)，局部 +z 指向 (sin θ, cos θ)。
+	var yaw := atan2(-dir.y, dir.x) if long_x else atan2(dir.x, dir.y)
+	if not along:
+		yaw += PI * 0.5
+	node.rotation.y = yaw
+	return node
+
+
+func _merged_aabb(node: Node3D) -> AABB:
+	var result := AABB()
+	var first := true
+	var stack: Array[Node] = [node]
+	while not stack.is_empty():
+		var current: Node = stack.pop_back()
+		if current is MeshInstance3D:
+			var mi := current as MeshInstance3D
+			var local := mi.transform * mi.get_aabb() if mi != node else mi.get_aabb()
+			var walk := mi.get_parent()
+			while walk != null and walk != node and walk is Node3D:
+				local = (walk as Node3D).transform * local
+				walk = walk.get_parent()
+			result = local if first else result.merge(local)
+			first = false
+		for child in current.get_children():
+			stack.append(child)
+	return result
+
+
+## 石板随关卡开放状态换色：已开的路与广场偏暖偏亮，未开的偏灰。
+func _refresh_voxel_cobble() -> void:
+	if _voxel_cobble_open == null or _voxel_cobble_locked == null:
+		return
+	for key in _voxel_road.keys():
+		var mi: MeshInstance3D = _voxel_nodes.get(key)
+		if mi == null or not is_instance_valid(mi):
+			continue
+		if int(mi.get_meta("voxel_kind", -1)) != VoxelKind.COBBLE:
+			continue
+		# 广场记 [stage_id]；路段记 [from_id, to_id]，开放判定和 StagePath 色带同一条规则。
+		var tag: Array = _voxel_road[key]
+		var open := false
+		if tag.size() == 1:
+			open = StageTable.is_stage_unlocked(String(tag[0]), _cleared)
+		elif tag.size() >= 2:
+			open = _cleared.has(String(tag[0])) or StageTable.is_stage_unlocked(String(tag[1]), _cleared)
+		mi.set_surface_override_material(0, _voxel_cobble_open if open else _voxel_cobble_locked)
+
+
+## 纯色卡通材质：地块顶面/侧面用。登记进 _toon_mats，飘云的影子照样落在上面。
+## 体素地块材质：纯色 + 16×16 像素噪点贴图（最近邻），顶点色做侧面接触阴影。
+## kind 决定贴图纹样：草是细噪点加一圈暗边，石板是 4×4 的石块加暗缝，沙土是横向地层。
+func _voxel_material(color: Color, kind: String, seed: int) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color.WHITE
+	mat.albedo_texture = _pixel_texture(color, kind, seed)
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 1.0
+	mat.metallic = 0.0
+	mat.metallic_specular = 0.0
+	return mat
+
+
+func _pixel_texture(color: Color, kind: String, seed: int) -> ImageTexture:
+	var n := VOXEL_TEX_SIZE
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	for y in n:
+		for x in n:
+			var k := 1.0
+			match kind:
+				"grass":
+					k = 1.0 + rng.randf_range(-0.03, 0.03)
+					if x == 0 or y == 0 or x == n - 1 or y == n - 1:
+						k *= 0.93
+				"cobble":
+					var stone_x := x / 4
+					var stone_y := y / 4
+					var stone_rng := RandomNumberGenerator.new()
+					stone_rng.seed = seed * 131 + stone_x * 17 + stone_y * 31
+					k = 1.0 + stone_rng.randf_range(-0.04, 0.04) + rng.randf_range(-0.012, 0.012)
+					if x % 4 == 0 or y % 4 == 0:
+						k *= 0.88
+					if x == 0 or y == 0 or x == n - 1 or y == n - 1:
+						k *= 0.95
+				"plank":
+					# 横向木板：每 4 行一条暗缝，板与板之间错开一道竖缝。
+					var board := y / 4
+					var board_rng := RandomNumberGenerator.new()
+					board_rng.seed = seed * 53 + board
+					k = 1.0 + board_rng.randf_range(-0.05, 0.05) + rng.randf_range(-0.015, 0.015)
+					if y % 4 == 0:
+						k *= 0.80
+					if (x + board * 5) % n == 0:
+						k *= 0.86
+				"dirt":
+					var row_rng := RandomNumberGenerator.new()
+					row_rng.seed = seed * 71 + y
+					k = 1.0 + row_rng.randf_range(-0.045, 0.045) + rng.randf_range(-0.02, 0.02)
+					if y >= n - 3:
+						k *= 0.90
+				_:
+					k = 1.0 + rng.randf_range(-0.03, 0.03)
+			img.set_pixel(x, y, Color(color.r * k, color.g * k, color.b * k, 1.0))
+	return ImageTexture.create_from_image(img)
+
+
+## 顶面一个面、四个侧面一个面的方块（不建底面）。顶面在 y=0，往下长 height。
+func _make_block_mesh(size: float, height: float, top: Material, side: Material) -> ArrayMesh:
+	var h := size * 0.5
+	var mesh := ArrayMesh.new()
+	var top_arrays := _quad_arrays([
+		[Vector3(-h, 0.0, -h), Vector3(-h, 0.0, h), Vector3(h, 0.0, h), Vector3(h, 0.0, -h), Vector3.UP],
+	])
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, top_arrays)
+	mesh.surface_set_material(0, top)
+	var y0 := -height
+	var sides := _quad_arrays([
+		[Vector3(-h, 0.0, h), Vector3(-h, y0, h), Vector3(h, y0, h), Vector3(h, 0.0, h), Vector3.BACK],
+		[Vector3(h, 0.0, -h), Vector3(h, y0, -h), Vector3(-h, y0, -h), Vector3(-h, 0.0, -h), Vector3.FORWARD],
+		[Vector3(h, 0.0, h), Vector3(h, y0, h), Vector3(h, y0, -h), Vector3(h, 0.0, -h), Vector3.RIGHT],
+		[Vector3(-h, 0.0, -h), Vector3(-h, y0, -h), Vector3(-h, y0, h), Vector3(-h, 0.0, h), Vector3.LEFT],
+	])
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, sides)
+	mesh.surface_set_material(1, side)
+	return mesh
+
+
+## 若干四边形拼成一个面。每项 [a, b, c, d, normal]；绕向按法线自动纠正。
+## 若干四边形拼成一个面。每项 [a, b, c, d, normal]，a→b→c→d 依次是左上、左下、右下、右上；
+## UV 按这个顺序铺 0..1；y<0 的顶点带压暗顶点色（侧面越往下越暗，充当接触阴影）。
+func _quad_arrays(quads: Array) -> Array:
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
+	for q in quads:
+		var a: Vector3 = q[0]
+		var b: Vector3 = q[1]
+		var c: Vector3 = q[2]
+		var d: Vector3 = q[3]
+		var normal: Vector3 = q[4]
+		var base := verts.size()
+		verts.append_array([a, b, c, d])
+		for _k in 4:
+			normals.append(normal)
+		uvs.append_array([Vector2(0.0, 0.0), Vector2(0.0, 1.0), Vector2(1.0, 1.0), Vector2(1.0, 0.0)])
+		for v in [a, b, c, d]:
+			colors.append(Color.WHITE if v.y >= -0.001 else VOXEL_SIDE_AO)
+		# Godot 的正面是顺时针：叉积与法线同向说明当前是逆时针，要翻。
+		var flip := (b - a).cross(c - a).dot(normal) > 0.0
+		if flip:
+			indices.append_array([base, base + 2, base + 1, base, base + 3, base + 2])
+		else:
+			indices.append_array([base, base + 1, base + 2, base, base + 2, base + 3])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = indices
+	return arrays
+
+
+## 水面：所有水格的顶面拼成一片，UV 按世界坐标铺，噪声在格与格之间连续。
+func _make_water_mesh(cells: Array[Vector2i]) -> ArrayMesh:
+	var quads: Array = []
+	var h := VOXEL_CELL * 0.5 + 0.001
+	for key in cells:
+		var c := _voxel_cell_center(key)
+		quads.append([
+			Vector3(c.x - h, 0.0, c.y - h), Vector3(c.x - h, 0.0, c.y + h),
+			Vector3(c.x + h, 0.0, c.y + h), Vector3(c.x + h, 0.0, c.y - h), Vector3.UP,
+		])
+	var arrays := _quad_arrays(quads)
+	var uvs := PackedVector2Array()
+	for v in (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array):
+		uvs.append(Vector2(v.x, v.z) * 0.25)
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+## 减法：手摆的三百多丛草是「野地」的写法，陈列柜画风要的是留白。整批收掉，
+## 只留树、灌木、花、石头这些有形状的东西。放在拾取体挂上去之前做，免得留下能悬停的空气。
+func _declutter_grove() -> void:
+	var grove := get_node_or_null("HexTerrain/Grove")
+	if grove == null:
+		return
+	for child in grove.get_children():
+		if String(child.name).begins_with("Grass_"):
+			grove.remove_child(child)
+			child.free()
 
 
 ## 场景里的关卡节点靠 `stage_id` 元数据认领。查不到的 id 只警告不崩——手改场景时
@@ -1557,6 +2663,8 @@ func present(cleared: Array, resume_stage_id: String, resume_round: int, high_sc
 		_kick_kestrel_loop()
 	if redstart_events and not _is_globe():
 		_kick_redstart_loop()
+	if mosquito_events and _mosquito != null:
+		_mosquito.start()
 
 
 func dismiss() -> void:
@@ -1569,9 +2677,16 @@ func dismiss() -> void:
 	_stop_heron()
 	_stop_kestrel()
 	_stop_redstart()
+	if _mosquito != null:
+		_mosquito.stop()
 	visible = false
 	if _ui != null:
 		_ui.visible = false
+
+
+## 选关图上的那只蚊子（截图、测试用）。
+func mosquito() -> MapMosquito:
+	return _mosquito
 
 
 ## 镜头对准关卡分布中心，视距刚好把所有悬浮牌收进第一屏（含边缘云雾留白）。
@@ -1595,6 +2710,8 @@ func _fit_distance_for_bounds(bounds: Rect2) -> float:
 	var aspect := vp.x / maxf(vp.y, 1.0)
 	var fov_v := deg_to_rad(_camera.fov)
 	var fov_h := 2.0 * atan(tan(fov_v * 0.5) * aspect)
+	if VOXEL_FLOOR:
+		bounds = bounds.grow_individual(ISLAND_MARGIN.x, ISLAND_MARGIN.y, ISLAND_MARGIN.x, ISLAND_MARGIN.y)
 	var yaw := deg_to_rad(CAMERA_YAW_DEG)
 	var cy := cos(yaw)
 	var sy := sin(yaw)
@@ -1616,8 +2733,8 @@ func _fit_distance_for_bounds(bounds: Rect2) -> float:
 	var d_w := max_right / maxf(tan(fov_h * 0.5), 0.05)
 	var pitch_abs := absf(deg_to_rad(CAMERA_PITCH_DEG))
 	var d_d := max_depth * maxf(sin(pitch_abs), 0.55) / maxf(tan(fov_v * 0.5), 0.05)
-	var dist := maxf(d_w, d_d)
-	return clampf(dist * FIT_PADDING, 12.0, 40.0)
+	var dist := maxf(d_w * FIT_PADDING, d_d * FIT_PADDING_DEPTH)
+	return clampf(dist, 12.0, 40.0)
 
 
 ## 按关卡序号连一条地面色带，读出 1→6 的前后；已开路段偏暖，未开偏灰。
@@ -1627,6 +2744,8 @@ func _build_stage_path() -> void:
 		old.queue_free()
 	_stage_path_root = Node3D.new()
 	_stage_path_root.name = "StagePath"
+	# 体素地面上进度由石板路的明暗表达，色带只留数据（测试与开放判定仍用它）。
+	_stage_path_root.visible = not (VOXEL_FLOOR and not _is_globe())
 	add_child(_stage_path_root)
 	var ordered := _ordered_markers()
 	for i in range(ordered.size() - 1):
@@ -1732,6 +2851,7 @@ func _refresh_stage_path() -> void:
 		var mat := mi.get_surface_override_material(0) as StandardMaterial3D
 		if mat != null:
 			mat.albedo_color = PATH_OPEN if open else PATH_LOCKED
+	_refresh_voxel_cobble()
 
 
 # --- 相机 ---
@@ -1744,9 +2864,17 @@ func _apply_camera() -> void:
 	var yaw := deg_to_rad(CAMERA_YAW_DEG + _shot_yaw_off)
 	var basis := Basis.from_euler(Vector3(pitch, yaw, 0.0))
 	var look := _pivot + _shot_look_off
+	if CAMERA_ORTHO and not _is_globe():
+		look -= basis.y * FRAME_LOOK_LIFT
 	var dist := _shot_current_dist()
 	_camera.position = look + basis.z * dist
 	_camera.rotation = Vector3(pitch, yaw, 0.0)
+	if CAMERA_ORTHO and not _is_globe():
+		# 正交尺寸取透视在注视面上的竖向可见高度，框定/缩放/拍照的视距算法一律不用改。
+		_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+		_camera.size = 2.0 * dist * tan(deg_to_rad(_camera.fov) * 0.5)
+	else:
+		_camera.projection = Camera3D.PROJECTION_PERSPECTIVE
 
 
 func _shot_current_dist() -> float:
@@ -1863,6 +2991,8 @@ func _spin_hovered_outline(delta: float) -> void:
 		return
 	var outline := _hovered_tile.get_node_or_null("TileOutline") as MeshInstance3D
 	if outline == null or not outline.visible:
+		return
+	if VOXEL_FLOOR:
 		return
 	outline.rotate_y(HEX_OUTLINE_SPIN_SPEED * delta)
 
@@ -4065,206 +5195,164 @@ func _build_ui() -> void:
 	_ui.add_child(_note_layer)
 
 	_build_edge_mist()
+	# 蚊子压在悬浮牌与边缘柔光之上、顶栏与弹窗之下：飞过按钮也挡不住点击（它不吃鼠标）。
+	_mosquito = MapMosquito.new()
+	_mosquito.name = "Mosquito"
+	_ui.add_child(_mosquito)
 	_build_top_bar()
 	_build_resume_banner()
 	_build_confirm()
 	_build_photo_ui()
 
 
-## 屏幕四边的柔和云雾遮罩，压住地图硬边，让画面像嵌在云里。
+## 屏幕四边一层极淡的奶油晕：不再画云团，只把画面边缘往台面色里收一点，像展柜的柔光。
 func _build_edge_mist() -> void:
 	_edge_mist = _EdgeMist.new()
 	_edge_mist.name = "EdgeMist"
 	_edge_mist.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_edge_mist.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# 盖在悬浮牌之上、顶栏之下：边角牌子溶进云雾，按钮仍清晰可点。
+	# 盖在悬浮牌之上、顶栏之下：边角牌子略融进底色，按钮仍清晰可点。
 	_ui.add_child(_edge_mist)
 
 
-## 边缘云雾：胡闹厨房那种嵌在云里的画框——外圈实、里头透，云团沿边缓慢挪。
+## 边缘晕：四条向内渐隐的台面色软带，静态、无云团。
 class _EdgeMist extends Control:
-	var _t := 0.0
-
-	func _ready() -> void:
-		set_process(true)
-
-	func _process(delta: float) -> void:
-		_t += delta
-		queue_redraw()
+	const TONE := Color(0.929, 0.918, 0.886)
 
 	func _draw() -> void:
 		var w := size.x
 		var h := size.y
 		if w <= 1.0 or h <= 1.0:
 			return
-		var cloud := Color(0.97, 0.98, 1.0, 1.0)
-		var pulse := 0.96 + 0.04 * sin(_t * 0.55)
-		var band := mini(w, h) * 0.13
-		_draw_soft_band(Rect2(0.0, 0.0, w, band * 0.78), cloud, true, pulse)
-		_draw_soft_band(Rect2(0.0, h - band * 0.78, w, band * 0.78), cloud, false, pulse)
-		_draw_soft_band_vertical(Rect2(0.0, 0.0, band * 0.62, h), cloud, true, pulse)
-		_draw_soft_band_vertical(Rect2(w - band * 0.62, 0.0, band * 0.62, h), cloud, false, pulse)
-		_draw_cloud_edge(w, h, band, cloud, pulse)
+		var band := mini(w, h) * 0.11
+		_draw_soft_band(Rect2(0.0, 0.0, w, band), TONE, true)
+		_draw_soft_band(Rect2(0.0, h - band, w, band), TONE, false)
+		_draw_soft_band_vertical(Rect2(0.0, 0.0, band * 0.8, h), TONE, true)
+		_draw_soft_band_vertical(Rect2(w - band * 0.8, 0.0, band * 0.8, h), TONE, false)
 
 
-	func _draw_cloud_edge(w: float, h: float, band: float, color: Color, pulse: float) -> void:
-		var lobes := [
-			{"p": Vector2(w * 0.08, -band * 0.22), "r": band * 0.82},
-			{"p": Vector2(w * 0.22, -band * 0.16), "r": band * 0.64},
-			{"p": Vector2(w * 0.38, -band * 0.20), "r": band * 0.74},
-			{"p": Vector2(w * 0.55, -band * 0.12), "r": band * 0.60},
-			{"p": Vector2(w * 0.72, -band * 0.18), "r": band * 0.72},
-			{"p": Vector2(w * 0.90, -band * 0.14), "r": band * 0.84},
-			{"p": Vector2(w * 0.12, h + band * 0.18), "r": band * 0.76},
-			{"p": Vector2(w * 0.32, h + band * 0.14), "r": band * 0.62},
-			{"p": Vector2(w * 0.52, h + band * 0.20), "r": band * 0.80},
-			{"p": Vector2(w * 0.74, h + band * 0.12), "r": band * 0.68},
-			{"p": Vector2(w * 0.92, h + band * 0.16), "r": band * 0.78},
-			{"p": Vector2(-band * 0.20, h * 0.18), "r": band * 0.72},
-			{"p": Vector2(-band * 0.12, h * 0.38), "r": band * 0.54},
-			{"p": Vector2(-band * 0.18, h * 0.62), "r": band * 0.68},
-			{"p": Vector2(-band * 0.10, h * 0.82), "r": band * 0.58},
-			{"p": Vector2(w + band * 0.20, h * 0.16), "r": band * 0.74},
-			{"p": Vector2(w + band * 0.14, h * 0.42), "r": band * 0.56},
-			{"p": Vector2(w + band * 0.18, h * 0.68), "r": band * 0.70},
-			{"p": Vector2(w + band * 0.12, h * 0.88), "r": band * 0.62},
-		]
-		for i in lobes.size():
-			var spec: Dictionary = lobes[i]
-			var pos: Vector2 = spec["p"]
-			pos += Vector2(_wobble(float(i) * 0.7, 12.0), _wobble(float(i) * 1.1 + 0.4, 8.0))
-			var r: float = float(spec["r"]) * (0.94 + 0.08 * sin(_t * 0.42 + float(i)))
-			var a := (0.42 + 0.10 * sin(_t * 0.38 + float(i) * 0.5)) * pulse
-			_draw_puff(pos, r, color, a)
-
-
-	func _draw_puff(pos: Vector2, r: float, color: Color, alpha: float) -> void:
-		draw_circle(pos, r, Color(color.r, color.g, color.b, alpha))
-		draw_circle(pos + Vector2(r * 0.42, -r * 0.18), r * 0.62, Color(color.r, color.g, color.b, alpha * 0.85))
-		draw_circle(pos + Vector2(-r * 0.38, -r * 0.12), r * 0.55, Color(color.r, color.g, color.b, alpha * 0.78))
-		draw_circle(pos + Vector2(r * 0.08, -r * 0.38), r * 0.48, Color(color.r, color.g, color.b, alpha * 0.7))
-
-
-	func _wobble(phase: float, amp: float) -> float:
-		return sin(_t * 0.33 + phase) * amp + cos(_t * 0.21 + phase * 1.7) * amp * 0.45
-
-
-	func _draw_soft_band(rect: Rect2, color: Color, fade_down: bool, pulse: float) -> void:
-		var steps := 16
+	func _draw_soft_band(rect: Rect2, color: Color, fade_down: bool) -> void:
+		var steps := 14
 		for i in steps:
 			var t0 := float(i) / float(steps)
 			var t1 := float(i + 1) / float(steps)
-			var a0 := _edge_alpha(t0 if fade_down else 1.0 - t0) * pulse
-			var a1 := _edge_alpha(t1 if fade_down else 1.0 - t1) * pulse
+			var a0 := _edge_alpha(t0 if fade_down else 1.0 - t0)
+			var a1 := _edge_alpha(t1 if fade_down else 1.0 - t1)
 			var y0 := rect.position.y + rect.size.y * t0
 			var y1 := rect.position.y + rect.size.y * t1
-			var mid_a := (a0 + a1) * 0.5
 			draw_rect(
 				Rect2(rect.position.x, y0, rect.size.x, maxf(y1 - y0, 1.0)),
-				Color(color.r, color.g, color.b, mid_a)
+				Color(color.r, color.g, color.b, (a0 + a1) * 0.5)
 			)
 
 
-	func _draw_soft_band_vertical(rect: Rect2, color: Color, fade_right: bool, pulse: float) -> void:
-		var steps := 16
+	func _draw_soft_band_vertical(rect: Rect2, color: Color, fade_right: bool) -> void:
+		var steps := 14
 		for i in steps:
 			var t0 := float(i) / float(steps)
 			var t1 := float(i + 1) / float(steps)
-			var a0 := _edge_alpha(t0 if fade_right else 1.0 - t0) * pulse
-			var a1 := _edge_alpha(t1 if fade_right else 1.0 - t1) * pulse
+			var a0 := _edge_alpha(t0 if fade_right else 1.0 - t0)
+			var a1 := _edge_alpha(t1 if fade_right else 1.0 - t1)
 			var x0 := rect.position.x + rect.size.x * t0
 			var x1 := rect.position.x + rect.size.x * t1
-			var mid_a := (a0 + a1) * 0.5
 			draw_rect(
 				Rect2(x0, rect.position.y, maxf(x1 - x0, 1.0), rect.size.y),
-				Color(color.r, color.g, color.b, mid_a)
+				Color(color.r, color.g, color.b, (a0 + a1) * 0.5)
 			)
 
 
 	func _edge_alpha(t: float) -> float:
 		# t=0 在屏幕外缘（最浓），t=1 贴近画面中心（透明）。
-		return clampf(pow(1.0 - t, 2.35) * 0.50, 0.0, 0.50)
+		return clampf(pow(1.0 - t, 2.2) * 0.34, 0.0, 0.34)
 
 
+## 顶栏：不再铺一条深色横条。返回键、区名、排行榜键各自是一张白卡浮在台面上，
+## 中间留空让地图透出来。容器本身透明且不吃事件，空白处照样能拖地图 / 落面包。
 func _build_top_bar() -> void:
-	var bar := Panel.new()
+	var bar := Control.new()
 	bar.name = "TopBar"
 	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	bar.offset_bottom = 96.0
-	bar.mouse_filter = Control.MOUSE_FILTER_STOP
-	var bar_box := StyleBoxFlat.new()
-	bar_box.bg_color = Color(0.067, 0.110, 0.180, 0.92)
-	bar_box.border_color = Color(0.200, 0.255, 0.333)
-	bar_box.border_width_bottom = 2
-	bar.add_theme_stylebox_override("panel", bar_box)
+	bar.offset_bottom = 104.0
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ui.add_child(bar)
 
-	var back := _make_button("BackToTitleButton", "‹ 返回标题", Vector2(188.0, 56.0))
-	back.position = Vector2(32.0, 20.0)
+	var back := _make_button("BackToTitleButton", "‹  返回标题", Vector2(176.0, 52.0))
+	back.position = Vector2(32.0, 26.0)
 	back.pressed.connect(func() -> void: title_requested.emit())
 	bar.add_child(back)
 
+	var region_card := Panel.new()
+	region_card.name = "RegionCard"
+	region_card.position = Vector2(224.0, 18.0)
+	region_card.size = Vector2(400.0, 68.0)
+	region_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	region_card.add_theme_stylebox_override("panel", _card_style(14))
+	bar.add_child(region_card)
+
+	# 两行文字直接挂在顶栏下（路径 WorldMapUi/TopBar/RegionNameLabel 对外稳定），白卡只是垫在后面。
 	_region_name_label = Label.new()
 	_region_name_label.name = "RegionNameLabel"
-	_region_name_label.position = Vector2(256.0, 12.0)
-	_region_name_label.size = Vector2(420.0, 36.0)
-	_region_name_label.add_theme_font_size_override("font_size", 28)
+	_region_name_label.position = region_card.position + Vector2(22.0, 6.0)
+	_region_name_label.size = Vector2(360.0, 32.0)
+	_region_name_label.add_theme_font_size_override("font_size", 25)
+	_region_name_label.add_theme_color_override("font_color", INK)
 	bar.add_child(_region_name_label)
 
 	_region_progress_label = Label.new()
 	_region_progress_label.name = "RegionProgressLabel"
-	_region_progress_label.position = Vector2(256.0, 50.0)
-	_region_progress_label.size = Vector2(760.0, 34.0)
-	_region_progress_label.add_theme_font_size_override("font_size", 20)
-	_region_progress_label.add_theme_color_override("font_color", Color(0.580, 0.639, 0.722))
+	_region_progress_label.position = region_card.position + Vector2(22.0, 38.0)
+	_region_progress_label.size = Vector2(360.0, 24.0)
+	_region_progress_label.add_theme_font_size_override("font_size", 16)
+	_region_progress_label.add_theme_color_override("font_color", INK_SOFT)
 	bar.add_child(_region_progress_label)
 
-	var boards := _make_button("AllLeaderboardsButton", "全部排行榜", Vector2(188.0, 56.0))
-	boards.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	var boards := _make_button("AllLeaderboardsButton", "全部排行榜", Vector2(168.0, 52.0))
 	boards.anchor_left = 1.0
 	boards.anchor_right = 1.0
-	boards.offset_left = -536.0
-	boards.offset_right = -340.0
-	boards.offset_top = 20.0
-	boards.offset_bottom = 76.0
+	boards.offset_left = -520.0
+	boards.offset_right = -352.0
+	boards.offset_top = 26.0
+	boards.offset_bottom = 78.0
 	boards.pressed.connect(func() -> void: all_leaderboards_requested.emit())
 	bar.add_child(boards)
 
-	# 局外持久数值位。本期只占位不填数（共识 5）——虚线框就是"这里以后有东西"的说明。
+	# 局外持久数值位。本期只占位不填数（共识 5）——空心细框就是"这里以后有东西"的说明。
 	var meta_box := Panel.new()
 	meta_box.name = "MetaCurrencyBox"
 	meta_box.anchor_left = 1.0
 	meta_box.anchor_right = 1.0
-	meta_box.offset_left = -324.0
+	meta_box.offset_left = -332.0
 	meta_box.offset_right = -32.0
-	meta_box.offset_top = 18.0
+	meta_box.offset_top = 26.0
 	meta_box.offset_bottom = 78.0
+	meta_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var meta_style := StyleBoxFlat.new()
-	meta_style.bg_color = Color(0.110, 0.165, 0.267, 0.9)
-	meta_style.border_color = Color(0.278, 0.333, 0.408)
+	meta_style.bg_color = Color(PAPER.r, PAPER.g, PAPER.b, 0.55)
+	meta_style.border_color = PAPER_EDGE
 	meta_style.set_border_width_all(2)
-	meta_style.set_corner_radius_all(10)
+	meta_style.set_corner_radius_all(14)
 	meta_box.add_theme_stylebox_override("panel", meta_style)
 	bar.add_child(meta_box)
 
 	var meta_value := Label.new()
 	meta_value.name = "MetaValueLabel"
 	meta_value.text = "— —"
-	meta_value.position = Vector2(18.0, 10.0)
+	meta_value.position = Vector2(20.0, 6.0)
 	meta_value.size = Vector2(150.0, 40.0)
 	meta_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	meta_value.add_theme_font_size_override("font_size", 24)
-	meta_value.add_theme_color_override("font_color", Color(0.580, 0.639, 0.722))
+	meta_value.add_theme_font_size_override("font_size", 22)
+	meta_value.add_theme_color_override("font_color", INK_FAINT)
 	meta_box.add_child(meta_value)
 
 	var meta_hint := Label.new()
 	meta_hint.name = "MetaHintLabel"
 	meta_hint.text = "局外成长"
-	meta_hint.position = Vector2(176.0, 14.0)
+	meta_hint.position = Vector2(176.0, 10.0)
 	meta_hint.size = Vector2(104.0, 32.0)
+	meta_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	meta_hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	meta_hint.add_theme_font_size_override("font_size", 16)
-	meta_hint.add_theme_color_override("font_color", Color(0.435, 0.478, 0.529))
+	meta_hint.add_theme_font_size_override("font_size", 15)
+	meta_hint.add_theme_color_override("font_color", INK_FAINT)
 	meta_box.add_child(meta_hint)
 
 
@@ -4276,34 +5364,40 @@ func _build_resume_banner() -> void:
 	_resume_banner.anchor_right = 0.5
 	_resume_banner.anchor_top = 1.0
 	_resume_banner.anchor_bottom = 1.0
-	_resume_banner.offset_left = -424.0
-	_resume_banner.offset_right = 424.0
-	_resume_banner.offset_top = -152.0
-	_resume_banner.offset_bottom = -40.0
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color(0.231, 0.165, 0.071, 0.95)
-	box.border_color = Color(0.906, 0.588, 0.078)
-	box.set_border_width_all(3)
-	box.set_corner_radius_all(14)
-	_resume_banner.add_theme_stylebox_override("panel", box)
+	_resume_banner.offset_left = -420.0
+	_resume_banner.offset_right = 420.0
+	_resume_banner.offset_top = -140.0
+	_resume_banner.offset_bottom = -36.0
+	_resume_banner.add_theme_stylebox_override("panel", _card_style(16))
 	_resume_banner.visible = false
 	_ui.add_child(_resume_banner)
 
+	# 左侧一道琥珀色细条：这是「进行中」的提示，和悬浮牌上的进行中色一致。
+	var accent := ColorRect.new()
+	accent.name = "ResumeAccent"
+	accent.color = ACCENT
+	accent.position = Vector2(22.0, 26.0)
+	accent.size = Vector2(4.0, 52.0)
+	accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_resume_banner.add_child(accent)
+
 	_resume_text = Label.new()
 	_resume_text.name = "ResumeTextLabel"
-	_resume_text.position = Vector2(24.0, 18.0)
-	_resume_text.size = Vector2(470.0, 76.0)
+	_resume_text.position = Vector2(42.0, 18.0)
+	_resume_text.size = Vector2(450.0, 68.0)
 	_resume_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_resume_text.add_theme_font_size_override("font_size", 23)
+	_resume_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_resume_text.add_theme_font_size_override("font_size", 20)
+	_resume_text.add_theme_color_override("font_color", INK)
 	_resume_banner.add_child(_resume_text)
 
-	var resume := _make_button("ResumeStageButton", "续上", Vector2(150.0, 60.0))
-	resume.position = Vector2(520.0, 26.0)
+	var resume := _make_button("ResumeStageButton", "续上", Vector2(140.0, 52.0), true)
+	resume.position = Vector2(524.0, 26.0)
 	resume.pressed.connect(func() -> void: resume_requested.emit())
 	_resume_banner.add_child(resume)
 
-	var abandon := _make_button("AbandonStageButton", "放弃", Vector2(150.0, 60.0))
-	abandon.position = Vector2(682.0, 26.0)
+	var abandon := _make_button("AbandonStageButton", "放弃", Vector2(140.0, 52.0))
+	abandon.position = Vector2(676.0, 26.0)
 	abandon.pressed.connect(func() -> void: _open_confirm(""))
 	_resume_banner.add_child(abandon)
 
@@ -4320,42 +5414,40 @@ func _build_confirm() -> void:
 
 	_confirm_dim = ColorRect.new()
 	_confirm_dim.name = "ConfirmDim"
-	_confirm_dim.color = Color(0.020, 0.031, 0.055, 0.66)
+	_confirm_dim.color = Color(0.16, 0.14, 0.11, 0.42)
 	_confirm_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_confirm.add_child(_confirm_dim)
 
 	_confirm_card = Panel.new()
 	_confirm_card.name = "ConfirmPanel"
 	_confirm_card.set_anchors_preset(Control.PRESET_CENTER)
-	_confirm_card.size = Vector2(680.0, 300.0)
-	_confirm_card.offset_left = -340.0
-	_confirm_card.offset_right = 340.0
-	_confirm_card.offset_top = -150.0
-	_confirm_card.offset_bottom = 150.0
-	var card_box := StyleBoxFlat.new()
-	card_box.bg_color = PAPER
-	card_box.border_color = PAPER_EDGE
-	card_box.set_border_width_all(4)
-	card_box.set_corner_radius_all(16)
+	_confirm_card.size = Vector2(640.0, 280.0)
+	_confirm_card.offset_left = -320.0
+	_confirm_card.offset_right = 320.0
+	_confirm_card.offset_top = -140.0
+	_confirm_card.offset_bottom = 140.0
+	var card_box := _card_style(20)
+	card_box.shadow_size = 28
+	card_box.shadow_color = Color(0.10, 0.09, 0.07, 0.18)
 	_confirm_card.add_theme_stylebox_override("panel", card_box)
 	_confirm.add_child(_confirm_card)
 
 	_confirm_text = Label.new()
 	_confirm_text.name = "ConfirmTextLabel"
-	_confirm_text.position = Vector2(36.0, 34.0)
-	_confirm_text.size = Vector2(608.0, 150.0)
+	_confirm_text.position = Vector2(40.0, 36.0)
+	_confirm_text.size = Vector2(560.0, 130.0)
 	_confirm_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_confirm_text.add_theme_font_size_override("font_size", 24)
+	_confirm_text.add_theme_font_size_override("font_size", 22)
 	_confirm_text.add_theme_color_override("font_color", INK)
 	_confirm_card.add_child(_confirm_text)
 
-	var no := _make_button("ConfirmNoButton", "继续那一关", Vector2(230.0, 62.0))
-	no.position = Vector2(36.0, 206.0)
+	var no := _make_button("ConfirmNoButton", "继续那一关", Vector2(220.0, 56.0), true)
+	no.position = Vector2(40.0, 188.0)
 	no.pressed.connect(func() -> void: _close_confirm(false))
 	_confirm_card.add_child(no)
 
-	var yes := _make_button("ConfirmYesButton", "放弃并开新的", Vector2(266.0, 62.0))
-	yes.position = Vector2(378.0, 206.0)
+	var yes := _make_button("ConfirmYesButton", "放弃并开新的", Vector2(250.0, 56.0))
+	yes.position = Vector2(350.0, 188.0)
 	yes.pressed.connect(_on_confirm_yes)
 	_confirm_card.add_child(yes)
 
@@ -4507,7 +5599,8 @@ func _build_photo_ui() -> void:
 	_photo_layer.add_child(_focus_grade)
 
 
-func _make_button(node_name: String, text: String, box_size: Vector2) -> Button:
+## 白卡按钮：细描边、圆角、一点点投影；`primary` 反色成墨底白字，一屏最多一个。
+func _make_button(node_name: String, text: String, box_size: Vector2, primary := false) -> Button:
 	var button := Button.new()
 	button.name = node_name
 	button.text = text
@@ -4515,8 +5608,44 @@ func _make_button(node_name: String, text: String, box_size: Vector2) -> Button:
 	button.custom_minimum_size = box_size
 	button.focus_mode = Control.FOCUS_NONE
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	button.add_theme_font_size_override("font_size", 24)
+	button.add_theme_font_size_override("font_size", 20)
+	var face := INK if primary else PAPER
+	var ink := PAPER if primary else INK
+	for state_name in ["normal", "hover", "pressed", "disabled"]:
+		var box := _card_style(14)
+		box.bg_color = face
+		if primary:
+			box.border_color = INK
+		match state_name:
+			"hover":
+				box.bg_color = face.lightened(0.10) if primary else Color(0.985, 0.975, 0.955)
+				box.border_color = INK.lightened(0.10) if primary else Color(0.70, 0.66, 0.59)
+			"pressed":
+				box.bg_color = face.darkened(0.12) if primary else Color(0.94, 0.925, 0.89)
+				box.shadow_size = 0
+			"disabled":
+				box.bg_color = Color(0.94, 0.93, 0.90)
+				box.border_color = PAPER_EDGE
+		button.add_theme_stylebox_override(state_name, box)
+	button.add_theme_color_override("font_color", ink)
+	button.add_theme_color_override("font_hover_color", ink)
+	button.add_theme_color_override("font_pressed_color", ink)
+	button.add_theme_color_override("font_focus_color", ink)
+	button.add_theme_color_override("font_disabled_color", INK_FAINT)
 	return button
+
+
+## 白卡底：所有浮在地图上的面板共用这一份样式，圆角可调。
+func _card_style(radius: int) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = PAPER
+	box.border_color = PAPER_EDGE
+	box.set_border_width_all(2)
+	box.set_corner_radius_all(radius)
+	box.shadow_color = CARD_SHADOW
+	box.shadow_size = 10
+	box.shadow_offset = Vector2(0.0, 4.0)
+	return box
 
 
 ## `next_stage_id` 为空 = 从续局条的「放弃」进来的，放弃完就停在地图上；非空 = 点了

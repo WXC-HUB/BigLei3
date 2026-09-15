@@ -1,0 +1,66 @@
+{
+ "stage_id": "grass_3",
+ "withered": false,
+ "cell": 1.0,
+ "cols": 30,
+ "rows": 22,
+ "mask": [
+  "..............................",
+  "....TTTTTTTTTTTTUUUUUUL.......",
+  "...TTTTTTTTTTTTTUUUUUULLL.....",
+  "..TTTTTTTTTTTTTTUUUUUULLLLL...",
+  "..TTTTTTTTTTTTTTUUUUUULLLLLL..",
+  ".TTTTTTTTTTTTTTTUUUUUULLLLLLL.",
+  ".UUUUUUUUUUUUUUUUUUUUULLLLLLL.",
+  ".UUUUUUUUUUUUUUUUUUUULLLLLLLL.",
+  ".UUUUUUUUUUUUUUUULLLLPPPPPLLL.",
+  ".UUUUUUUUUUUUUUUULLLPPPPPPPLL.",
+  ".UUUUUUUUUUUUUUUULLLPPPPPPPLL.",
+  ".UUUUUUUUUUUUUUULLLLPPPPPPPLL.",
+  "..LLLLLLLLLLLLLLLLLLLPPPPPLLL.",
+  "..LLLLLLLLLLLLLLLLLLLLLLLLLL..",
+  "..LLLLLLLLLLLLLLLLLLLLLLLLLL..",
+  "...LLLLLLLLLLLLLLLLLLLLLLLL...",
+  "....LLLLLLLLLLLLLLLLLLLLLL....",
+  ".....LLLLLLLLLLLLLLLLLLL......",
+  ".......LLLLLLLLLLLLLLL........",
+  "..............................",
+  "..............................",
+  ".............................."
+ ],
+ "heights": {
+  "T": 1.4,
+  "U": 0.7,
+  "L": 0.0,
+  "P": 0.0
+ },
+ "bottom": -2.1,
+ "marker": {
+  "c": 23.0,
+  "r": 10.0
+ },
+ "entrance": {
+  "span": 1.35,
+  "piece_time": 0.55,
+  "rise_time": 0.7,
+  "pivot_min": [
+   -16.0,
+   -3.0,
+   -12.0
+  ],
+  "pivot_size": [
+   32.0,
+   10.0,
+   24.0
+  ]
+ },
+ "table": {
+  "far": "#eaeef1",
+  "near": "#d6dde3",
+  "dots": [
+   "#b3c1cd",
+   "#bccab2",
+   "#d6cec2"
+  ]
+ }
+}

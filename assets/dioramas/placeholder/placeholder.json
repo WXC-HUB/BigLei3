@@ -1,0 +1,48 @@
+{
+ "stage_id": "placeholder",
+ "cell": 1.0,
+ "cols": 24,
+ "rows": 17,
+ "mask": [
+  "........................",
+  "..LLLLLLLLLLLLLLLLLLLL..",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLLLLLLLLLLLL.",
+  "..LLLLLLLLLLLLLLLLLLLL..",
+  "........................"
+ ],
+ "heights": {
+  "L": 0.0
+ },
+ "bottom": -2.1,
+ "marker": {
+  "c": 12.0,
+  "r": 9.0
+ },
+ "entrance": {
+  "span": 1.2,
+  "piece_time": 0.55,
+  "rise_time": 0.7,
+  "pivot_min": [
+   -16.0,
+   -3.0,
+   -12.0
+  ],
+  "pivot_size": [
+   32.0,
+   10.0,
+   24.0
+  ]
+ }
+}

@@ -8,6 +8,8 @@ const LeaderboardApi := preload("res://scripts/game/leaderboard_api.gd")
 const ButtonMotion := preload("res://scripts/ui/button_motion.gd")
 
 signal closed
+## 浏览页里二次上传成功后发出，让 main.gd 把昵称记进存档、下次预填。
+signal name_remembered(player_name: String)
 
 enum Mode { BROWSE, CLEAR }
 
@@ -35,6 +37,15 @@ var _name_input: LineEdit
 var _submit_button: Button
 var _skip_button: Button
 var _close_button: Button
+var _browse_actions: HBoxContainer
+var _upload_button: Button
+var _upload_dialog: Control
+var _upload_title: Label
+var _upload_body: Label
+var _upload_input: LineEdit
+var _upload_note: Label
+var _upload_confirm: Button
+var _upload_cancel: Button
 var _http: HTTPRequest
 
 var _mode := Mode.BROWSE
@@ -46,6 +57,11 @@ var _stage_name := ""
 var _score := 0
 var _session := 0
 var _result: Dictionary = {}
+## 本地每关最高分（stage_id → int）和记住的昵称，由 main.gd 在 present 前灌进来。
+## 浏览页的「上传我的最高分」就是拿这份数据去补传，不依赖当前是否正在打这一关。
+var _local_scores: Dictionary = {}
+var _preset_name := ""
+var _uploading := false
 func _ready() -> void:
 	layer = 118
 	add_to_group("modal_overlay")
@@ -59,6 +75,8 @@ func _ready() -> void:
 
 ## 地图浏览：打开即返回，点关闭结束。
 func present(stage_id: String, stage_name: String) -> void:
+	if not StageTable.has_leaderboard(stage_id):
+		return
 	_session += 1
 	var token := _session
 	_mode = Mode.BROWSE
@@ -77,11 +95,25 @@ func present(stage_id: String, stage_name: String) -> void:
 	await _load_top(token)
 
 
-## 选关图「全部排行榜」：从第一关打开浏览页，顶上可以切到任意关。
+## 选关图「全部排行榜」：从第一个上榜关打开浏览页，顶上可以切到任意上榜关。
+## 落点不能写死 `STAGES[0]`——那是教学关，它没有榜。
+## main.gd 在每次 present 之前调用：把本地最高分和记住的昵称交给面板。
+func set_local_context(scores: Dictionary, player_name: String) -> void:
+	_local_scores = scores.duplicate()
+	_preset_name = LeaderboardApi.normalize_name(player_name)
+	_refresh_upload_button()
+
+
+## 当前这一关本地记录的最高分；没有记录返回 0。
+func local_best() -> int:
+	return maxi(int(_local_scores.get(_stage_id, 0)), 0)
+
+
 func present_all() -> void:
-	if StageTable.STAGES.is_empty():
+	var ranked := StageTable.leaderboard_stages()
+	if ranked.is_empty():
 		return
-	var first: Dictionary = StageTable.STAGES[0]
+	var first: Dictionary = ranked[0]
 	present(String(first["id"]), String(first.get("name", "")))
 
 
@@ -91,7 +123,8 @@ func present_after_clear(
 	stage_id: String,
 	stage_name: String,
 	score: int,
-	preset_name: String = ""
+	preset_name: String = "",
+	title: String = ""
 ) -> Dictionary:
 	_session += 1
 	var token := _session
@@ -105,7 +138,8 @@ func present_after_clear(
 	_loading = false
 	_apply_mode_ui()
 	_skip_button.disabled = false
-	_title.text = "「%s」通关结算" % stage_name
+	# 无尽关没有「通关」，倒下时由调用方传「止步第 N 盘」之类的标题。
+	_title.text = title if title != "" else "「%s」通关结算" % stage_name
 	_score_label.text = "本关得分    %s" % _format_score(_score)
 	_name_input.text = LeaderboardApi.normalize_name(preset_name)
 	_name_input.caret_column = _name_input.text.length()
@@ -248,9 +282,14 @@ func _apply_mode_ui() -> void:
 	_skip_button.visible = is_clear
 	_submit_button.visible = is_clear
 	_close_button.visible = not is_clear
+	if _browse_actions != null:
+		_browse_actions.visible = not is_clear
+	if _upload_dialog != null and is_clear:
+		_upload_dialog.visible = false
 	if _stage_tabs != null:
 		_stage_tabs.visible = not is_clear
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_refresh_upload_button()
 
 
 func _set_submit_enabled(enabled: bool) -> void:
@@ -328,9 +367,114 @@ func _on_submit_pressed() -> void:
 			"rank": int(result.get("rank", 0)),
 		})
 		return
-	_status.text = "上榜失败（网络不通）。可重试或跳过。"
+	var detail := _submit_error_text(result)
+	_status.text = detail if detail != "" else "上榜失败（网络不通）。可重试或跳过。"
 	_set_submit_enabled(true)
 	_submit_button.text = "上榜"
+
+
+## 没有本地记录就不显示这颗按钮：没分可传，摆在那儿只会让人点了发现没反应。
+func _refresh_upload_button() -> void:
+	if _upload_button == null:
+		return
+	var best := local_best()
+	_upload_button.visible = _mode == Mode.BROWSE and best > 0
+	_upload_button.disabled = _uploading
+	if best > 0:
+		_upload_button.text = "上传我的最高分 %s" % _format_score(best)
+
+
+func _on_upload_pressed() -> void:
+	if _mode != Mode.BROWSE or _closing or _uploading:
+		return
+	var best := local_best()
+	if best <= 0:
+		return
+	_upload_title.text = "上传到「%s」" % _stage_name
+	_upload_body.text = "本地最高分 %s\n同名只保留更高的一次；分数没刷新就不会改动榜单。" % _format_score(best)
+	_upload_input.text = _preset_name
+	_upload_input.caret_column = _upload_input.text.length()
+	_upload_input.editable = true
+	_upload_note.text = ""
+	_upload_confirm.disabled = false
+	_upload_confirm.text = "上传"
+	_upload_dialog.visible = true
+	_upload_input.grab_focus()
+
+
+func _on_upload_cancelled() -> void:
+	if _uploading:
+		return
+	_upload_dialog.visible = false
+
+
+func _on_upload_confirmed() -> void:
+	if _uploading or _mode != Mode.BROWSE:
+		return
+	var best := local_best()
+	if best <= 0:
+		_upload_note.text = "这一关本地还没有成绩。"
+		_upload_note.add_theme_color_override("font_color", COLOR_MUTED)
+		return
+	var player_name := LeaderboardApi.normalize_name(_upload_input.text)
+	if player_name.is_empty():
+		_upload_note.text = "请先填写上榜名称。"
+		_upload_note.add_theme_color_override("font_color", Color("ff8a6a"))
+		_upload_input.grab_focus()
+		return
+	var token := _session
+	var stage := _stage_id
+	_uploading = true
+	_upload_confirm.disabled = true
+	_upload_confirm.text = "上传中…"
+	_upload_input.editable = false
+	_upload_note.text = "正在上传…"
+	_upload_note.add_theme_color_override("font_color", COLOR_TITLE)
+	_refresh_upload_button()
+
+	var result := await LeaderboardApi.submit(_http, stage, player_name, best)
+	_uploading = false
+	_upload_confirm.disabled = false
+	_upload_confirm.text = "上传"
+	_upload_input.editable = true
+	_refresh_upload_button()
+	# 传的过程中玩家可能切了关或者把榜关了：那就别再动 UI，结果也不作数。
+	if token != _session or not visible or _closing or _mode != Mode.BROWSE:
+		return
+
+	if not bool(result.get("ok", false)):
+		var detail := _submit_error_text(result)
+		_upload_note.text = detail if detail != "" else "上传失败（网络不通），可以再试一次。"
+		_upload_note.add_theme_color_override("font_color", Color("ff8a6a"))
+		return
+
+	_preset_name = player_name
+	name_remembered.emit(player_name)
+	var rank := int(result.get("rank", 0))
+	if bool(result.get("accepted", false)):
+		_status.text = "已上传：%s · 第 %d 名" % [player_name, rank]
+	elif String(result.get("reason", "")) == "below_cutoff":
+		_status.text = "分数没进前 %d 名，榜单未改动。" % LeaderboardApi.TOP_LIMIT
+	else:
+		_status.text = "「%s」榜上已有更高的成绩，榜单未改动。" % player_name
+	_status.add_theme_color_override("font_color", COLOR_BODY)
+	_upload_dialog.visible = false
+	await _load_top(token)
+
+
+## 服务端 2026-09-16 起会按关卡上限和计分粒度退回不可能的分。退回时给的是
+## 400 + 具体原因，和网络不通是两回事，文案要分开，不然玩家会一直重试。
+func _submit_error_text(result: Dictionary) -> String:
+	var reason := String(result.get("error", ""))
+	if reason == "score_too_high":
+		return "这个分数超出本关上限（%s），服务器没有收。可能是游戏版本太旧。" % _format_score(int(result.get("max", 0)))
+	if reason == "score_not_aligned":
+		return "这个分数不符合本关的计分口径，服务器没有收。可能是游戏版本太旧。"
+	if reason == "bad_name":
+		return "名称不合法，换一个再试。"
+	if reason == "bad_score" or reason == "bad_stage":
+		return "提交的数据不合法，服务器没有收。"
+	return ""
 
 
 func _on_close_pressed() -> void:
@@ -342,6 +486,10 @@ func _on_close_pressed() -> void:
 
 func _on_dim_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
+		# 上传弹窗开着时，点外面只关弹窗，不该顺手把整张榜也关了。
+		if _upload_dialog != null and _upload_dialog.visible:
+			_on_upload_cancelled()
+			return
 		if _mode == Mode.BROWSE:
 			_request_close_browse()
 
@@ -473,21 +621,104 @@ func _build() -> void:
 	_submit_button.pressed.connect(_on_submit_pressed)
 	actions.add_child(_submit_button)
 
+	# 浏览页底部是「上传我的最高分」＋「关闭」两颗；通关页只用上面那排跳过/上榜。
+	_browse_actions = HBoxContainer.new()
+	_browse_actions.add_theme_constant_override("separation", 16)
+	stack.add_child(_browse_actions)
+
+	_upload_button = _make_button("上传我的最高分", Vector2(360, 64), false)
+	_upload_button.pressed.connect(_on_upload_pressed)
+	_browse_actions.add_child(_upload_button)
+
 	_close_button = _make_button("关闭", Vector2(0, 64), true)
 	_close_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_close_button.pressed.connect(_on_close_pressed)
-	stack.add_child(_close_button)
+	_browse_actions.add_child(_close_button)
+
+	_build_upload_dialog()
 
 	ButtonMotion.bind(_skip_button)
 	ButtonMotion.bind(_submit_button)
 	ButtonMotion.bind(_close_button)
+	ButtonMotion.bind(_upload_button)
+	ButtonMotion.bind(_upload_confirm)
+	ButtonMotion.bind(_upload_cancel)
+
+
+## 二次上传的确认弹窗：盖在榜上面，问一个名字就发。
+func _build_upload_dialog() -> void:
+	_upload_dialog = Control.new()
+	_upload_dialog.name = "UploadDialog"
+	_upload_dialog.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_upload_dialog.visible = false
+	add_child(_upload_dialog)
+
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.02, 0.03, 0.02, 0.62)
+	shade.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed:
+			_on_upload_cancelled()
+	)
+	_upload_dialog.add_child(shade)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_upload_dialog.add_child(center)
+
+	var card := PanelContainer.new()
+	card.name = "UploadCard"
+	card.custom_minimum_size = Vector2(660, 0)
+	card.add_theme_stylebox_override("panel", _panel_style())
+	center.add_child(card)
+
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 14)
+	card.add_child(stack)
+
+	stack.add_child(_make_label("补传成绩", 22, COLOR_MUTED))
+	_upload_title = _make_label("", 34, COLOR_TITLE)
+	stack.add_child(_upload_title)
+	_upload_body = _make_label("", 26, COLOR_BODY)
+	_upload_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(_upload_body)
+
+	_upload_input = LineEdit.new()
+	_upload_input.name = "UploadNameInput"
+	_upload_input.custom_minimum_size = Vector2(0, 58)
+	_upload_input.max_length = LeaderboardApi.NAME_MAX
+	_upload_input.placeholder_text = "上榜名称（最多 %d 字）" % LeaderboardApi.NAME_MAX
+	_upload_input.add_theme_font_size_override("font_size", 26)
+	_upload_input.add_theme_color_override("font_color", COLOR_BODY)
+	_upload_input.add_theme_color_override("font_placeholder_color", Color("b7c4a8a0"))
+	_upload_input.add_theme_stylebox_override("normal", _input_style())
+	_upload_input.add_theme_stylebox_override("focus", _input_style(true))
+	_upload_input.text_submitted.connect(func(_t: String) -> void: _on_upload_confirmed())
+	stack.add_child(_upload_input)
+
+	_upload_note = _make_label("", 22, COLOR_MUTED)
+	_upload_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_upload_note.custom_minimum_size = Vector2(0, 52)
+	stack.add_child(_upload_note)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.add_theme_constant_override("separation", 14)
+	stack.add_child(row)
+	_upload_cancel = _make_button("取消", Vector2(160, 60), false)
+	_upload_cancel.pressed.connect(_on_upload_cancelled)
+	row.add_child(_upload_cancel)
+	_upload_confirm = _make_button("上传", Vector2(200, 60), true)
+	_upload_confirm.pressed.connect(_on_upload_confirmed)
+	row.add_child(_upload_confirm)
 
 
 func _build_stage_tabs() -> void:
 	for child in _stage_tabs.get_children():
 		child.queue_free()
 	_tab_buttons.clear()
-	for stage in StageTable.STAGES:
+	for stage in StageTable.leaderboard_stages():
 		var id := String(stage["id"])
 		var button := _make_button(String(stage.get("name", id)), Vector2(0, 44), false)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -528,6 +759,7 @@ func _on_stage_tab_pressed(stage_id: String) -> void:
 	_status.text = "Top %d · 加载中…" % LeaderboardApi.TOP_LIMIT
 	_clear_rows()
 	_refresh_stage_tabs()
+	_refresh_upload_button()
 	_load_top(token)
 
 

@@ -1,0 +1,67 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://sqau0sdy4e0" path="res://scripts/ui/bird_perch.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/dove_idle_1.png" id="2_idle1"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/dove_idle_2.png" id="3_idle2"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/dove_idle_3.png" id="4_idle3"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/dove_action_1.png" id="6_hold"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/dove_action_2.png" id="7_walk"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/dove_action_3.png" id="8_fly1"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/dove_action_4.png" id="9_fly2"]
+[ext_resource type="AudioStream" path="res://assets/audio/dove_coo.wav" id="10_sfx"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/tree_left_1.png" id="99_tree"]
+
+[node name="DoveBirdPerch" type="Control"]
+custom_minimum_size = Vector2(448, 336)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 448.0
+offset_bottom = 336.0
+mouse_filter = 1
+script = ExtResource("1_script")
+idle_frames = Array[Texture2D]([ExtResource("2_idle1"), ExtResource("3_idle2"), ExtResource("4_idle3")])
+action_frames = Array[Texture2D]([ExtResource("6_hold"), ExtResource("7_walk"), ExtResource("8_fly1"), ExtResource("9_fly2")])
+idle_frame_time = 0.32
+action_frame_time = 0.16
+action_last_hold = 0.24
+board_travel_scale = 0.34
+art_faces_right = false
+click_enabled = false
+
+[node name="Tree" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 98.8
+offset_top = 30.1
+offset_right = 430.5
+offset_bottom = 278.9
+mouse_filter = 2
+texture = ExtResource("99_tree")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Sprite" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 60.0
+offset_top = -150.0
+offset_right = 440.0
+offset_bottom = 230.0
+mouse_filter = 2
+texture = ExtResource("2_idle1")
+expand_mode = 1
+stretch_mode = 5
+flip_h = true
+
+[node name="HitArea" type="Button" parent="."]
+layout_mode = 0
+offset_left = 90.0
+offset_top = -100.0
+offset_right = 420.0
+offset_bottom = 200.0
+tooltip_text = "斑鸠"
+focus_mode = 0
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="ActionSFX" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("10_sfx")
+volume_db = -6.0

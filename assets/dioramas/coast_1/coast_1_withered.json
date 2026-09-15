@@ -1,0 +1,76 @@
+{
+ "stage_id": "coast_1",
+ "withered": true,
+ "cell": 1.0,
+ "cols": 30,
+ "rows": 22,
+ "mask": [
+  "..............................",
+  "...LLLLLLLLLLLLLLLLLLLL.......",
+  "..LLLLLLLLLLLLLLLLLLLLLLL.....",
+  ".LLLLLLLLLLLLLLLLLLLLLLLLL....",
+  ".LLLLLLLLLLLLLLLLLLLLLLLLLL...",
+  ".LLLLLLLLLLLLLQQQQQQQLLLLLLL..",
+  ".LLLLLLLLLLLQQQQQQQQQQQLLLLL..",
+  ".LLLLLLLLLQQQQWWWWWWWQQQQLLL..",
+  ".LLLLLLLLQQQWWWWWWWWWWWQQBBB..",
+  ".LLLLLLLQQQWWWWWWWWWWWWWWWBB..",
+  ".LLLLLLQQQWWWWWWWWWWWWWWWWBB..",
+  "..SSLLLQQWWWWWWWWWWWWWWWWWBB..",
+  "..SSSSLQQWWWWWWWWWWWWWWWWBBB..",
+  "..SSSSSSQWWWWWWWWWWWWWWWBBB...",
+  "...SSSSSWWWWWWWWWWWWWWWBBUU...",
+  "....SSSSWWWWWWWWWWWWWWBBBUU...",
+  ".....SSSWWWWWWWWWWWWWWBB......",
+  "......SSWWWWWWWWWWWWWW........",
+  ".......SWWWWWWWWWWWWW.........",
+  "..............................",
+  "..............................",
+  ".............................."
+ ],
+ "heights": {
+  "L": 0.0,
+  "Q": 0.0,
+  "S": 0.0,
+  "B": 0.35,
+  "U": 1.0,
+  "W": -0.7
+ },
+ "bottom": -2.1,
+ "marker": {
+  "c": 14.6,
+  "r": 6.2
+ },
+ "entrance": {
+  "span": 1.35,
+  "piece_time": 0.55,
+  "rise_time": 0.7,
+  "pivot_min": [
+   -16.0,
+   -3.0,
+   -12.0
+  ],
+  "pivot_size": [
+   32.0,
+   10.0,
+   24.0
+  ]
+ },
+ "water_y": -0.3,
+ "water_levels": {
+  "W": -0.3
+ },
+ "water": {
+  "shallow": "#94a5a3",
+  "deep": "#5c6f70"
+ },
+ "table": {
+  "far": "#dee1e0",
+  "near": "#cfd3d4",
+  "dots": [
+   "#b6bfc2",
+   "#bfc0c1",
+   "#d1c3bc"
+  ]
+ }
+}

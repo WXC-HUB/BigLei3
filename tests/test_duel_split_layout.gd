@@ -193,9 +193,11 @@ func _test_single_player_layout_untouched() -> void:
 	assert(is_equal_approx((solo.get("_player_status") as Control).scale.x, 1.0))
 	assert(not bool((solo.get("_player_status") as Control).get("_compact_hearts")))
 	assert((solo.get_node("BlueBirdPerch") as Control).visible)
-	# 最大盘在单机下也绝不缩。
+	# 单机的最大盘另有一套收缩规则（读数叠要留在画布内，见 test_board_fit_scaling），
+	# 但那是竖向的事：分屏改动不该把它往左移，水平仍旧居中。
 	solo.call("_apply_split_layout", 10, 10)
-	assert(is_equal_approx(float(solo.get("_cell_size")), 88.0))
+	assert(is_equal_approx((solo.get("_board_center_offset") as Vector2).x, 0.0))
+	assert(float(solo.get("_cell_size")) < 88.0)
 	# 单机的对战 HUD 整棵树都不该露面。
 	assert(not (solo.get("_duel_hud") as Control).visible)
 	solo.queue_free()

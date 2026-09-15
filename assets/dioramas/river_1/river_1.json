@@ -1,0 +1,73 @@
+{
+ "stage_id": "river_1",
+ "withered": false,
+ "cell": 1.0,
+ "cols": 30,
+ "rows": 22,
+ "mask": [
+  "..............................",
+  ".....LLLLLLLLWWWLLLLLLLLL.....",
+  "...LLLLLLLLLLWWWLLLLLLLLLLL...",
+  "..LLLLLLLLLLLWWWLLLLLLLLLLLL..",
+  "..LLLLLLLLLLLWWWWLLLLLLLLLLLL.",
+  ".LLLLLLLLLLLWWWWWWLLLLLLLLLLL.",
+  ".LLLLLLLLLLWWWWWWWWLLLLLLLLLL.",
+  ".LLLLLLLLLWWWWIIIWWWWLLLLLLLL.",
+  ".LLLLLLLLLWWWIIIIIWWWLLLLLLLL.",
+  ".LLLLLLLLLWWWIIIIIWWWLLLLLLLL.",
+  ".LLLLLLLLLWWWIIIIIWWWLLLLLLLL.",
+  ".LLLLLLLLLWWWWIIIWWWWLLLLLLLL.",
+  "..LLLLLLLLLWWWWWWWWWLLLLLLLL..",
+  "..LLLLLLLLLLWWWWWWWLLLLLLLLL..",
+  "..LLLLLLLLLLLWWWWWLLLLLLLLLL..",
+  "...LLLLLLLLLLLWWWWLLLLLLLLL...",
+  "...LLLLLLLLLLLLWWWLLLLLLLLL...",
+  "....LLLLLLLLLLLWWWLLLLLLLL....",
+  "......LLLLLLLLLWWWLLLLLLL.....",
+  "..............................",
+  "..............................",
+  ".............................."
+ ],
+ "heights": {
+  "L": 0.0,
+  "I": 0.0,
+  "W": -0.5
+ },
+ "bottom": -2.1,
+ "marker": {
+  "c": 15.5,
+  "r": 9.5
+ },
+ "entrance": {
+  "span": 1.35,
+  "piece_time": 0.55,
+  "rise_time": 0.7,
+  "pivot_min": [
+   -16.0,
+   -3.0,
+   -12.0
+  ],
+  "pivot_size": [
+   32.0,
+   10.0,
+   24.0
+  ]
+ },
+ "water_y": -0.2,
+ "water_levels": {
+  "W": -0.2
+ },
+ "water": {
+  "shallow": "#a6dbe0",
+  "deep": "#6db4c4"
+ },
+ "table": {
+  "far": "#eef5ee",
+  "near": "#dde9dc",
+  "dots": [
+   "#c1e0dc",
+   "#c9dcb4",
+   "#efc9be"
+  ]
+ }
+}

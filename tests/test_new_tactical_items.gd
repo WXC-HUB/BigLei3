@@ -1,7 +1,6 @@
 extends SceneTree
 
-const CHAIN_MARKER := preload("res://assets/sprites/generated/marker_chain_special.png")
-const TUTORIAL_LEVEL_COUNT := 4
+const TUTORIAL_LEVEL_COUNT := 8
 
 
 func _init() -> void:
@@ -9,7 +8,7 @@ func _init() -> void:
 
 
 func _run() -> void:
-	create_timer(12.0).timeout.connect(func() -> void:
+	create_timer(24.0).timeout.connect(func() -> void:
 		push_error("New tactical item test timed out")
 		quit(2)
 	)
@@ -19,43 +18,27 @@ func _run() -> void:
 	var game := (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
 	await process_frame
-	game.set("_chain_bonus", 1)
-	game.set("_enlarge_bonus", 1)
-	# 教学关不发战术道具，所以先把关卡推到第一个普通关。透视普通关本来就有一张，
-	# 不再额外加成，好让下面的「每种恰好一张」断言成立。
+	# 教学关不发战术道具，所以先把关卡推到第一个普通关。透视和长尾山雀（巨大）普通关
+	# 本来就各有一张，不再额外加成，好让下面的「每种恰好一张」断言成立。
+	# 连携已经从道具牌改成了雷的属性，归 test_chain_mine_link 管，这里不再涉及。
 	for _level in range(TUTORIAL_LEVEL_COUNT + 1):
 		game.call("_start_game")
 	var board: MinesweeperBoard = game.get("_board")
 	var center := int(board.height / 2) * board.width + int(board.width / 2)
 	board.ensure_mines_placed(center)
-	assert(board.mine_count >= 5, "Could not build a board with enough mines for the chain test")
 	var detect_slot := _find_empty_safe_cell(board)
 	assert(detect_slot >= 0 and board.force_item_at(detect_slot, MinesweeperBoard.ItemType.DETECT, false), "Could not prepare detect item")
 	for item_type in [
 		MinesweeperBoard.ItemType.XRAY,
-		MinesweeperBoard.ItemType.CHAIN,
 		MinesweeperBoard.ItemType.ENLARGE,
 		MinesweeperBoard.ItemType.DETECT,
 	]:
 		assert(board.item_count(item_type) == 1, "New tactical item was not generated exactly once")
-
-	var chain_index := _find_item_index(board, MinesweeperBoard.ItemType.CHAIN)
-	await _activate_item(game, board, MinesweeperBoard.ItemType.CHAIN)
-	var chain_anchors: Array[int] = game.get("_chain_anchors")
-	assert(chain_anchors.has(chain_index), "Chain did not turn its own cell into marker point A")
+	assert(
+		board.item_count(MinesweeperBoard.ItemType.CHAIN) == 0,
+		"Chain is still being dealt as an item card"
+	)
 	var cells: Array[MineCell] = game.get("_cells")
-	var anchor_marker := cells[chain_index].get("_marker") as TextureRect
-	assert(anchor_marker.visible and anchor_marker.texture == CHAIN_MARKER, "Marker point A was not shown on the chain card")
-	var partner := _find_chain_partner_mine(game, board, chain_index)
-	assert(partner >= 0, "Could not find a mine with a clear chain path")
-	var chain_path: Array[int] = game.call("_chain_path_targets", chain_index, partner)
-	assert(not chain_path.is_empty(), "Chain path came back empty")
-	game.call("_on_cell_flagged", partner)
-	await _wait_until_not_resolving(game)
-	for target in chain_path:
-		assert(board.state_at(target) == MinesweeperBoard.CellState.REVEALED, "Chain did not reveal a cell between its two markers")
-	assert((game.get("_chain_anchors") as Array[int]).is_empty(), "Chain marker point A was not consumed")
-	assert(not anchor_marker.visible, "Consumed marker point A stayed on the board")
 
 	await _activate_item(game, board, MinesweeperBoard.ItemType.XRAY)
 	var xray_target: int = game.get("_last_xray_target")
@@ -119,29 +102,6 @@ func _find_item_index(board: MinesweeperBoard, type: MinesweeperBoard.ItemType) 
 ## Marker point B for the chain test: a still-covered mine whose path back to the
 ## anchor is monster-free, so the reveal cannot cost the test run a heart. Cells
 ## that need the L-shaped detour are preferred — that is the case worth covering.
-func _find_chain_partner_mine(game: Node, board: MinesweeperBoard, anchor: int) -> int:
-	var straight_fallback := -1
-	for index in range(board.width * board.height):
-		if not board.is_monster_core(index) or board.state_at(index) != MinesweeperBoard.CellState.COVERED:
-			continue
-		var path: Array[int] = game.call("_chain_path_targets", anchor, index)
-		if path.is_empty():
-			continue
-		var clear := true
-		for target in path:
-			if board.is_monster_core(target):
-				clear = false
-				break
-		if not clear:
-			continue
-		var turns := anchor / board.width != index / board.width and anchor % board.width != index % board.width
-		if turns:
-			return index
-		if straight_fallback < 0:
-			straight_fallback = index
-	return straight_fallback
-
-
 func _activate_item(game: Node, board: MinesweeperBoard, type: MinesweeperBoard.ItemType) -> void:
 	var item_index := -1
 	for index in range(board.width * board.height):
@@ -154,7 +114,9 @@ func _activate_item(game: Node, board: MinesweeperBoard, type: MinesweeperBoard.
 	var queue: Array[int] = []
 	var queued: Dictionary = {}
 	game.call("_resolve_queued_item", item_index, type, queue, queued)
-	await create_timer(0.65).timeout
+	# 结算前摇 0.3 秒，之后鸟还要飞到目标格才开始干活（小嘴乌鸦掀卡片要 0.36 秒），
+	# 所以这里等的时间必须盖过「前摇 + 飞过去」，否则会在效果生效前就去断言。
+	await create_timer(1.05).timeout
 	assert(board.is_item_used(item_index), "Tactical item was not consumed")
 	var cells: Array[MineCell] = game.get("_cells")
 	var content := cells[item_index].get("_content") as TextureRect

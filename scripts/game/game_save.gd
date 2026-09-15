@@ -7,11 +7,14 @@ extends RefCounted
 ## 牌的 ✓ 与地形区解锁）、`resume_stage_id`（唯一续局槽属于哪一关，空串 = 无续局）、
 ## `stage_round`（续局槽在**本关内**打到第几盘，与全局盘序 `current_level` 分开记）、
 ## `music_break_played`（原本只在内存里，落盘后换歌插播在整个存档周期内只放一次）。
+## `intro_played`（耳机提示 + 开场剧情是否放过；缺席按 false 读，老档因此会补放一次）。
 ## v3：`stage_high_scores`（每关历史最高分，字典 stage_id → int）。
 ## v3 续：`leaderboard_name`（上榜昵称，本地记住，下次上榜预填）。
+## v4：`endless_best_round`（无尽关最远打到第几盘，跨 run 保留）。
+## v5：`endless_slots` / `endless_slot_expansions`（无尽关的鸟窝：每格住哪只伙伴、扩建过几次）。
 ## 其余字段原样不动。
 
-const VERSION := 3
+const VERSION := 5
 static var save_path := "user://bird_minesweeper_save.json"
 
 
@@ -50,6 +53,9 @@ static func load_data() -> Dictionary:
 ## （`current_level > 1`），把这份进度整体归给第一关的续局槽——玩家回来时地图上会看到
 ## 第一关标着「进行中」，点续上就接着打，血量金币强化全在。
 ## v2 → v3：补每关最高分字典；没有玩过的关保持缺席（读侧当 0）。
+## v3 → v4：补无尽关最远盘数，老档一律从 0 起。
+## v4 → v5：补一份空鸟窝。真正的还原在 `main.gd._rebuild_slots_from_bonuses()`：老档里
+## 那七个数值位就是当时的真相，续无尽局时照它们把鸟摆回窝里（窝不够大就补扩建）。
 static func _migrate(data: Dictionary, from_version: int) -> Dictionary:
 	if from_version <= 1:
 		data["cleared_stages"] = []
@@ -66,6 +72,14 @@ static func _migrate(data: Dictionary, from_version: int) -> Dictionary:
 			data["stage_high_scores"] = {}
 		if not data.has("leaderboard_name"):
 			data["leaderboard_name"] = ""
+	if from_version <= 3:
+		if not data.has("endless_best_round"):
+			data["endless_best_round"] = 0
+	if from_version <= 4:
+		if not data.has("endless_slots") or not data["endless_slots"] is Array:
+			data["endless_slots"] = []
+		if not data.has("endless_slot_expansions"):
+			data["endless_slot_expansions"] = 0
 	return data
 
 

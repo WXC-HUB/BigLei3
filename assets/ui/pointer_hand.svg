@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="120" viewBox="0 0 100 120">
+  <!-- 教程小手指。两遍绘制：先画粗描边，再用填充盖掉形状之间的内部描边，得到整体轮廓。 -->
+  <defs>
+    <g id="hand">
+      <!-- 食指 -->
+      <rect x="34" y="6" width="20" height="66" rx="10"/>
+      <!-- 手掌 -->
+      <rect x="22" y="56" width="60" height="50" rx="20"/>
+      <!-- 三根收拢的手指 -->
+      <rect x="54" y="50" width="20" height="30" rx="10"/>
+      <rect x="68" y="58" width="20" height="30" rx="10"/>
+      <rect x="78" y="70" width="18" height="30" rx="9"/>
+      <!-- 拇指 -->
+      <rect x="8" y="64" width="22" height="34" rx="11" transform="rotate(-34 19 81)"/>
+    </g>
+  </defs>
+  <use href="#hand" fill="#3a2a1a" stroke="#3a2a1a" stroke-width="9" stroke-linejoin="round"/>
+  <use href="#hand" fill="#fff1cf"/>
+  <!-- 指节褶皱 -->
+  <path d="M60 66 v8 M74 74 v8 M84 86 v8" fill="none" stroke="#3a2a1a" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+  <!-- 袖口 -->
+  <path d="M30 100 h50 v10 a6 6 0 0 1 -6 6 h-38 a6 6 0 0 1 -6 -6 z" fill="#f2bd4c" stroke="#3a2a1a" stroke-width="4" stroke-linejoin="round"/>
+</svg>

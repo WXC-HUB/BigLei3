@@ -24,6 +24,11 @@ signal action_finished
 @export var stay_hidden_after_action := false
 @export var click_preview_result := true
 @export var click_enabled := true
+## 这套帧本身朝向哪边。乌鸦的素材朝左，其余鸟朝右；set_travel_facing_right 按它翻面。
+@export var art_faces_right := true
+## 飞到棋盘上干活时缩到栖位尺寸的几成。栖位上的鸟有三格那么宽，照原样飞上棋盘会把
+## 它正在作用的格子整个盖住，所以下棋盘的鸟都缩到一格左右。1.0 就是不缩。
+@export_range(0.1, 1.0, 0.01) var board_travel_scale := 1.0
 
 @onready var _sprite: TextureRect = $Sprite
 @onready var _tree: TextureRect = get_node_or_null("Tree") as TextureRect
@@ -40,6 +45,7 @@ var _acting := false
 var _last_find_result := false
 var _action_play_count := 0
 var _sprite_home_position := Vector2.ZERO
+var _sprite_home_flip := false
 var _perch_home_position := Vector2.ZERO
 var _last_exit_global_position := Vector2.ZERO
 var _has_exit_position := false
@@ -50,6 +56,7 @@ func _ready() -> void:
 	assert(not idle_frames.is_empty(), "BirdPerch requires at least one idle frame")
 	_perch_home_position = position
 	_sprite_home_position = _sprite.position
+	_sprite_home_flip = _sprite.flip_h
 	_sprite.texture = idle_frames[0]
 	_hit_area.disabled = not click_enabled
 	_hit_area.pressed.connect(_play_preview_action)
@@ -145,6 +152,10 @@ func reset_to_idle() -> void:
 	_elapsed = 0.0
 	position = _perch_home_position
 	_sprite.position = _sprite_home_position
+	_sprite.rotation = 0.0
+	_sprite.scale = Vector2.ONE
+	_sprite.flip_h = _sprite_home_flip
+	_sprite.modulate.a = 1.0
 	_sprite.texture = idle_frames[0]
 	_has_exit_position = false
 	_queued_departure_active = false
@@ -188,8 +199,12 @@ func depart_for_queued_action(exit_direction := Vector2.RIGHT, duration: float =
 
 
 func get_launch_global_position() -> Vector2:
-	var draw_scale := get_global_transform().get_scale()
-	return _sprite.global_position + _sprite.size * draw_scale * 0.5
+	return _sprite.global_position + _sprite_draw_half()
+
+
+## 从精灵左上角到它画出来的中心有多远。缩放绕中心走，所以这里只算栖位这一层的缩放。
+func _sprite_draw_half() -> Vector2:
+	return _sprite.size * get_global_transform().get_scale() * 0.5
 
 
 func fly_sprite_offscreen_right(duration: float = 0.34) -> void:
@@ -224,6 +239,100 @@ func fly_sprite_offscreen_bottom(duration: float = 0.34) -> void:
 	_sprite.position = _sprite_home_position
 
 
+## 从当前位置直接掉出屏幕底：先小小弹起，再带着翻滚加速坠落。掉出去后隐藏并归位，
+## 但不结束动作——调用方决定何时用 reappear_on_perch() 让鸟回到枝头。
+func tumble_sprite_offscreen_bottom(duration: float = 0.5, hop_frame: int = -1, fall_frame: int = -1) -> void:
+	if _stowed:
+		_sprite.visible = false
+		_sprite.position = _sprite_home_position
+		return
+	_sprite.pivot_offset = _sprite.size * 0.5
+	if hop_frame >= 0:
+		set_travel_frame(hop_frame)
+	var start_y := _sprite.global_position.y
+	var hop := create_tween()
+	hop.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	hop.tween_property(_sprite, "global_position:y", start_y - 44.0, duration * 0.3)
+	await hop.finished
+	if fall_frame >= 0:
+		set_travel_frame(fall_frame)
+	var fall := create_tween().set_parallel(true)
+	fall.tween_property(_sprite, "global_position:y", get_viewport_rect().size.y + _sprite.size.y, duration * 0.7) 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	fall.tween_property(_sprite, "rotation", 0.6, duration * 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	await fall.finished
+	_sprite.visible = false
+	_sprite.rotation = 0.0
+	_sprite.position = _sprite_home_position
+
+
+## 掉出屏幕的鸟悄悄回到枝头：原位淡入待机帧，并结束这次动作。
+func reappear_on_perch(fade: float = 0.25) -> void:
+	_sprite.position = _sprite_home_position
+	_sprite.rotation = 0.0
+	_sprite.scale = Vector2.ONE
+	_sprite.flip_h = _sprite_home_flip
+	_sprite.texture = idle_frames[0]
+	_idle_step = 0
+	_elapsed = 0.0
+	if _stowed:
+		_sprite.visible = false
+	else:
+		_sprite.modulate.a = 0.0
+		_sprite.visible = true
+		var fade_in := create_tween()
+		fade_in.tween_property(_sprite, "modulate:a", 1.0, fade)
+		await fade_in.finished
+		_sprite.modulate.a = 1.0
+	_acting = false
+	action_finished.emit()
+
+
+## 走路时面朝哪边：和素材本身的朝向一比，不一致就水平翻转。归位时恢复场景里原本的朝向。
+func set_travel_facing_right(face_right: bool) -> void:
+	_sprite.flip_h = face_right != art_faces_right
+
+
+## 一边飞一边扇翅膀：`cycle` 是 action_frames 里参与轮播的下标，帧号按**真实走过的时间**
+## 算，所以这条 tween 必须是线性的——一挂缓动，翅膀就会在起飞和落地两头卡住不动。
+## `lift` 让航线中段微微拱起来，比一条直线像飞。
+func flap_travel_sprite_to_global_center(
+	target_center: Vector2, duration: float, cycle: Array[int], flap_time: float, lift: float = 0.0
+) -> void:
+	assert(not cycle.is_empty(), "flap_travel_sprite_to_global_center needs at least one frame")
+	var half := _sprite_draw_half()
+	var start := _sprite.global_position + half
+	var flight := create_tween()
+	flight.tween_method(func(progress: float) -> void:
+		var point := start.lerp(target_center, progress) + Vector2(0.0, -lift * sin(progress * PI))
+		_sprite.global_position = point - half
+		set_travel_frame(cycle[int(progress * duration / flap_time) % cycle.size()])
+	, 0.0, 1.0, duration).set_trans(Tween.TRANS_LINEAR)
+	await flight.finished
+
+
+## 一小跳跳到某个全局中心点：中途抬起 hop_height 像素再落下，给一格一格走用。
+func hop_travel_sprite_to_global_center(target_center: Vector2, duration: float, hop_height: float = 16.0) -> void:
+	var half := _sprite_draw_half()
+	var start := _sprite.global_position + half
+	var hop := create_tween()
+	hop.tween_method(func(progress: float) -> void:
+		var point := start.lerp(target_center, progress) + Vector2(0.0, -hop_height * sin(progress * PI))
+		_sprite.global_position = point - half
+	, 0.0, 1.0, duration)
+	await hop.finished
+
+
+## 就地淡出并藏起来，不结束动作——之后由 reappear_on_perch() 收尾。
+func fade_out_travel_sprite(duration: float = 0.25) -> void:
+	var fade := create_tween()
+	fade.tween_property(_sprite, "modulate:a", 0.0, duration)
+	await fade.finished
+	_sprite.visible = false
+	_sprite.modulate.a = 1.0
+	_sprite.scale = Vector2.ONE
+	_sprite.position = _sprite_home_position
+
+
 func begin_travel_action(frame_index: int = 0, play_sfx: bool = true) -> void:
 	assert(not action_frames.is_empty(), "begin_travel_action requires action frames")
 	if _finding or _acting:
@@ -237,6 +346,8 @@ func begin_travel_action(frame_index: int = 0, play_sfx: bool = true) -> void:
 		# 栖枝已收起：从屏幕外飞入棋盘，不要在外围树位冒出来。
 		var viewport_size := get_viewport_rect().size
 		_sprite.global_position = Vector2(-_sprite.size.x * 1.5, viewport_size.y * 0.22)
+	_sprite.pivot_offset = _sprite.size * 0.5
+	_sprite.scale = Vector2.ONE * board_travel_scale
 	_sprite.visible = true
 	set_travel_frame(frame_index)
 	action_started.emit()
@@ -259,9 +370,13 @@ func set_travel_frame(frame_index: int) -> void:
 	_sprite.texture = action_frames[frame_index]
 
 
+## 直接把飞行中的鸟摆到某个全局中心点，给 tween_method 逐帧驱动用。
+func set_travel_sprite_global_center(target_center: Vector2) -> void:
+	_sprite.global_position = target_center - _sprite_draw_half()
+
+
 func move_travel_sprite_to_global_center(target_center: Vector2, duration: float) -> void:
-	var draw_scale := _sprite.get_global_transform().get_scale()
-	var target_position := target_center - _sprite.size * draw_scale * 0.5
+	var target_position := target_center - _sprite_draw_half()
 	var travel := create_tween()
 	travel.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	travel.tween_property(_sprite, "global_position", target_position, duration)

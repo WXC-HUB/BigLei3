@@ -1,0 +1,10 @@
+[gd_scene format=4]
+
+[ext_resource type="Script" path="res://scripts/ui/stage_diorama.gd" id="1_diorama"]
+
+[node name="Diorama" type="Node3D"]
+script = ExtResource("1_diorama")
+stage_id = "grass_1"
+model_path = "res://assets/dioramas/grass_1/grass_1.glb"
+layout_path = "res://assets/dioramas/grass_1/grass_1.json"
+entrance_on_ready = true

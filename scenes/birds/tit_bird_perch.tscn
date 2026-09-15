@@ -1,0 +1,65 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://sqau0sdy4e0" path="res://scripts/ui/bird_perch.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://csco5ubg3i3y3" path="res://my_asset/birds/tree_left_1.png" id="2_tree"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/tit_idle_1.png" id="3_idle1"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/tit_idle_2.png" id="4_idle2"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/tit_idle_3.png" id="5_idle3"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/tit_idle_4.png" id="6_idle4"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/tit_action_1.png" id="7_fall1"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/tit_action_2.png" id="8_fall2"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/tit_action_3.png" id="9_fall3"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/tit_action_4.png" id="10_crash"]
+[ext_resource type="AudioStream" uid="uid://casfoaan3wrgj" path="res://assets/audio/651988__deadrobotmusic__foley-perc-27.wav" id="11_sfx"]
+
+[node name="TitBirdPerch" type="Control"]
+custom_minimum_size = Vector2(448, 336)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 448.0
+offset_bottom = 336.0
+mouse_filter = 1
+script = ExtResource("1_script")
+idle_frames = Array[Texture2D]([ExtResource("3_idle1"), ExtResource("4_idle2"), ExtResource("5_idle3"), ExtResource("6_idle4")])
+action_frames = Array[Texture2D]([ExtResource("7_fall1"), ExtResource("8_fall2"), ExtResource("9_fall3"), ExtResource("10_crash")])
+idle_frame_time = 0.26
+action_frame_time = 0.16
+action_last_hold = 0.3
+click_enabled = false
+
+[node name="Tree" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 57.3
+offset_top = -0.5
+offset_right = 442.7
+offset_bottom = 288.5
+mouse_filter = 2
+texture = ExtResource("2_tree")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Sprite" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 60.0
+offset_top = -150.0
+offset_right = 440.0
+offset_bottom = 230.0
+mouse_filter = 2
+texture = ExtResource("3_idle1")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HitArea" type="Button" parent="."]
+layout_mode = 0
+offset_left = 90.0
+offset_top = -100.0
+offset_right = 420.0
+offset_bottom = 200.0
+tooltip_text = "长尾山雀"
+focus_mode = 0
+mouse_default_cursor_shape = 2
+flat = true
+
+[node name="ActionSFX" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("11_sfx")
+volume_db = -4.0

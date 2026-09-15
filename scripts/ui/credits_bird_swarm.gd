@@ -1,11 +1,11 @@
 class_name CreditsBirdSwarm
 extends Control
-## 名单页上放养的五只鸟：各自沿直线匀速飞，撞墙原样弹回，撞到同伴就交换法向速度
+## 名单页上放养的九只鸟：各自沿直线匀速飞，撞墙原样弹回，撞到同伴就交换法向速度
 ## （等质量弹性碰撞）。鼠标滑过谁，谁就叫一声，并从身上炸出一大把音符。
 ##
 ## 命中判定是每帧自己拿鼠标坐标算的，没有用 Control 的 mouse_entered：鸟是动的，
 ## 靠引擎的悬停通知会漏掉「鼠标不动、鸟飞过来」这种最常见的情况。也正因为不靠
-## 引擎派发，五只鸟一律 MOUSE_FILTER_IGNORE，绝不会挡住上面那排按钮。
+## 引擎派发，九只鸟一律 MOUSE_FILTER_IGNORE，绝不会挡住上面那排按钮。
 
 ## 一鸟一叫：立绘和音效都取自它在局内用的那一套。
 const BIRDS := [
@@ -38,6 +38,30 @@ const BIRDS := [
 		"texture": preload("res://my_asset/birds/eg_idle_1.png"),
 		"call": preload("res://assets/audio/eg_super_luck_trigger.mp3"),
 		"tint": Color(0.98, 0.62, 0.28),
+	},
+	{
+		"name": "LongTailedTit",
+		"texture": preload("res://my_asset/birds/tit_idle_1.png"),
+		"call": preload("res://assets/audio/tit_chirp.wav"),
+		"tint": Color(1.0, 0.8, 0.86),
+	},
+	{
+		"name": "AzureMagpie",
+		"texture": preload("res://my_asset/birds/magpie_idle_1.png"),
+		"call": preload("res://assets/audio/magpie_call.wav"),
+		"tint": Color(0.72, 0.84, 0.96),
+	},
+	{
+		"name": "CarrionCrow",
+		"texture": preload("res://my_asset/birds/crow_idle_1.png"),
+		"call": preload("res://assets/audio/crow_call.wav"),
+		"tint": Color(0.58, 0.56, 0.6),
+	},
+	{
+		"name": "TurtleDove",
+		"texture": preload("res://my_asset/birds/dove_idle_1.png"),
+		"call": preload("res://assets/audio/dove_coo.wav"),
+		"tint": Color(0.95, 0.93, 0.9),
 	},
 ]
 

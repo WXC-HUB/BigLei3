@@ -14,7 +14,7 @@ func _run() -> void:
 	var game := packed.instantiate()
 	root.add_child(game)
 	await process_frame
-	game.set("_run_number", 5)
+	game.set("_run_number", 6)
 	game.call("_start_game")
 	await process_frame
 

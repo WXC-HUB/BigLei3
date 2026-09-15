@@ -6,6 +6,9 @@ func _init() -> void:
 
 
 func _run() -> void:
+	# 从干净存档起跑：真实存档里有进度的话，第一盘就不会是全局第 1 盘。
+	GameSave.save_path = "user://test_roguelite_progression_save.json"
+	GameSave.clear()
 	var packed := load("res://scenes/main.tscn") as PackedScene
 	var game := packed.instantiate()
 	root.add_child(game)
@@ -18,22 +21,33 @@ func _run() -> void:
 	game.call("_start_game")
 	await process_frame
 	var board: MinesweeperBoard = game.get("_board")
-	if not _require(board.width == 2 and board.height == 1, "Tutorial level is not a two-card board"): return
+	if not _require(board.width == GuidedTutorial.WIDTH and board.height == GuidedTutorial.HEIGHT, "Tutorial level is not the guided 5x4 board"): return
 	if not _require(_has_no_non_bird_items(board), "First tutorial configured non-bird items"): return
-	if not _require((game.get("_cells") as Array[MineCell]).size() == 2, "Tutorial card count is incorrect"): return
+	if not _require((game.get("_cells") as Array[MineCell]).size() == GuidedTutorial.WIDTH * GuidedTutorial.HEIGHT, "Tutorial card count is incorrect"): return
 	if not _require((game.get_node("BlueBirdPerch") as BirdPerch).visible, "Blue bird was not unlocked by default"): return
 	if not _require((game.get_node("BlueBirdPerch/Tree") as TextureRect).is_visible_in_tree(), "Blue-bird branch was hidden by default"): return
 	for perch_name in ["RedBirdPerch", "BlackBirdPerch", "AttackerBirdPerch", "EgBirdPerch"]:
 		if not _require(not (game.get_node(perch_name) as BirdPerch).visible, "%s was visible before unlocking" % perch_name): return
 	var locked_branch := game.get_node("BlackBirdPerch/Tree") as TextureRect
 	if not _require(not locked_branch.is_visible_in_tree(), "Night-heron branch was visible before unlocking"): return
-	board.ensure_mines_placed(0)
-	if not _require(board.mine_count == 1, "Tutorial level does not contain exactly one mine"): return
+	if not _require(GuidedTutorial.layout_matches(board), "Tutorial level does not use the fixed guided layout"): return
+	if not _require(board.mine_count == GuidedTutorial.MINES.size(), "Tutorial level does not contain exactly three mines"): return
 	for item_type in range(1, MinesweeperBoard.ItemType.size()):
 		if not _require(board.item_count(item_type as MinesweeperBoard.ItemType) == 0, "Tutorial level contains an item"): return
 	if not _require(_board_is_centered(game), "Tutorial board is not centered onscreen: %s" % _board_geometry(game)): return
-	var tutorial_mine := 0 if board.has_mine(0) else 1
-	game.call("_on_cell_flagged", tutorial_mine)
+	# 走完六步强引导：翻格 → 认数字 → 踩雷 → 看血条 → 右键标雷 → 点数字推理通关。
+	var overlay := game.get("_guided_overlay") as GuidedTutorialOverlay
+	if not await _wait_until(func() -> bool: return int(game.get("_guided_step")) == 0, 2000, "Guided tutorial did not start"): return
+	game.call("_on_cell_mouse_button_changed", 6, MOUSE_BUTTON_LEFT, true)
+	if not await _wait_until(func() -> bool: return int(game.get("_guided_step")) == 1, 4000, "Guided tutorial did not advance after the first reveal"): return
+	overlay.next_button().pressed.emit()
+	game.call("_on_cell_mouse_button_changed", 9, MOUSE_BUTTON_LEFT, true)
+	if not await _wait_until(func() -> bool: return int(game.get("_guided_step")) == 3, 6000, "Guided tutorial did not advance after stepping on the mine"): return
+	if not _require(int(game.get("_player_hp")) == 2, "Stepping on the tutorial mine did not cost one heart"): return
+	overlay.next_button().pressed.emit()
+	game.call("_on_cell_mouse_button_changed", 18, MOUSE_BUTTON_RIGHT, true)
+	if not await _wait_until(func() -> bool: return int(game.get("_guided_step")) == 5, 4000, "Guided tutorial did not advance after flagging"): return
+	game.call("_on_cell_mouse_button_changed", 3, MOUSE_BUTTON_LEFT, true)
 	var unlock: NightHeronUnlock = game.get("_night_heron_unlock")
 	var unlock_continue := unlock.get_node("Finale/Continue") as Button
 	if not await _wait_until(func() -> bool: return unlock.visible and not unlock_continue.disabled, 6000, "Night-heron silhouette reveal did not finish"): return
@@ -218,14 +232,18 @@ func _run() -> void:
 	var bill: LevelBill = game.get("_level_bill")
 	var bill_continue := bill.get_node("Center/Panel/Margin/Stack/Continue") as Button
 	if not await _wait_until(func() -> bool: return bill.visible and not bill_continue.disabled, 4000, "Level bill did not appear after victory banner"): return
-	if not _require(int(game.get("_gold")) == 4, "Mine and eaten-fish rewards were not both added"): return
-	var fish_bill := bill.get_node("Center/Panel/Margin/Stack/NightMasterFish") as Label
-	if not _require(fish_bill.text.contains("× 2") and fish_bill.text.contains("+2G"), "Bill has no separate eaten-fish entry"): return
+	if not _require(int(game.get("_gold")) == 7, "Mine, eaten-fish and level-clear rewards were not all added"): return
+	var fish_row := bill.get_node("Center/Panel/Margin/Stack/Lines/NightMasterFish") as HBoxContainer
+	var fish_qty := fish_row.get_node("Qty") as Label
+	var fish_amount := fish_row.get_node("Amount") as Label
+	if not _require(fish_qty.text.contains("2") and fish_amount.text == "+2G", "Bill has no separate eaten-fish entry"): return
+	var clear_row := bill.get_node("Center/Panel/Margin/Stack/Lines/ClearBonus") as HBoxContainer
+	if not _require((clear_row.get_node("Amount") as Label).text == "+3G", "Bill has no level-clear reward entry"): return
 	bill_continue.pressed.emit()
 	var shop: ShopOverlay = game.get("_shop_layer")
 	if not await _wait_until(func() -> bool: return shop.visible, 1200, "Shop did not appear after the level bill"): return
 	var shop_gold := shop.get_node("ShopGold") as Label
-	if not _require(shop_gold.text.contains("4G"), "Shop did not display current gold"): return
+	if not _require(shop_gold.text.contains("7G"), "Shop did not display current gold"): return
 	game.set("_gold", 100)
 	shop.update_gold(100, 5)
 	for offer in range(10):
@@ -283,7 +301,9 @@ func _has_no_non_bird_items(board: MinesweeperBoard) -> bool:
 
 func _board_is_centered(game: Node) -> bool:
 	var panel := game.get("_board_panel") as Control
-	var viewport_center := root.get_visible_rect().get_center() + Vector2(0, -32)
+	# 棋盘锚在视口中心，再按 main.gd 的常量往上提、往下挪（BOARD_VERTICAL_LIFT / SHIFT）。
+	var vertical_offset := float(game.get("BOARD_VERTICAL_SHIFT")) - float(game.get("BOARD_VERTICAL_LIFT"))
+	var viewport_center := root.get_visible_rect().get_center() + Vector2(0, vertical_offset)
 	var panel_center := panel.get_global_rect().get_center()
 	return panel_center.distance_to(viewport_center) < 2.0 and root.get_visible_rect().encloses(panel.get_global_rect())
 

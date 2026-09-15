@@ -8,3 +8,16 @@ tmp/
 
 # 素材包的源压缩包：解出来的资源在 assets/ 里，原始 zip 不进版本库
 *.zip
+
+# Python 字节码
+__pycache__/
+*.pyc
+
+# 派生的工作产物，不进版本库：
+# _pptx_media 是从 pptx 里拆出来的素材，used_sprites 是「哪些图被用到」的导出副本
+# （里面的文件在 assets/ 和 my_asset/ 下都有原件，重复入库会让历史永久变大）。
+_pptx_media/
+used_sprites/
+
+# pptx 检查工具的输出，可由 pptx 重新生成
+*.inspect.ndjson

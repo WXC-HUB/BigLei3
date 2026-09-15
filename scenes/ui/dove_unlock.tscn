@@ -1,0 +1,166 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/dove_unlock.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://my_asset/birds/dove_idle_1.png" id="2_bird"]
+[ext_resource type="Shader" path="res://shaders/unlock_icon_pattern.gdshader" id="3_pattern_shader"]
+[ext_resource type="Theme" path="res://themes/bird_unlock_theme.tres" id="4_unlock_theme"]
+[ext_resource type="AudioStream" path="res://assets/audio/dove_coo.wav" id="5_bird_call"]
+[ext_resource type="AudioStream" path="res://assets/audio/eg_super_luck_trigger.mp3" id="6_kestrel"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pattern"]
+shader = ExtResource("3_pattern_shader")
+shader_parameter/icon_texture = ExtResource("2_bird")
+shader_parameter/icon_color = Color(0.82, 0.9, 0.98, 0.16)
+shader_parameter/tile_count = Vector2(6, 6)
+shader_parameter/motion_speed = 0.2
+shader_parameter/travel = Vector2(0.045, 0.028)
+
+[node name="DoveUnlock" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("4_unlock_theme")
+script = ExtResource("1_script")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.105, 0.135, 0.165, 1)
+
+[node name="IconPattern" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_pattern")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="BirdCall" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("5_bird_call")
+volume_db = -7.0
+
+[node name="KestrelCry" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("6_kestrel")
+volume_db = -4.0
+
+[node name="NestSpot" type="Control" parent="."]
+layout_mode = 0
+offset_left = 150.0
+offset_top = 700.0
+offset_right = 630.0
+offset_bottom = 960.0
+mouse_filter = 2
+
+[node name="NestLayer" type="Control" parent="."]
+z_index = 6
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Finale" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Name" type="Label" parent="Finale"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.06
+anchor_top = 0.11
+anchor_right = 0.94
+anchor_bottom = 0.62
+offset_top = 106.2
+offset_bottom = 160.40002
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.06, 0.08, 0.1, 1)
+theme_override_constants/outline_size = 16
+theme_override_font_sizes/font_size = 338
+text = "斑        鸠"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Bird" type="TextureRect" parent="Finale"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 640.0
+offset_top = -840.0
+offset_right = 1280.0
+offset_bottom = -200.0
+grow_vertical = 0
+mouse_filter = 0
+mouse_default_cursor_shape = 2
+texture = ExtResource("2_bird")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Tagline" type="Label" parent="Finale"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.18
+anchor_top = 0.1
+anchor_right = 0.82
+anchor_bottom = 0.26
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.06, 0.08, 0.1, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 104
+text = "搭窝潦草 治伤却灵"
+horizontal_alignment = 1
+
+[node name="Effect" type="Label" parent="Finale"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.18
+anchor_top = 0.78
+anchor_right = 0.82
+anchor_bottom = 0.87
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.88, 0.95, 1, 1)
+theme_override_colors/font_outline_color = Color(0.06, 0.08, 0.1, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 46
+text = "它衔一枝飞到血条边，补回爱心，但不会超过生命上限"
+horizontal_alignment = 1
+
+[node name="Continue" type="Button" parent="Finale"]
+custom_minimum_size = Vector2(400, 72)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -1192.0
+offset_top = -131.0
+offset_right = -762.0
+offset_bottom = -51.0
+grow_horizontal = 0
+grow_vertical = 0
+z_index = 12
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 28
+text = "咕！"

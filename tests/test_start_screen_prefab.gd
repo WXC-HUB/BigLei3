@@ -32,11 +32,11 @@ func _run() -> void:
 	var story: Control = game.get("_opening_story")
 	var story_seen := false
 	var deadline := Time.get_ticks_msec() + 45000
-	while game.get("_world_map") == null or not (game.get("_world_map") as WorldMap).visible:
+	while game.get("_world_map") == null or not (game.get("_world_map") as StageCabinet).visible:
 		story_seen = story_seen or bool(story.visible)
 		assert(Time.get_ticks_msec() < deadline, "Opening presentation never handed off to the world map")
 		await create_timer(0.1).timeout
-	var map := game.get("_world_map") as WorldMap
+	var map := game.get("_world_map") as StageCabinet
 	assert(int(game.get("_run_number")) == 0, "The board started before a stage was picked")
 	assert(not notice.visible, "Headphone notice stayed up after the world map opened")
 	assert(story_seen and not story.visible, "Opening story did not play between the headphone notice and the world map")

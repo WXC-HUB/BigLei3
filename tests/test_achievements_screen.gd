@@ -8,6 +8,14 @@ func _init() -> void:
 
 
 func _run() -> void:
+	# 这条测试跑的是主场景，还会调两次 _start_game()：不隔离存档路径就会把玩家的真存档
+	# 覆盖成一局新的（2026-09-12 真的发生过）。自带超时，免得卡住整个 runner。
+	create_timer(90.0).timeout.connect(func() -> void:
+		push_error("Achievements screen test timed out")
+		quit(2)
+	)
+	GameSave.save_path = "user://test_achievements_screen_save.json"
+	GameSave.clear()
 	var game := (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
 	await process_frame
@@ -72,4 +80,5 @@ func _run() -> void:
 	assert(toast._queue.is_empty(), "The same achievement was queued twice")
 
 	print("Achievements: page entry, first unlock and global toast passed")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(GameSave.save_path))
 	quit()
