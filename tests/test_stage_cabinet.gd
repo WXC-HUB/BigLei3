@@ -48,6 +48,7 @@ func _run() -> void:
 	await _check_switching(cabinet)
 	await _check_locked_and_enter(cabinet)
 	await _check_resume_flow(cabinet)
+	await _check_focus_memory(cabinet)
 	await _check_restore(cabinet)
 	_check_leaderboard_and_topbar(cabinet)
 	await _check_easter_egg_per_stage(cabinet)
@@ -233,6 +234,38 @@ func _check_resume_flow(cabinet: StageCabinet) -> void:
 	cabinet.present(["grass_1"], "", 0, {})
 	await process_frame
 	assert(not banner.visible, "没有续局时续局条应收起")
+
+
+## 原地刷新（放弃进度、倒下回柜子）停在原来那件：全通关之后"第一个能打的关"是无尽关，
+## 按它来会把玩家每次都弹回第 7 关，再一路往前挑。
+func _check_focus_memory(cabinet: StageCabinet) -> void:
+	cabinet.entrance_events = false
+	var all_cleared: Array = []
+	for stage in StageTable.STAGES:
+		all_cleared.append(String(stage["id"]))
+	cabinet.present(all_cleared, "grass_3", 2, {})
+	await process_frame
+	assert(cabinet.current_stage() == "grass_3", "有续局时应停在进行中的关，实际 %s" % cabinet.current_stage())
+	# 放弃续局：主场景原地再 present 一次，这次没有续局槽。
+	cabinet.present(all_cleared, "", 0, {})
+	await process_frame
+	assert(cabinet.current_stage() == "grass_3", "放弃进度后不该被弹回无尽关，实际 %s" % cabinet.current_stage())
+	# 自己切到别件再回柜子（倒下 / 中途退出都会走 dismiss + present）：还停在切到的那件。
+	cabinet.press_next()
+	await _wait_camera(cabinet)
+	var moved := cabinet.current_stage()
+	assert(moved != "grass_3", "按右箭头没切走")
+	cabinet.dismiss()
+	cabinet.present(all_cleared, "", 0, {})
+	await process_frame
+	assert(cabinet.current_stage() == moved, "回柜子应停回上次看的那件，实际 %s" % cabinet.current_stage())
+	# 存档清空：上次那件又锁上了，退回第一个能打的关。
+	cabinet.present([], "", 0, {})
+	await process_frame
+	assert(cabinet.current_stage() == String(StageTable.STAGES[0]["id"]), "上次那件锁上后应退回第一关，实际 %s" % cabinet.current_stage())
+	# 交还给后面的检查：通关表回到只有青草坡。
+	cabinet.present(["grass_1"], "", 0, {})
+	await process_frame
 
 
 func _check_restore(cabinet: StageCabinet) -> void:

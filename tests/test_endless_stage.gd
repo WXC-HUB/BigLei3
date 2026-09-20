@@ -28,8 +28,6 @@ func _run() -> void:
 
 	var game := (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
-	# 校的是正式起手，先把那个临时的调试起手关掉。
-	game.set("endless_debug_loadout", false)
 	await process_frame
 	await _check_run_flow(game)
 	await _check_fall_returns_to_cabinet(game)

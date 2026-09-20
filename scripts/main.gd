@@ -68,6 +68,12 @@ const CHAIN_COUNT := 2
 const ENLARGE_COUNT := 1
 const DETECT_COUNT := 0
 const SUPER_LUCK_CLICKS_PER_ITEM := 1
+## 结算看门狗：队列已经空了、却还有牌迟迟不回来时，最多等这么久就强行放行。
+## 任何一张牌的演出都远短于这个数（最长的一套两三秒），所以它只会在协程真的挂死时
+## 才触发——卡住比丢一段动画严重得多，宁可让这一手草草收尾也不能把棋盘锁死。
+const ITEM_SETTLEMENT_STALL_SECONDS := 15.0
+## 换盘前等在场的牌落地，同样不能无限等。
+const BONUS_BOARD_WAIT_STALL_SECONDS := 15.0
 const CELL_SIZE := 88.0
 const CELL_GAP := 7.0
 ## 分屏几何。以设计分辨率 1920×1080 为准：左半屏放我的棋盘，右半屏放对手棋盘位。
@@ -302,13 +308,10 @@ const ENDLESS_SLOT_PER_EXPANSION := 3
 const ENDLESS_SLOT_EXPANSION_COSTS := [12, 22, 36]
 ## 鸟窝里的空格。
 const ENDLESS_SLOT_EMPTY := -1
-
-## ============ 临时：无尽关的调试起手 ============
-## 只为手测奖励盘 / 鸟窝而存在：进无尽关时鸟窝直接扩满塞满、强化拉满、金币管够。
-## **发版前把这一行翻回 false**，起手就完全恢复正常（4 只鸟 + 6 格窝）。
-## 写成变量而不是常量，是因为测试要把它关掉——它们校的是正式起手。
-var endless_debug_loadout := true
-## ===============================================
+## 无尽关起手就住在窝里的伙伴。别的关卡照旧由 `_prepare_stage_run()` 直接发四只——
+## 那几关有固定盘数，起手厚一点无所谓；无尽关要靠一路捡，起手给多了前十几盘毫无压力。
+## 想调松紧改这一行：多一只少一只都只影响无尽关。
+const ENDLESS_STARTER_BIRDS := [ShopOffer.LANTERN_CACHE, ShopOffer.COMPASS_CACHE]
 
 var _board: MinesweeperBoard
 var _cells: Array[MineCell] = []
@@ -1999,35 +2002,6 @@ func _rebuild_slots_from_bonuses() -> void:
 		_endless_slots[index] = birds[index]
 
 
-## **临时**（见 `endless_debug_loadout`）：无尽关的调试起手。鸟窝一步扩满并塞满各族
-## 伙伴，于是每盘埋一大堆牌，奖励盘很容易被顶出来；不占格子的那几项强化一并拉满。
-## 把那个常量翻成 false，这个函数就没人调了，删掉它也不影响任何正式逻辑。
-func _apply_endless_debug_loadout() -> void:
-	_endless_slot_expansions = ENDLESS_SLOT_EXPANSION_COSTS.size()
-	_endless_slots.clear()
-	var roster := [
-		ShopOffer.LANTERN_CACHE, ShopOffer.COMPASS_CACHE, ShopOffer.ORBITAL_STRIKE_CACHE,
-		ShopOffer.SUPER_LUCK_CACHE, ShopOffer.XRAY_CACHE, ShopOffer.CHAIN_CACHE,
-		ShopOffer.ENLARGE_CACHE,
-	]
-	for slot in range(_slot_capacity()):
-		_endless_slots.append(int(roster[slot % roster.size()]))
-	_sync_bonuses_from_slots()
-	_lantern_target_bonus = 3
-	_compass_mark_bonus = 3
-	_healing_power_bonus = 3
-	_super_luck_click_bonus = 3
-	_medical_kit_bonus = 2
-	_orbital_cross_unlocked = true
-	_player_max_hp = 9
-	_player_hp = _player_max_hp
-	_gold = 999
-	_offer_purchase_counts.clear()
-	print("【调试】无尽关起手按调试配置发放：鸟窝 %d 格全满、强化拉满、金币 %d。"
-		% [_slot_capacity(), _gold]
-		+ "关掉请把 main.gd 的 endless_debug_loadout 翻成 false。")
-
-
 ## 清空鸟窝，回到起手的 6 个空格。
 func _reset_endless_slots() -> void:
 	_endless_slots.clear()
@@ -2037,13 +2011,11 @@ func _reset_endless_slots() -> void:
 		_endless_slots.append(ENDLESS_SLOT_EMPTY)
 
 
-## 进无尽关：`_prepare_stage_run()` 送的那四只鸟直接住进窝里，于是起手就是 4 / 6。
+## 进无尽关：只有 `ENDLESS_STARTER_BIRDS` 那几只住进窝里。`_prepare_stage_run()` 上面
+## 刚给的四点强化会被下面这次重算按窝里的实际只数覆盖掉——窝是唯一真相。
 func _seed_endless_slots() -> void:
 	_reset_endless_slots()
-	for offer in [
-		ShopOffer.LANTERN_CACHE, ShopOffer.COMPASS_CACHE,
-		ShopOffer.ORBITAL_STRIKE_CACHE, ShopOffer.SUPER_LUCK_CACHE,
-	]:
+	for offer in ENDLESS_STARTER_BIRDS:
 		_place_in_free_slot(offer)
 	_sync_bonuses_from_slots()
 
@@ -4254,7 +4226,14 @@ func _request_bonus_board(item_queue: Array[int], queued_items: Dictionary) -> v
 func _open_bonus_board(item_queue: Array[int], queued_items: Dictionary) -> void:
 	# 还在跑效果的牌踩着旧盘的格号，等它们落地再换。**等在这道闸前面的不算**
 	# （含调用者自己）——它们停在生效之前，碰不到盘；不减掉就会互相等成死锁。
+	var wait_deadline := Time.get_ticks_msec() + int(BONUS_BOARD_WAIT_STALL_SECONDS * 1000.0)
 	while _active_item_settlements - _bonus_board_waiters > 0 and not _game_finish_started:
+		if Time.get_ticks_msec() > wait_deadline:
+			push_warning("换盘等了 %.0f 秒还有 %d 张牌没落地，不再等了" % [
+				BONUS_BOARD_WAIT_STALL_SECONDS, _active_item_settlements - _bonus_board_waiters
+			])
+			_active_item_settlements = _bonus_board_waiters
+			break
 		await get_tree().create_timer(0.04).timeout
 	if _game_finish_started or _board == null or not _board.won:
 		return
@@ -4395,6 +4374,10 @@ func _resolve_item_queue(item_queue: Array[int], queued_items: Dictionary) -> vo
 	# Start a new event at a fixed short cadence. Each coroutine completes in
 	# the background, so a long flyover never prevents the next bird/effect
 	# from entering the scene. Chained reveals may append more work here.
+	# 看门狗的基准：队列长度或在场结算数一变就重新计时。两个数都不动，说明有张牌
+	# 的协程挂在某个永远不会回来的 await 上——放它走，别把棋盘一起拖死。
+	var stall_state := [item_queue.size(), _active_item_settlements]
+	var stall_since := Time.get_ticks_msec()
 	while not item_queue.is_empty() or _active_item_settlements > 0:
 		# 队列里还压着牌、盘面却已经没雷了：先换盘再往下发，省得白发一张。
 		# 真正兜底的是 `_resolve_queued_item()` 里那一道——牌离队后才生效，那时才准。
@@ -4422,6 +4405,17 @@ func _resolve_item_queue(item_queue: Array[int], queued_items: Dictionary) -> vo
 		if _game_finish_started:
 			_item_queue_dispatching = false
 			return
+		var state := [item_queue.size(), _active_item_settlements]
+		if state != stall_state or _bonus_board_opening:
+			stall_state = state
+			stall_since = Time.get_ticks_msec()
+		elif Time.get_ticks_msec() - stall_since > int(ITEM_SETTLEMENT_STALL_SECONDS * 1000.0):
+			push_warning("道具结算卡住了：队列 %d 张、在场 %d 张 %.0f 秒没有动静，强行收尾" % [
+				item_queue.size(), _active_item_settlements, ITEM_SETTLEMENT_STALL_SECONDS
+			])
+			_active_item_settlements = 0
+			item_queue.clear()
+			break
 
 	# Super luck is a mode transition, so it starts only after every regular
 	# item, including regular items found by chained effects, has settled.
@@ -4623,6 +4617,10 @@ func _dove_fly_to_health_bar(health_center: Vector2) -> void:
 func _dove_fly_home(boot: int) -> void:
 	await _dove_bird.fade_out_travel_sprite(DOVE_VANISH_TIME)
 	if boot != _run_boot_generation:
+		# 收手也要把动作闸放掉。`fade_out_travel_sprite()` 不解闸，解闸的是下面那句
+		# `reappear_on_perch()`；直接 return 会让这只鸟一直「在动作中」，下一张牌
+		# 的 `await begin_travel_action()` 永远回不来。
+		_dove_bird.abort_travel_action()
 		return
 	_dove_bird.reappear_on_perch(0.25)
 
@@ -4669,9 +4667,11 @@ func _crow_peek_out(spot: Vector2, boot: int) -> void:
 	_spawn_effect_ring(spot, Color("c58cff"), 12.0, 62.0, 0.28)
 	await get_tree().create_timer(CROW_PEEK_BEAT).timeout
 	if boot != _run_boot_generation:
+		_crow_bird.abort_travel_action()
 		return
 	await _crow_bird.fade_out_travel_sprite(CROW_VANISH_TIME)
 	if boot != _run_boot_generation:
+		_crow_bird.abort_travel_action()
 		return
 	_crow_bird.reappear_on_perch(0.25)
 
@@ -7066,8 +7066,6 @@ func _prepare_stage_run(stage: Dictionary) -> void:
 	# 无尽关：这四只直接住进鸟窝，往后的增减一律经由窝。
 	if _is_slot_shop():
 		_seed_endless_slots()
-		if endless_debug_loadout:
-			_apply_endless_debug_loadout()
 	_apply_bird_unlock_visibility()
 	_refresh_health_bar()
 	_refresh_gold_display()

@@ -98,7 +98,9 @@ func play_find(found_mine: bool) -> void:
 
 func play_action() -> void:
 	assert(not action_frames.is_empty(), "play_action requires at least one action frame")
-	if _finding or _acting:
+	# `action_finished` 是广播信号：一次 emit 会把所有排队的协程同时叫醒，所以醒来
+	# 必须重新看一眼闸，用 if 的话第二、第三个会一起冲进来驱动同一个精灵。
+	while _finding or _acting:
 		await action_finished
 	_acting = true
 	_action_play_count += 1
@@ -146,6 +148,10 @@ func _apply_stow_visuals() -> void:
 
 
 func reset_to_idle() -> void:
+	# 闸是被这一手强行清掉的，必须补一次 `action_finished`：同一只鸟的下一张牌正
+	# `await` 在这个信号上，漏发一次它就永远醒不过来——那张牌的结算协程不返回，
+	# `_active_item_settlements` 减不回 0，整局就停在「正在结算……」再也点不动。
+	var was_busy := _finding or _acting
 	_finding = false
 	_acting = false
 	_idle_step = 0
@@ -162,9 +168,13 @@ func reset_to_idle() -> void:
 	if _stowed:
 		visible = true
 		_apply_stow_visuals()
+		if was_busy:
+			action_finished.emit()
 		return
 	visible = true
 	_sprite.visible = true
+	if was_busy:
+		action_finished.emit()
 
 
 func depart_for_queued_action(exit_direction := Vector2.RIGHT, duration: float = 0.24) -> void:
@@ -287,6 +297,13 @@ func reappear_on_perch(fade: float = 0.25) -> void:
 	action_finished.emit()
 
 
+## 半路收手：飞行演出被打断（重开、换关、换盘）时收掉精灵并放开闸。
+## `begin_travel_action()` 只有走到 `finish_travel_action()` / `reappear_on_perch()`
+## 才会解闸，中途 return 的那几条路必须改走这里，否则这只鸟的闸永远关着。
+func abort_travel_action() -> void:
+	reset_to_idle()
+
+
 ## 走路时面朝哪边：和素材本身的朝向一比，不一致就水平翻转。归位时恢复场景里原本的朝向。
 func set_travel_facing_right(face_right: bool) -> void:
 	_sprite.flip_h = face_right != art_faces_right
@@ -335,7 +352,7 @@ func fade_out_travel_sprite(duration: float = 0.25) -> void:
 
 func begin_travel_action(frame_index: int = 0, play_sfx: bool = true) -> void:
 	assert(not action_frames.is_empty(), "begin_travel_action requires action frames")
-	if _finding or _acting:
+	while _finding or _acting:
 		await action_finished
 	_acting = true
 	_action_play_count += 1
@@ -411,7 +428,7 @@ func slide_sprite_offscreen_nearest(duration: float = 0.36) -> void:
 	if _stowed:
 		_apply_stow_visuals()
 		return
-	if _finding or _acting:
+	while _finding or _acting:
 		await action_finished
 	var viewport_size := get_viewport_rect().size
 	var draw_scale := get_global_transform().get_scale()

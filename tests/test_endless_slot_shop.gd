@@ -30,8 +30,6 @@ func _run() -> void:
 
 	var game := (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	root.add_child(game)
-	# 校的是正式起手，先把那个临时的调试起手关掉。
-	game.set("endless_debug_loadout", false)
 	await process_frame
 	_check_offer_tables(game)
 	var shop := game.get("_shop_layer") as ShopOverlay
@@ -80,8 +78,9 @@ func _check_offer_tables(game: Node) -> void:
 		)
 
 
-## 进无尽关：起手四只鸟住进 6 格窝，数值位与窝里的数一致。
+## 进无尽关：起手只有 `ENDLESS_STARTER_BIRDS` 那几只住进 6 格窝，数值位与窝里的数一致。
 func _check_seeded_nest(game: Node, shop: ShopOverlay) -> void:
+	var starters: Array = (game.get_script() as GDScript).get_script_constant_map()["ENDLESS_STARTER_BIRDS"]
 	game.set("_cleared_stages", _cleared_six())
 	game.call("_enter_stage", ENDLESS, false)
 	await process_frame
@@ -89,9 +88,15 @@ func _check_seeded_nest(game: Node, shop: ShopOverlay) -> void:
 	assert(bool(game.call("_is_slot_shop")), "无尽关的商店不是鸟窝制")
 	var slots: Array = game.get("_endless_slots")
 	assert(slots.size() == 6, "起手鸟窝不是 6 格：%d" % slots.size())
-	assert(_filled(slots) == 4, "起手应有 4 只鸟住着，实际 %d" % _filled(slots))
-	for offer in [LANTERN, COMPASS, ORBITAL, KESTREL]:
-		assert(slots.has(offer), "起手鸟窝里缺了商品 %d" % offer)
+	assert(
+		_filled(slots) == starters.size(),
+		"起手应有 %d 只鸟住着，实际 %d" % [starters.size(), _filled(slots)]
+	)
+	for offer in starters:
+		assert(slots.has(int(offer)), "起手鸟窝里缺了商品 %d" % int(offer))
+	# 没住进窝的那几只，数值位必须跟着是 0——窝是唯一真相。
+	assert(int(game.get("_orbital_strike_bonus")) == 0, "没住进窝的啄木鸟还留在数值位上")
+	assert(int(game.get("_super_luck_bonus")) == 0, "没住进窝的红隼还留在数值位上")
 	_assert_bonuses_match_slots(game, "起手")
 
 	game.set("_gold", 999)
@@ -101,9 +106,12 @@ func _check_seeded_nest(game: Node, shop: ShopOverlay) -> void:
 	var panel := shop.nest_panel()
 	assert(panel != null and panel.visible, "无尽关开店没有显示鸟窝面板")
 	# 面板按鸟归类：起手四只鸟 = 四张牌，空格不单独列，总数写在左边。
-	assert(shop.slot_chips().size() == 4, "鸟牌数应是四种，实际 %d" % shop.slot_chips().size())
+	assert(
+		shop.slot_chips().size() == starters.size(),
+		"鸟牌数应是 %d 种，实际 %d" % [starters.size(), shop.slot_chips().size()]
+	)
 	var title := shop.get_node("Center/ShopCard/NestPanel/NestRow/NestTitleLabel") as Label
-	assert(title.text == "总数 4 / 6", "总数读数不对：%s" % title.text)
+	assert(title.text == "总数 %d / 6" % starters.size(), "总数读数不对：%s" % title.text)
 	var first_chip := shop.slot_chips()[0]
 	assert(
 		(first_chip.get_node("ChipStack/ChipIcon") as TextureRect).texture != null,
@@ -118,19 +126,25 @@ func _check_seeded_nest(game: Node, shop: ShopOverlay) -> void:
 
 ## 窝里还有空格：买鸟直接住进去，不弹替换。
 func _check_buy_into_free_slot(game: Node, shop: ShopOverlay) -> void:
+	var starters: Array = (game.get_script() as GDScript).get_script_constant_map()["ENDLESS_STARTER_BIRDS"]
 	game.call("_choose_shop_offer", CROW)
 	await process_frame
 	var slots: Array = game.get("_endless_slots")
-	assert(_filled(slots) == 5, "买下小嘴乌鸦后窝里不是 5 只")
+	assert(
+		_filled(slots) == starters.size() + 1,
+		"买下小嘴乌鸦后窝里应有 %d 只，实际 %d" % [starters.size() + 1, _filled(slots)]
+	)
 	assert(int(game.get("_xray_bonus")) == 1, "小嘴乌鸦没有记到数值位上")
 	assert(int(game.get("_pending_slot_offer")) == -1, "还有空格却挂起了替换")
 	assert(not shop.is_replacing(), "还有空格却进了替换态")
 	_assert_bonuses_match_slots(game, "买进空格后")
 
-	game.call("_choose_shop_offer", MAGPIE)
-	await process_frame
+	# 起手只有两只，得再买三只才填满六格；每只都不同，好让面板上正好六张牌。
+	for offer in [ORBITAL, KESTREL, MAGPIE]:
+		game.call("_choose_shop_offer", offer)
+		await process_frame
 	slots = game.get("_endless_slots")
-	assert(_filled(slots) == 6, "买下灰喜鹊后窝应该满了")
+	assert(_filled(slots) == 6, "买满之后窝应该满了，实际 %d" % _filled(slots))
 	assert(int(game.call("_free_slot_index")) < 0, "窝满了还报得出空格")
 	var title := shop.get_node("Center/ShopCard/NestPanel/NestRow/NestTitleLabel") as Label
 	assert(title.text == "总数 6 / 6", "满窝的总数读数不对：%s" % title.text)

@@ -24,6 +24,12 @@ const COLOR_MUTED := Color("8a7a58")
 const TIER_COLORS := ComboStyle.TIER_COLORS
 
 const HUD_SIZE := Vector2(520, 640)
+## 补环境粒子时，一帧最多按这么长时间算。`_process` 的 delta 是真实帧时长，掉一次
+## 大帧（大连锁结算、窗口最小化再还原、切出去又切回来）就是好几秒——不夹住的话
+## 一帧要补出几百个节点 + 补间，下一帧更慢、于是补得更多，正反馈直接把游戏拖死。
+const AMBIENT_MAX_STEP := 0.05
+## 同时存活的火花上限。棋盘那层烟花早就有 BURST_LIMIT，这一层当初漏了。
+const AMBIENT_LIVE_LIMIT := 140
 const EDGE_INSET := 8.0
 
 const COMBO_HOME := Vector2(20, 150)
@@ -274,9 +280,13 @@ func _update_sway(_delta: float) -> void:
 
 
 func _spawn_ambient_particles(delta: float) -> void:
-	_ambient_accum += delta * (10.0 + float(mini(_combo, 25)) * 1.6 + _fill * 8.0)
+	_ambient_accum += minf(delta, AMBIENT_MAX_STEP) * (10.0 + float(mini(_combo, 25)) * 1.6 + _fill * 8.0)
 	while _ambient_accum >= 1.0:
 		_ambient_accum -= 1.0
+		# 已经够热闹了就把欠账一笔勾销：留着只会在下一帧一次性还清，等于没夹。
+		if _spark_layer.get_child_count() >= AMBIENT_LIVE_LIMIT:
+			_ambient_accum = 0.0
+			return
 		_spawn_one_ambient()
 
 

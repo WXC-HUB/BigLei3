@@ -85,6 +85,9 @@ var _cam_target := Vector3.ZERO
 var _cam_size := 23.0
 var _pending_stage_id := ""
 var _presented := false
+## 上一次停在哪件展品：放弃进度、倒下回柜子这类「原地刷新」都停回这里，
+## 不再按进度跳到第一个可挑战的关（全通关后那是无尽关，等于每次都被弹到第 7 关）。
+var _last_focus_id := ""
 var _restoring_id := ""
 ## 排行榜还挡在前面时，刚通关的关先停在它身上保持荒废版，榜一关就播复原。
 var _pending_restore_id := ""
@@ -438,13 +441,23 @@ func _on_slot_variant_changed(slot: StageDiorama) -> void:
 		_update_stage_card()
 
 
-## 一进来停在哪件：有续局停续局那关，否则停第一个能打的关；都没有就停最后一关。
+## 一进来停在哪件：有续局停续局那关；否则停回上次看的那件（还开着的话），
+## 让「放弃进度」「倒下回柜子」都留在原地；再没有才停第一个能打的关；都没有就停最后一关。
 func _start_index() -> int:
-	var target := _resume_stage_id if _resume_stage_id != "" else StageTable.first_open_stage(_cleared)
+	var target := _resume_stage_id
+	if target == "":
+		target = _last_focus_id if _is_focus_reusable(_last_focus_id) else StageTable.first_open_stage(_cleared)
 	for index in _slots.size():
 		if _slots[index].stage_id == target:
 			return index
 	return maxi(_slots.size() - 1, 0)
+
+
+## 上次停的那件还能不能停：关卡还在、而且按现在的通关进度是解锁的。
+func _is_focus_reusable(stage_id: String) -> bool:
+	if stage_id == "" or not _slot_by_id.has(stage_id):
+		return false
+	return StageTable.is_stage_unlocked(stage_id, _cleared)
 
 
 func _step(delta: int) -> void:
@@ -462,6 +475,7 @@ func _go_to(index: int, immediate: bool) -> void:
 	var leaving := _slots[_current] if _current != index else null
 	_current = index
 	var slot := _slots[index]
+	_last_focus_id = slot.stage_id
 	_cancel_pending_entrance()
 	if immediate:
 		_fly_camera(slot.focus_target(), slot.camera_size, true)
