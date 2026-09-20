@@ -1,0 +1,2 @@
+# pptx 是二进制（本身就是 zip），别让任何 autocrlf 设置碰它们
+*.pptx binary
